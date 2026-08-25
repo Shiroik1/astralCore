@@ -232,7 +232,7 @@ public class UI {
         int playerTileX = (gp.player.worldX + gp.player.solidArea.x) / gp.tileSize;
         int playerTileY = (gp.player.worldY + gp.player.solidArea.y) / gp.tileSize;
 
-        int x = 10;
+        int x = 20 * gp.tileSize;
         int y = 25;
         int lineHeight = 22;
 
