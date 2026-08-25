@@ -38,6 +38,10 @@ public class Player extends Entity{
         worldY = gp.tileSize * 78;
         speed = 4;
         direction = "down";
+
+        //PLAYER STATS
+        maxHP = 6;
+        HP = maxHP;
     }
 
     public void getPlayerImage(){

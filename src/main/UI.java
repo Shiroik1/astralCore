@@ -1,6 +1,10 @@
 package main;
 
+import object.OBJ_heart;
+import object.SuperObject;
+
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.text.DecimalFormat;
 
@@ -8,11 +12,13 @@ public class UI {
     Gamepanel gp;
     Graphics2D g2;
     Font solomonKey;
+    BufferedImage heart_full, heart_half, heart_blank;
     public boolean messageOn = false;
     public boolean gameFinished = false;
     public String message = "";
     int messageCounter = 0;
     public String currentDialogue = "";
+    public int commandNum = 0;
 
     double playTime;
     DecimalFormat decimalFormat = new DecimalFormat("#0.00");
@@ -31,6 +37,12 @@ public class UI {
             e.printStackTrace();
         }
 
+        //CREATE HUD OBJECTS
+        SuperObject heart = new OBJ_heart(gp);
+        heart_full = heart.image;
+        heart_half = heart.image1;
+        heart_blank = heart.image2;
+
     }
 
     public void showMessage(String text){
@@ -44,6 +56,11 @@ public class UI {
 
         g2.setFont(solomonKey);
         g2.setColor(Color.white);
+
+        //TITLE STATE
+        if(gp.gameState == gp.titleState){
+            drawTitleScreen();
+        }
 
         //PLAY STATE
         if(gp.gameState == gp.playState){
@@ -67,11 +84,14 @@ public class UI {
             if(gp.keyH.showDebug){
                 drawDebug(g2, playTime);
             }
+
+            drawPlayerHP();
         }
 
         //PAUSE STATE
         if(gp.gameState == gp.pauseState){
             drawPauseScreen();
+            drawPlayerHP();
         }
 
         //DIALOGUE STATE
@@ -79,7 +99,84 @@ public class UI {
             drawDialogueScreen();
         }
 
+    }
 
+    private void drawPlayerHP() {
+
+        int x = gp.tileSize/2;
+        int y = gp.tileSize/2;
+        int i = 0;
+
+        //DISPLAY MAXHP
+        while(i < gp.player.maxHP/2){
+            g2.drawImage(heart_blank, x, y, null);
+            i++;
+            x += gp.tileSize;
+        }
+
+        //RESET
+        x = gp.tileSize/2;
+        y = gp.tileSize/2;
+        i = 0;
+
+        //DISPLAY CURRENT HP
+        while(i < gp.player.HP){
+            g2.drawImage(heart_half, x, y, null);
+            i++;
+            if(i < gp.player.HP){
+                g2.drawImage(heart_full, x, y, null);
+            }
+            i++;
+            x += gp.tileSize;
+        }
+    }
+
+    private void drawTitleScreen() {
+        //TITLE SCREEN
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 90F));
+        String text = "AstralCore";
+        int x = getXforCenteredText(text);
+        int y = gp.tileSize * 5;
+
+        //SHADOW
+        g2.setColor(Color.gray);
+        g2.drawString(text, x+10, y+10);
+
+        //MAIN TEXT
+        g2.setColor(Color.white);
+        g2.drawString(text, x, y);
+
+        //IMAGE
+        x = gp.screenWidth/2 - (gp.tileSize*2)/2;
+        y += gp.tileSize;
+        g2.drawImage(gp.player.down1, x, y, gp.tileSize * 2, gp.tileSize * 2, null);
+
+        //MENU
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 30F));
+
+        text = "NEW GAME";
+        x = getXforCenteredText(text);
+        y += gp.tileSize * 5;
+        g2.drawString(text, x, y);
+        if(commandNum == 0){
+            g2.drawString(">", x-gp.tileSize, y);
+        }
+
+        text = "CONTINUE";
+        x = getXforCenteredText(text);
+        y += gp.tileSize;
+        g2.drawString(text, x, y);
+        if(commandNum == 1){
+            g2.drawString(">", x-gp.tileSize, y);
+        }
+
+        text = "QUIT";
+        x = getXforCenteredText(text);
+        y += gp.tileSize;
+        g2.drawString(text, x, y);
+        if(commandNum == 2){
+            g2.drawString(">", x-gp.tileSize, y);
+        }
     }
 
     private void drawDialogueScreen() {
