@@ -7,7 +7,7 @@ public class Main {
         JFrame window = new JFrame();
         window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         window.setResizable(false);
-        window.setTitle("2D-RPG");
+        window.setTitle("AstralCore");
 
         Gamepanel gamePanel = new Gamepanel();
         window.add(gamePanel);
