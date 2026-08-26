@@ -18,6 +18,9 @@ public class Entity {
     public int spriteCounter = 0;
     public int spriteNum = 1;
 
+    public boolean invincible = false;
+    public int invincibleCounter = 0;
+
     public Rectangle solidArea = new Rectangle(0,0,48,48);
     public int solidAreaDefaultX, solidAreaDefaultY;
     public boolean collisionOn = false;
@@ -29,6 +32,7 @@ public class Entity {
     public BufferedImage image, image1, image2;
     public String name;
     public boolean collision = false;
+    public int type;
 
     //CHARACTER STATUS
     public int maxHP;
@@ -77,7 +81,16 @@ public class Entity {
         collisionOn = false;
         gp.collisionChecker.checkTile(this);
         gp.collisionChecker.checkObject(this, false);
-        gp.collisionChecker.checkPlayer(this);
+        gp.collisionChecker.checkEntity(this, gp.npc);
+        gp.collisionChecker.checkEntity(this, gp.monster);
+        boolean contactPlayer = gp.collisionChecker.checkPlayer(this);
+
+        if(this.type == 2 && contactPlayer){
+            if(!gp.player.invincible){
+                gp.player.HP -= 1;
+                gp.player.invincible = true;
+            }
+        }
 
         //IF COLLISION IS FALSE, PLAYER CAN MOVE
         if(!collisionOn){

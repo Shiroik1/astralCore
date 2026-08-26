@@ -3,8 +3,6 @@ package object;
 import entity.Entity;
 import main.Gamepanel;
 
-import javax.imageio.ImageIO;
-
 public class OBJ_door extends Entity {
 
 
