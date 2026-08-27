@@ -7,6 +7,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 
 public class UI {
     Gamepanel gp;
@@ -14,9 +15,9 @@ public class UI {
     Font solomonKey;
     BufferedImage heart_full, heart_half, heart_blank;
     public boolean messageOn = false;
+    ArrayList<String> message = new ArrayList<>();
+    ArrayList<Integer> messageCounter = new ArrayList<>();
     public boolean gameFinished = false;
-    public String message = "";
-    int messageCounter = 0;
     public String currentDialogue = "";
     public int commandNum = 0;
 
@@ -45,9 +46,9 @@ public class UI {
 
     }
 
-    public void showMessage(String text){
-        message = text;
-        messageOn = true;
+    public void addMessage(String text){
+        message.add(text);
+        messageCounter.add(0);
     }
 
     public void draw(Graphics2D g2){
@@ -67,25 +68,13 @@ public class UI {
             //PLAYTIME
             playTime += (double) 1/60;
 
-            //MESSAGE
-            if(messageOn){
-                g2.setFont(g2.getFont().deriveFont(30F));
-                g2.drawString(message, gp.tileSize/2, 15 * gp.tileSize);
-
-                messageCounter++;
-
-                if(messageCounter > 120){
-                    messageCounter = 0;
-                    messageOn = false;
-                }
-            }
-
             //Toggle debug menu with [ T ] key
             if(gp.keyH.showDebug){
                 drawDebug(g2, playTime);
             }
 
             drawPlayerHP();
+            drawMessage();
         }
 
         //PAUSE STATE
@@ -104,6 +93,27 @@ public class UI {
             drawCharacterScreen();
         }
 
+    }
+
+    private void drawMessage() {
+        int messageX = gp.tileSize;
+        int messageY = gp.tileSize * 4;
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 15f));
+        for(int i = 0; i < message.size(); i++){
+            if(message.get(i) != null){
+                g2.setColor(Color.white);
+                g2.drawString(message.get(i), messageX, messageY);
+
+                int counter = messageCounter.get(i) + 1;
+                messageCounter.set(i, counter);
+                messageY += 20;
+
+                if(messageCounter.get(i) > 180){
+                    message.remove(i);
+                    messageCounter.remove(i);
+                }
+            }
+        }
     }
 
     private void drawCharacterScreen() {
