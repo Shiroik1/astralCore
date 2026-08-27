@@ -60,6 +60,7 @@ public class Entity {
     //WEAPON STATS
     public int attackValue;
     public int defenseValue;
+    public String description = "";
 
     public Entity(Gamepanel gp){
         this.gp = gp;

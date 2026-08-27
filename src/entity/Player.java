@@ -3,12 +3,14 @@ package entity;
 import main.Gamepanel;
 import main.KeyHandler;
 import main.UtilityTool;
+import object.OBJ_key;
 import object.OBJ_shield_wood;
 import object.OBJ_sword_normal;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 
 public class Player extends Entity{
     KeyHandler keyH;
@@ -17,6 +19,9 @@ public class Player extends Entity{
     public final int screenY;
 
     public boolean attackCanceled = false;
+
+    public ArrayList<Entity> inventory = new ArrayList<>();
+    public final int inventorySize = 20;
 
     public Player(Gamepanel gp, KeyHandler keyH){
         super(gp);
@@ -39,6 +44,7 @@ public class Player extends Entity{
         setDefaultValues();
         getPlayerImage();
         getPlayerAttackImage();
+        setItems();
     }
 
     public void setDefaultValues(){
@@ -60,6 +66,13 @@ public class Player extends Entity{
         currentShield = new OBJ_shield_wood(gp);
         attack = getAttack();
         defense = getDefense();
+    }
+
+    public void setItems(){
+        inventory.add(currentWeapon);
+        inventory.add(currentShield);
+        inventory.add(new OBJ_key(gp));
+        inventory.add(new OBJ_key(gp));
     }
 
     private int getDefense() {

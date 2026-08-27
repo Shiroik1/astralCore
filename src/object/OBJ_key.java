@@ -12,5 +12,7 @@ public class OBJ_key extends Entity {
         name = "Key";
 
         down1 = setup("/object/key", gp.tileSize, gp.tileSize);
+
+        description = "(" + name + ")\nUse it to unlock\ndoors";
     }
 }
