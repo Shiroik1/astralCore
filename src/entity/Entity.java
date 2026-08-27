@@ -13,6 +13,7 @@ public class Entity {
     public int speed;
 
     public BufferedImage up1, up2, down1, down2, left1, left2, right1, right2;
+    public BufferedImage attackUp1, attackUp2, attackDown1, attackDown2, attackLeft1, attackLeft2, attackRight1, attackRight2;
     public String direction = "down";
 
     public int spriteCounter = 0;
@@ -22,6 +23,7 @@ public class Entity {
     public int invincibleCounter = 0;
 
     public Rectangle solidArea = new Rectangle(0,0,48,48);
+    public Rectangle attackArea = new Rectangle(0, 0, 0, 0);
     public int solidAreaDefaultX, solidAreaDefaultY;
     public boolean collisionOn = false;
     public int actionLockCounter = 0;
@@ -32,6 +34,7 @@ public class Entity {
     public BufferedImage image, image1, image2;
     public String name;
     public boolean collision = false;
+    public boolean attacking = false;
     public int type;
 
     //CHARACTER STATUS
@@ -42,13 +45,13 @@ public class Entity {
         this.gp = gp;
     }
 
-    public BufferedImage setup(String imagePath){
+    public BufferedImage setup(String imagePath, int width, int height){
         UtilityTool utilityTool = new UtilityTool();
         BufferedImage image = null;
 
         try{
             image = ImageIO.read(getClass().getResourceAsStream(imagePath + ".png"));
-            image = utilityTool.scaleImage(image, gp.tileSize, gp.tileSize);
+            image = utilityTool.scaleImage(image, width, height);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -112,6 +115,14 @@ public class Entity {
             }
             spriteCounter = 0;
         }
+
+        if(invincible){
+            invincibleCounter++;
+            if(invincibleCounter > 40){
+                invincible = false;
+                invincibleCounter = 0;
+            }
+        }
     }
 
     public void draw(Graphics2D g2){
@@ -157,7 +168,14 @@ public class Entity {
                     }
                 }
             }
+
+            if(invincible){
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
+            }
+
             g2.drawImage(image, screenX, screenY, gp.tileSize, gp.tileSize, null);
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
         }
     }
 }
