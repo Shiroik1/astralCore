@@ -55,6 +55,7 @@ public class EventHandler {
 
     private void damagePit(int col, int row, int gameState) {
         gp.gameState = gameState;
+        gp.playSE(6);
         gp.ui.currentDialogue = "You tripped!";
         gp.player.HP -= 2;
         canTouchEvent = false;
@@ -63,6 +64,8 @@ public class EventHandler {
     public void healingPool(int col, int row, int gameState){
         if(gp.keyH.ePressed){
             gp.gameState = gameState;
+            gp.playSE(2);
+            gp.player.attackCanceled = true;
             gp.ui.currentDialogue = "You drink the aqua of life.\nYour wounds has been fully healed!";
             gp.player.HP = gp.player.maxHP;
         }
