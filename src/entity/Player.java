@@ -191,11 +191,13 @@ public class Player extends Entity{
     private void damageMonster(int index) {
         if(index != 999){
             if(!gp.monster[index].invincible){
+                gp.playSE(5);
                 gp.monster[index].HP -= 1;
                 gp.monster[index].invincible = true;
+                gp.monster[index].damageReaction();
 
                 if(gp.monster[index].HP <= 0){
-                    gp.monster[index] = null;
+                    gp.monster[index].dying = true;
                 }
             }
         }
@@ -204,6 +206,7 @@ public class Player extends Entity{
     private void contactMonster(int index) {
         if(index != 999){
             if(!invincible){
+                gp.playSE(6);
                 HP -= 1;
                 invincible = true;
             }
