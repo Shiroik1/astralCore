@@ -30,6 +30,7 @@ public class Entity {
     public int dialogueIndex = 0;
     public int dyingCounter = 0;
     public int hpBarCounter = 0;
+    public int shotAvailableCounter = 0;
 
     String dialogues[] = new String[20];
 
@@ -54,6 +55,8 @@ public class Entity {
     //CHARACTER STATUS
     public int maxHP;
     public int HP;
+    public int maxMP;
+    public int MP;
     public int level;
     public int strength;
     public int dexterity;
@@ -64,11 +67,13 @@ public class Entity {
     public int coin;
     public Entity currentWeapon;
     public Entity currentShield;
+    public Projectile projectile;
 
     //WEAPON STATS
     public int attackValue;
     public int defenseValue;
     public String description = "";
+    public int useCost;
 
     public Entity(Gamepanel gp){
         this.gp = gp;
@@ -274,7 +279,6 @@ public class Entity {
             changeAlpha(g2, 1f);
         }
         if(dyingCounter > i*8){
-            dying = false;
             alive = false;
         }
     }

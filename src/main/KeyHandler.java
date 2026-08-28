@@ -8,6 +8,7 @@ public class KeyHandler implements KeyListener {
     public boolean upPressed, downPressed, leftPressed, rightPressed;
     public boolean ePressed;
     public boolean showDebug;
+    public boolean shotKeyPressed;
 
     public KeyHandler(Gamepanel gp){
         this.gp = gp;
@@ -96,6 +97,9 @@ public class KeyHandler implements KeyListener {
         if(code == KeyEvent.VK_E){
             ePressed = true;
         }
+        if(code == KeyEvent.VK_F){
+            shotKeyPressed = true;
+        }
     }
 
     public void pauseState(int code){
@@ -158,6 +162,9 @@ public class KeyHandler implements KeyListener {
         }
         if(code == KeyEvent.VK_D){
             rightPressed = false;
+        }
+        if(code == KeyEvent.VK_F){
+            shotKeyPressed = false;
         }
     }
 }
