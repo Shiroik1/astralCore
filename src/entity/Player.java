@@ -192,10 +192,11 @@ public class Player extends Entity{
             }
         }
 
-        if(gp.keyH.shotKeyPressed && !projectile.alive && shotAvailableCounter == 30){
+        if(gp.keyH.shotKeyPressed && !projectile.alive && shotAvailableCounter == 30 && projectile.hasResource(this)){
             //SET DEFAULT POSITION, DIRECTION AND USER
             projectile.set(worldX, worldY, direction, true, this);
 
+            projectile.subtractResource(this);
             gp.projectileList.add(projectile);
             gp.playSE(9);
             shotAvailableCounter = 0;

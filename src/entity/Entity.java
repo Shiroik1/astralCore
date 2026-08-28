@@ -131,14 +131,7 @@ public class Entity {
         boolean contactPlayer = gp.collisionChecker.checkPlayer(this);
 
         if(this.type == type_monster && contactPlayer){
-            if(!gp.player.invincible){
-                int damage = attack - gp.player.defense;
-                if(damage < 0){
-                    damage = 0;
-                }
-                gp.player.HP -= damage;
-                gp.player.invincible = true;
-            }
+            damagePlayer(attack);
         }
 
         //IF COLLISION IS FALSE, PLAYER CAN MOVE
@@ -168,6 +161,21 @@ public class Entity {
                 invincible = false;
                 invincibleCounter = 0;
             }
+        }
+
+        if(shotAvailableCounter < 30){
+            shotAvailableCounter++;
+        }
+    }
+
+    public void damagePlayer(int attack){
+        if(!gp.player.invincible){
+            int damage = attack - gp.player.defense;
+            if(damage < 0){
+                damage = 0;
+            }
+            gp.player.HP -= damage;
+            gp.player.invincible = true;
         }
     }
 

@@ -68,6 +68,7 @@ public class EventHandler {
             gp.player.attackCanceled = true;
             gp.ui.currentDialogue = "You drink the aqua of life.\nYour wounds has been fully healed!";
             gp.player.HP = gp.player.maxHP;
+            gp.player.MP = gp.player.maxMP;
             gp.assetSetter.setMonster();
         }
     }

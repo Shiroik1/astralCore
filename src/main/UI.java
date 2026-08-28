@@ -1,6 +1,7 @@
 package main;
 
 import entity.Entity;
+import object.OBJ_crystal;
 import object.OBJ_heart;
 
 import java.awt.*;
@@ -13,7 +14,7 @@ public class UI {
     Gamepanel gp;
     Graphics2D g2;
     Font solomonKey;
-    BufferedImage heart_full, heart_half, heart_blank;
+    BufferedImage heart_full, heart_half, heart_blank, crystal_full, crystal_blank;
     public boolean messageOn = false;
     ArrayList<String> message = new ArrayList<>();
     ArrayList<Integer> messageCounter = new ArrayList<>();
@@ -46,6 +47,9 @@ public class UI {
         heart_full = heart.image;
         heart_half = heart.image1;
         heart_blank = heart.image2;
+        Entity crystal = new OBJ_crystal(gp);
+        crystal_full = crystal.image;
+        crystal_blank = crystal.image2;
 
     }
 
@@ -209,6 +213,8 @@ public class UI {
         textY += lineHeight;
         g2.drawString("HP", textX, textY);
         textY += lineHeight;
+        g2.drawString("HP", textX, textY);
+        textY += lineHeight;
         g2.drawString("Strength", textX, textY);
         textY += lineHeight;
         g2.drawString("Dexterity", textX, textY);
@@ -239,6 +245,11 @@ public class UI {
         textY += lineHeight;
 
         value = String.valueOf(gp.player.HP + "/" + gp.player.maxHP);
+        textX = getXforRightAlignText(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gp.player.MP + "/" + gp.player.maxMP);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
@@ -311,6 +322,26 @@ public class UI {
             }
             i++;
             x += gp.tileSize;
+        }
+
+        //DRAW MAXMP
+        x = (gp.tileSize/2) - 5;
+        y = (int)(gp.tileSize*1.5);
+        i = 0;
+        while(i < gp.player.maxMP){
+            g2.drawImage(crystal_blank, x, y, null);
+            i++;
+            x += 35;
+        }
+
+        //DRAW MP
+        x = (gp.tileSize/2) - 5;
+        y = (int)(gp.tileSize*1.5);
+        i = 0;
+        while(i < gp.player.MP){
+            g2.drawImage(crystal_full, x, y, null);
+            i++;
+            x += 35;
         }
     }
 
