@@ -138,6 +138,9 @@ public class KeyHandler implements KeyListener {
                 gp.playSE(8);
             }
         }
+        if(code == KeyEvent.VK_E){
+            gp.player.selectItem();
+        }
     }
 
     @Override

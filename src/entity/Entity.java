@@ -41,7 +41,15 @@ public class Entity {
     public boolean dying = false;
     public boolean hpBarOn = false;
 
+    //TYPES
     public int type;
+    public final int type_player = 0;
+    public final int type_npc = 1;
+    public final int type_monster = 2;
+    public final int type_sword = 3;
+    public final int type_axe = 4;
+    public final int type_shield = 5;
+    public final int type_consumable = 6;
 
     //CHARACTER STATUS
     public int maxHP;
@@ -88,6 +96,10 @@ public class Entity {
 
     }
 
+    public void use(Entity entity){
+
+    }
+
     public void speak(){
         if(dialogues[dialogueIndex] == null){
             dialogueIndex = 0;
@@ -113,7 +125,7 @@ public class Entity {
         gp.collisionChecker.checkEntity(this, gp.monster);
         boolean contactPlayer = gp.collisionChecker.checkPlayer(this);
 
-        if(this.type == 2 && contactPlayer){
+        if(this.type == type_monster && contactPlayer){
             if(!gp.player.invincible){
                 int damage = attack - gp.player.defense;
                 if(damage < 0){
@@ -199,7 +211,7 @@ public class Entity {
             }
 
             //HP Bar
-            if(type == 2 && hpBarOn){
+            if(type == type_monster && hpBarOn){
 
                 double oneScale = (double) gp.tileSize/maxHP;
                 double hpBarValue = oneScale * HP;
