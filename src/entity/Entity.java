@@ -311,4 +311,40 @@ public class Entity {
     public void changeAlpha(Graphics2D g2, float alphaValue){
         g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alphaValue));
     }
+
+    public Color getParticleColor(){
+        Color color = null;
+        return  color;
+    }
+
+    public int getParticleSize(){
+        int size = 0;
+        return size;
+    }
+
+    public int getParticleSpeed(){
+        int speed = 0;
+        return speed;
+    }
+
+    public int getParticleMaxHP(){
+        int maxHP = 0;
+        return maxHP;
+    }
+
+    public void generateParticle(Entity generator, Entity target){
+        Color color = generator.getParticleColor();
+        int size = generator.getParticleSize();
+        int speed = generator.getParticleSpeed();
+        int maxHP = generator.getParticleMaxHP();
+
+        Particle p1 = new Particle(gp,generator,color,size,speed,maxHP, -2, -1);
+        Particle p2 = new Particle(gp,generator,color,size,speed,maxHP, 2, -1);
+        Particle p3 = new Particle(gp,generator,color,size,speed,maxHP, -2, 1);
+        Particle p4 = new Particle(gp,generator,color,size,speed,maxHP, 2, 1);
+        gp.particleList.add(p1);
+        gp.particleList.add(p2);
+        gp.particleList.add(p3);
+        gp.particleList.add(p4);
+    }
 }

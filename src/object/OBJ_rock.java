@@ -3,6 +3,8 @@ package object;
 import entity.Projectile;
 import main.Gamepanel;
 
+import java.awt.*;
+
 public class OBJ_rock extends Projectile {
     public OBJ_rock(Gamepanel gp) {
         super(gp);
@@ -26,5 +28,25 @@ public class OBJ_rock extends Projectile {
         left2 = setup("/projectile/rock_down_1", gp.tileSize, gp.tileSize);
         right1 = setup("/projectile/rock_down_1", gp.tileSize, gp.tileSize);
         right2 = setup("/projectile/rock_down_1", gp.tileSize, gp.tileSize);
+    }
+
+    public Color getParticleColor(){
+        Color color = new Color(65,50,50);
+        return  color;
+    }
+
+    public int getParticleSize(){
+        int size = 8;
+        return size;
+    }
+
+    public int getParticleSpeed(){
+        int speed = 1;
+        return speed;
+    }
+
+    public int getParticleMaxHP(){
+        int maxHP = 20;
+        return maxHP;
     }
 }
