@@ -19,13 +19,23 @@ public class AssetSetter {
         gp.obj[i].worldY = 80 * gp.tileSize;
         i++;
 
-        gp.obj[i] = new OBJ_blueshield(gp);
+        gp.obj[i] = new OBJ_bronzecoin(gp);
         gp.obj[i].worldX = 62 * gp.tileSize;
         gp.obj[i].worldY = 80 * gp.tileSize;
         i++;
 
         gp.obj[i] = new OBJ_axe(gp);
         gp.obj[i].worldX = 64 * gp.tileSize;
+        gp.obj[i].worldY = 80 * gp.tileSize;
+        i++;
+
+        gp.obj[i] = new OBJ_heart(gp);
+        gp.obj[i].worldX = 66 * gp.tileSize;
+        gp.obj[i].worldY = 80 * gp.tileSize;
+        i++;
+
+        gp.obj[i] = new OBJ_crystal(gp);
+        gp.obj[i].worldX = 68 * gp.tileSize;
         gp.obj[i].worldY = 80 * gp.tileSize;
         i++;
     }
@@ -43,13 +53,28 @@ public class AssetSetter {
         int i = 0;
 
         gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 72;
-        gp.monster[i].worldY = gp.tileSize * 66;
+        gp.monster[i].worldX = gp.tileSize * 10;
+        gp.monster[i].worldY = gp.tileSize * 36;
         i++;
 
         gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 72;
-        gp.monster[i].worldY = gp.tileSize * 68;
+        gp.monster[i].worldX = gp.tileSize * 12;
+        gp.monster[i].worldY = gp.tileSize * 36;
+        i++;
+
+        gp.monster[i] = new MON_GreenSlime(gp);
+        gp.monster[i].worldX = gp.tileSize * 14;
+        gp.monster[i].worldY = gp.tileSize * 36;
+        i++;
+
+        gp.monster[i] = new MON_GreenSlime(gp);
+        gp.monster[i].worldX = gp.tileSize * 16;
+        gp.monster[i].worldY = gp.tileSize * 36;
+        i++;
+
+        gp.monster[i] = new MON_GreenSlime(gp);
+        gp.monster[i].worldX = gp.tileSize * 18;
+        gp.monster[i].worldY = gp.tileSize * 36;
         i++;
     }
 }

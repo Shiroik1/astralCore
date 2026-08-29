@@ -5,11 +5,10 @@ import main.Gamepanel;
 
 public class OBJ_potion_red extends Entity {
 
-    int value = 5;
-
     public OBJ_potion_red(Gamepanel gp) {
         super(gp);
         name = "Red Potion";
+        value = 5;
         type = type_consumable;
         down1 = setup("/object/potion_red", gp.tileSize, gp.tileSize);
         description = "(" + name + ")\nA potion to restore\nyour health.";

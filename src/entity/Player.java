@@ -46,8 +46,8 @@ public class Player extends Entity{
     }
 
     public void setDefaultValues(){
-        worldX = gp.tileSize * 71;
-        worldY = gp.tileSize * 78;
+        worldX = gp.tileSize * 16;
+        worldY = gp.tileSize * 46;
         speed = 4;
         direction = "down";
 
@@ -214,6 +214,13 @@ public class Player extends Entity{
             shotAvailableCounter++;
         }
 
+        if(HP > maxHP){
+            HP = maxHP;
+        }
+        if(MP > maxMP){
+            MP = maxMP;
+        }
+
     }
 
     public void attacking() {
@@ -314,17 +321,28 @@ public class Player extends Entity{
 
     public void pickUpObject(int index){
         if(index != 999){
-            String text;
-            if(inventory.size() != inventorySize){
-                inventory.add(gp.obj[index]);
-                gp.playSE(1);
-                text = "Picked up a " + gp.obj[index].name + "!";
+
+            if(gp.obj[index].type == type_pickuponly){
+                //PICK UP ONLY ITEM
+                gp.obj[index].use(this);
+                gp.obj[index] = null;
             }
             else{
-                text = "Inventory is full!";
+                //INVENTORY ITEM
+                String text;
+                if(inventory.size() != inventorySize){
+                    inventory.add(gp.obj[index]);
+                    gp.playSE(1);
+                    text = "Picked up a " + gp.obj[index].name + "!";
+                }
+                else{
+                    text = "Inventory is full!";
+                }
+                gp.ui.addMessage(text);
+                gp.obj[index] = null;
             }
-            gp.ui.addMessage(text);
-            gp.obj[index] = null;
+
+
         }
     }
 
