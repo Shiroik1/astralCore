@@ -8,6 +8,7 @@ import tiles_interactive.InteractiveTile;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -47,6 +48,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public AssetSetter assetSetter = new AssetSetter(this);
     public UI ui = new UI(this);
     public EventHandler eventHandler = new EventHandler(this);
+    Config config = new Config(this);
     Thread gameThread;
 
     //ENTITY AND OBJECTS
@@ -90,7 +92,9 @@ public class Gamepanel extends JPanel implements Runnable{
         tempScreen = new BufferedImage(screenWidth, screenHeight, BufferedImage.TYPE_INT_ARGB);
         g2 = (Graphics2D) tempScreen.getGraphics();
 
-        //setFullScreen();
+        if(fullScreenOn){
+            setFullScreen();
+        }
     }
 
     public void setFullScreen(){
@@ -131,7 +135,11 @@ public class Gamepanel extends JPanel implements Runnable{
                 //Update information such as player position
                 update();
                 //Draw update data on the screen
-                drawToTempscreen();
+                try {
+                    drawToTempscreen();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
                 drawToScreen();
 
                 delta--;
@@ -207,7 +215,7 @@ public class Gamepanel extends JPanel implements Runnable{
         }
     }
 
-    public void drawToTempscreen(){
+    public void drawToTempscreen() throws IOException {
         //TITLE SCREEN
         if(gameState == titleState){
             ui.draw(g2);

@@ -6,6 +6,7 @@ import object.OBJ_heart;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -60,7 +61,7 @@ public class UI {
         messageCounter.add(0);
     }
 
-    public void draw(Graphics2D g2){
+    public void draw(Graphics2D g2) throws IOException {
 
         this.g2 = g2;
 
@@ -110,7 +111,7 @@ public class UI {
 
     }
 
-    private void drawOptionScreen() {
+    private void drawOptionScreen() throws IOException {
         g2.setColor(Color.white);
         g2.setFont(g2.getFont().deriveFont(15f));
 
@@ -168,7 +169,7 @@ public class UI {
         }
     }
 
-    private void option_top(int frameX, int frameY) {
+    private void option_top(int frameX, int frameY) throws IOException {
         int textX;
         int textY;
         String text = "OPTIONS";
@@ -262,6 +263,8 @@ public class UI {
         g2.drawRect(textX, textY, 120, 20);
         volumeWidth = 24 * gp.soundEffect.volumeScale;
         g2.fillRect(textX, textY, volumeWidth, 20);
+
+        gp.config.saveConfig();
     }
 
     private void drawInventory() {
