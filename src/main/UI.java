@@ -104,7 +104,7 @@ public class UI {
     }
 
     private void drawInventory() {
-        int frameX = gp.tileSize * 14;
+        int frameX = gp.tileSize * 18;
         int frameY = gp.tileSize;
         int frameWidth = gp.tileSize * 6;
         int frameHeight = gp.tileSize * 5;
@@ -452,7 +452,7 @@ public class UI {
         int playerTileX = (gp.player.worldX + gp.player.solidArea.x) / gp.tileSize;
         int playerTileY = (gp.player.worldY + gp.player.solidArea.y) / gp.tileSize;
 
-        int x = 20 * gp.tileSize;
+        int x = 24 * gp.tileSize;
         int y = 25;
         int lineHeight = 22;
 
