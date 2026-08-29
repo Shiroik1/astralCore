@@ -3,10 +3,7 @@ package entity;
 import main.Gamepanel;
 import main.KeyHandler;
 import main.UtilityTool;
-import object.OBJ_fireball;
-import object.OBJ_key;
-import object.OBJ_shield_wood;
-import object.OBJ_sword_normal;
+import object.*;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -62,7 +59,7 @@ public class Player extends Entity{
         exp = 0;
         nextLevelExp = 5;
         coin = 0;
-        currentWeapon = new OBJ_sword_normal(gp);
+        currentWeapon = new OBJ_axe(gp);
         currentShield = new OBJ_shield_wood(gp);
         projectile = new OBJ_fireball(gp);
         attack = getAttack();
@@ -159,6 +156,9 @@ public class Player extends Entity{
             int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
             contactMonster(monsterIndex);
 
+            //CHECK INTERACTABLES
+            int interactableIndex = gp.collisionChecker.checkEntity(this, gp.interactable);
+
             //CHECK EVENT
             gp.eventHandler.checkEvent();
 
@@ -251,6 +251,9 @@ public class Player extends Entity{
 
             int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
             damageMonster(monsterIndex, attack);
+
+            int interactableIndex = gp.collisionChecker.checkEntity(this, gp.interactable);
+            objectInteract(interactableIndex);
 
             worldX = currentWorldX;
             worldY = currentWorldY;
@@ -352,6 +355,18 @@ public class Player extends Entity{
                 attackCanceled = true;
                 gp.gameState = gp.dialogueState;
                 gp.npc[index].speak();
+            }
+        }
+    }
+
+    public void objectInteract(int index){
+        if(index != 999 && gp.interactable[index].destructible && gp.interactable[index].isCorrectItem(this) && !gp.interactable[index].invincible){
+            gp.interactable[index].playSE();
+            gp.interactable[index].HP--;
+            gp.interactable[index].invincible = true;
+
+            if(gp.interactable[index].HP <= 0){
+                gp.interactable[index] = gp.interactable[index].getDestroyedForm();
             }
         }
     }
