@@ -69,6 +69,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public final int dialogueState = 3;
     public final int characterState = 4;
     public final int optionState = 5;
+    public final int gameOverState = 6;
 
     //FPS
     int FPS = 60;
@@ -215,7 +216,29 @@ public class Gamepanel extends JPanel implements Runnable{
         }
     }
 
+    public void retry(){
+        player.setDefaultPosition();
+        player.resetHPandMP();
+        assetSetter.setNPC();
+        assetSetter.setMonster();
+    }
+
+    public void restart(){
+        player.setDefaultValues();
+        player.setDefaultPosition();
+        player.resetHPandMP();
+        player.setItems();
+        assetSetter.setNPC();
+        assetSetter.setMonster();
+        assetSetter.setInteractiveTile();
+
+    }
+
     public void drawToTempscreen() throws IOException {
+
+        g2.setColor(Color.black);
+        g2.fillRect(0, 0, screenWidth, screenHeight);
+
         //TITLE SCREEN
         if(gameState == titleState){
             ui.draw(g2);
@@ -290,6 +313,7 @@ public class Gamepanel extends JPanel implements Runnable{
         Graphics g = getGraphics();
         g.drawImage(tempScreen, 0,0,screenWidth2,screenHeight2,null);
         g.dispose();
+        Toolkit.getDefaultToolkit().sync();
     }
 
     public void playMusic(int i){

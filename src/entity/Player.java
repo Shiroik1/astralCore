@@ -66,11 +66,23 @@ public class Player extends Entity{
         defense = getDefense();
     }
 
+    public void setDefaultPosition(){
+        worldX = gp.tileSize * 16;
+        worldY = gp.tileSize * 46;
+        direction = "down";
+    }
+
+    public void resetHPandMP(){
+        HP = maxHP;
+        MP = maxMP;
+        invincible = false;
+    }
+
     public void setItems(){
+        inventory.clear();
         inventory.add(currentWeapon);
         inventory.add(currentShield);
-        inventory.add(new OBJ_key(gp));
-        inventory.add(new OBJ_key(gp));
+        inventory.add(new OBJ_potion_red(gp));
     }
 
     private int getDefense() {
@@ -219,6 +231,11 @@ public class Player extends Entity{
         }
         if(MP > maxMP){
             MP = maxMP;
+        }
+
+        if(HP <= 0){
+            gp.gameState = gp.gameOverState;
+            gp.playSE(11);
         }
 
     }
