@@ -6,33 +6,69 @@ import main.UtilityTool;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 
 public class TileManager {
     Gamepanel gp;
     public Tile[] tiles;
     public int mapTileNum[][];
+    ArrayList<String> filenames = new ArrayList<>();
+    ArrayList<String> collisionStatus = new ArrayList<>();
 
-    public TileManager(Gamepanel gp){
+    public TileManager(Gamepanel gp) throws IOException {
         this.gp = gp;
 
-        tiles = new Tile[20];
+        //READ TILE DATA
+        InputStream is = getClass().getResourceAsStream("/maps/tile_data.txt");
+        BufferedReader br = new BufferedReader(new InputStreamReader(is));
+
+        String line;
+        while ((line = br.readLine()) != null){
+            filenames.add(line);
+            collisionStatus.add(br.readLine());
+        }
+        br.close();
+
+        tiles = new Tile[filenames.size()];
+
+        getTileImage();
+
+        is = getClass().getResourceAsStream("/maps/overworld.txt");
+        br = new BufferedReader(new InputStreamReader(is));
+
+        String line2 = br.readLine();
+        String maxTile[] = line2.split(" ");
+
+        gp.maxWorldCol = maxTile.length;
+        gp.maxWorldRow = maxTile.length;
 
         mapTileNum = new int[gp.maxWorldCol][gp.maxWorldRow];
 
-        getTileImage();
-        loadMap("/maps/world01.txt");
+        br.close();
+
+        loadMap("/maps/overworld.txt");
     }
 
     public void getTileImage(){
 
-        setup(0,"002",false); //Grass
-        setup(1,"019",true); //Water
-        setup(2,"032",true); //Wall
-        setup(3, "003",false); //Sand
-        setup(4, "016",true); //Tree
-        setup(5, "017", false); //Dirt
+        for(int i = 0; i < filenames.size(); i++){
+            String fileName;
+            boolean collision;
+
+            fileName = filenames.get(i);
+
+            if(collisionStatus.get(i).equals("true")){
+                collision = true;
+            }
+            else {
+                collision = false;
+            }
+
+            setup(i, fileName, collision);
+        }
 
     }
 
@@ -41,7 +77,7 @@ public class TileManager {
 
         try{
             tiles[index] = new Tile();
-            tiles[index].image = ImageIO.read(getClass().getResourceAsStream("/tile/" + imageName + ".png"));
+            tiles[index].image = ImageIO.read(getClass().getResourceAsStream("/tile/" + imageName));
             tiles[index].image = utilityTool.scaleImage(tiles[index].image, gp.tileSize, gp.tileSize);
             tiles[index].collision = collision;
         }

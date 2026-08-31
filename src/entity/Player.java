@@ -43,8 +43,8 @@ public class Player extends Entity{
     }
 
     public void setDefaultValues(){
-        worldX = gp.tileSize * 16;
-        worldY = gp.tileSize * 46;
+        worldX = gp.tileSize * 12;
+        worldY = gp.tileSize * 20;
         speed = 4;
         direction = "down";
 
@@ -67,8 +67,8 @@ public class Player extends Entity{
     }
 
     public void setDefaultPosition(){
-        worldX = gp.tileSize * 16;
-        worldY = gp.tileSize * 46;
+        worldX = gp.tileSize * 12;
+        worldY = gp.tileSize * 20;
         direction = "down";
     }
 
@@ -235,6 +235,8 @@ public class Player extends Entity{
 
         if(HP <= 0){
             gp.gameState = gp.gameOverState;
+            gp.ui.commandNum = -1;
+            gp.stopMusic();
             gp.playSE(11);
         }
 

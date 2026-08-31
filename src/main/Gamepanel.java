@@ -36,8 +36,8 @@ public class Gamepanel extends JPanel implements Runnable{
     public boolean fullScreenOn = false;
 
     //WORLD SETTINGS
-    public final int maxWorldCol = 100;
-    public final int maxWorldRow = 100;
+    public int maxWorldCol;
+    public int maxWorldRow;
 
     //SYSTEM
     TileManager tileM = new TileManager(this);
@@ -75,7 +75,7 @@ public class Gamepanel extends JPanel implements Runnable{
     int FPS = 60;
     int fpsCounter = 0;
 
-    public Gamepanel(){
+    public Gamepanel() throws IOException {
         this.setPreferredSize(new Dimension(screenWidth, screenHeight));
         this.setBackground(Color.black);
         this.setDoubleBuffered(true);

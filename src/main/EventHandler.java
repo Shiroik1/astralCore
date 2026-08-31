@@ -44,11 +44,11 @@ public class EventHandler {
         }
 
         if(canTouchEvent){
-            if(hit(54,79,"down")){
-                damagePit(54,79,gp.dialogueState);
-            }
-            if(hit(50,52,"up")){
-                healingPool(50,52, gp.dialogueState);
+//            if(hit(54,79,"down")){
+//                damagePit(54,79,gp.dialogueState);
+//            }
+            if(hit(32,18,"up")){
+                healingPool(32,18, gp.dialogueState);
             }
         }
     }
