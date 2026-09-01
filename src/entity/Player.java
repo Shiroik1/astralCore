@@ -138,7 +138,7 @@ public class Player extends Entity{
         if(attacking){
             attacking();
         }
-        else if(keyH.upPressed || keyH.downPressed || keyH.leftPressed || keyH.rightPressed || keyH.ePressed){
+        else if(keyH.upPressed || keyH.downPressed || keyH.leftPressed || keyH.rightPressed || keyH.ePressed || gp.mouseH.leftClicked){
             if(keyH.upPressed){
                 direction = "up";
             }
@@ -184,13 +184,14 @@ public class Player extends Entity{
                 }
             }
 
-            if(keyH.ePressed && !attackCanceled){
+            if((keyH.ePressed || gp.mouseH.leftClicked) && !attackCanceled){
                 attacking = true;
                 spriteCounter = 0;
             }
 
             attackCanceled = false;
             gp.keyH.ePressed = false;
+            gp.mouseH.leftClicked = false;
 
             spriteCounter++;
             if(spriteCounter > 12){
@@ -284,6 +285,18 @@ public class Player extends Entity{
             spriteNum = 1;
             spriteCounter = 0;
             attacking = false;
+        }
+    }
+
+    private String getDirectionFromMouse(){
+        double dx = gp.mouseH.getScaledX() - (screenX + gp.tileSize / 2.0);
+        double dy = gp.mouseH.getScaledY() - (screenY + gp.tileSize / 2.0);
+
+        if(Math.abs(dx) > Math.abs(dy)){
+            return dx > 0 ? "right" : "left";
+        }
+        else{
+            return dy > 0 ? "down" : "up";
         }
     }
 

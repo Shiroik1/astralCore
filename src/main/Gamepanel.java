@@ -51,6 +51,9 @@ public class Gamepanel extends JPanel implements Runnable{
     Config config = new Config(this);
     Thread gameThread;
 
+    //MOUSE SETTING
+    public MouseHandler mouseH = new MouseHandler(this);
+
     //ENTITY AND OBJECTS
     public Player player = new Player(this, keyH);
     public Entity obj[] = new Entity[50];
@@ -80,6 +83,8 @@ public class Gamepanel extends JPanel implements Runnable{
         this.setBackground(Color.black);
         this.setDoubleBuffered(true);
         this.addKeyListener(keyH);
+        this.addMouseListener(mouseH);
+        this.addMouseMotionListener(mouseH);
         this.setFocusable(true);
     }
 
