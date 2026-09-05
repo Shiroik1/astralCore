@@ -6,6 +6,8 @@ import main.UtilityTool;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Entity {
     public Gamepanel gp;
@@ -21,6 +23,11 @@ public class Entity {
 
     public boolean invincible = false;
     public int invincibleCounter = 0;
+
+    //SPRITES
+    public Map<String, SpriteAnimation> sprites = new HashMap<>();
+    public String animState = "idle";
+    public boolean moving = false;
 
     public Rectangle solidArea = new Rectangle(0,0,48,48);
     public Rectangle attackArea = new Rectangle(0, 0, 0, 0);
@@ -152,6 +159,9 @@ public class Entity {
             damagePlayer(attack);
         }
 
+        moving = !collisionOn;
+        animState = moving ? "walk" : "idle";
+
         //IF COLLISION IS FALSE, PLAYER CAN MOVE
         if(!collisionOn){
             switch (direction){
@@ -164,10 +174,10 @@ public class Entity {
 
         spriteCounter++;
         if(spriteCounter > 12){
-            if(spriteNum == 1){
-                spriteNum = 2;
-            }
-            else if(spriteNum == 2){
+            SpriteAnimation anim = getCurrentAnimation();
+            int frameCount = (anim != null) ? anim.frames.length : 2;
+            spriteNum++;
+            if(spriteNum > frameCount){
                 spriteNum = 1;
             }
             spriteCounter = 0;
@@ -206,40 +216,9 @@ public class Entity {
                 worldX - gp.tileSize < gp.player.worldX + gp.player.screenX &&
                 worldY + gp.tileSize > gp.player.worldY - gp.player.screenY &&
                 worldY - gp.tileSize < gp.player.worldY + gp.player.screenY){
-            switch (direction){
-                case "up" -> {
-                    if(spriteNum == 1){
-                        image = up1;
-                    }
-                    if(spriteNum == 2){
-                        image = up2;
-                    }
-                }
-                case "down" -> {
-                    if(spriteNum == 1){
-                        image = down1;
-                    }
-                    if(spriteNum == 2){
-                        image = down2;
-                    }
-                }
-                case "left" -> {
-                    if(spriteNum == 1){
-                        image = left1;
-                    }
-                    if(spriteNum == 2){
-                        image = left2;
-                    }
-                }
-                case "right" -> {
-                    if(spriteNum == 1){
-                        image = right1;
-                    }
-                    if(spriteNum == 2){
-                        image = right2;
-                    }
-                }
-            }
+
+            SpriteAnimation anim = getCurrentAnimation();
+            image = getCurrentFrame();
 
             //HP Bar
             if(type == type_monster && hpBarOn){
@@ -270,8 +249,18 @@ public class Entity {
                 dyingAnimation(g2);
             }
 
-            g2.drawImage(image, screenX, screenY, null);
+            int drawX = screenX;
+            int drawY = screenY;
+            if(anim != null){
+                drawX = screenX + (gp.tileSize - anim.width) / 2;
+                drawY = screenY + (gp.tileSize - anim.height) / 2;
+            }
+            g2.drawImage(image, drawX, drawY, null);
             changeAlpha(g2, 1f);
+        }
+
+        if(gp.keyH.showDebug){
+            drawHitbox(g2);
         }
     }
 
@@ -346,5 +335,47 @@ public class Entity {
         gp.particleList.add(p2);
         gp.particleList.add(p3);
         gp.particleList.add(p4);
+    }
+
+
+    protected SpriteAnimation getCurrentAnimation(){
+        SpriteAnimation anim = sprites.get(animState + "_" + direction);
+        if(anim == null){
+            anim = sprites.get("idle_" + direction);
+        }
+        return anim;
+    }
+
+    protected BufferedImage getCurrentFrame(){
+        SpriteAnimation anim = getCurrentAnimation();
+        if(anim == null) return getLegacyFrame();
+        int index = Math.min(spriteNum - 1, anim.frames.length - 1);
+        return anim.frames[index];
+    }
+
+    protected BufferedImage getLegacyFrame(){
+        BufferedImage image = null;
+        switch (direction){
+            case "up" -> image = (spriteNum == 1) ? up1 : up2;
+            case "down" -> image = (spriteNum == 1) ? down1 : down2;
+            case "left" -> image = (spriteNum == 1) ? left1 : left2;
+            case "right" -> image = (spriteNum == 1) ? right1 : right2;
+        }
+        return image;
+    }
+
+    public void drawHitbox(Graphics2D g2){
+        int screenX = worldX - gp.player.worldX + gp.player.screenX + solidArea.x;
+        int screenY = worldY - gp.player.worldY + gp.player.screenY + solidArea.y;
+
+        Color color = switch (type){
+            case type_monster -> Color.red;
+            case type_npc -> Color.cyan;
+            case type_player -> Color.green;
+            default -> Color.magenta;
+        };
+
+        g2.setColor(color);
+        g2.drawRect(screenX, screenY, solidArea.width, solidArea.height);
     }
 }

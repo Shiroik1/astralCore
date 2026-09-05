@@ -8,7 +8,7 @@ public class OBJ_sword_normal extends Entity {
         super(gp);
         name = "Normal Sword";
         type = type_sword;
-        down1 = setup("/object/sword_normal", gp.tileSize, gp.tileSize);
+        down1 = setup("/player/weapon/sword", gp.tileSize, gp.tileSize);
         attackValue = 1;
         attackArea.width = 36;
         attackArea.height = 36;

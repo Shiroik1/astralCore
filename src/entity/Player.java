@@ -7,8 +7,11 @@ import object.*;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.util.ArrayList;
+import java.util.Map;
 
 public class Player extends Entity{
     KeyHandler keyH;
@@ -17,6 +20,20 @@ public class Player extends Entity{
     public final int screenY;
 
     public boolean attackCanceled = false;
+    public boolean facingLeft = false;
+
+    public Animator bodyAnimator = new Animator();
+    public Animator leftWeaponAnimator = new Animator();
+    public Animator rightWeaponAnimator = new Animator();
+
+    public Entity leftHandItem;
+    public Entity rightHandItem;
+
+    private int bounceCounter = 0;
+    private BufferedImage currentWeaponFlipped;
+    private BufferedImage currentShieldFlipped;
+    private BufferedImage currentShieldFlippedDark;
+    private BufferedImage currentShieldDark;
 
     public ArrayList<Entity> inventory = new ArrayList<>();
     public final int inventorySize = 20;
@@ -59,8 +76,11 @@ public class Player extends Entity{
         exp = 0;
         nextLevelExp = 5;
         coin = 0;
-        currentWeapon = new OBJ_axe(gp);
+        currentWeapon = new OBJ_sword_normal(gp);
+        updateWeaponSprite();
+        rightHandItem = currentWeapon;
         currentShield = new OBJ_shield_wood(gp);
+        updateShieldSprite();
         projectile = new OBJ_fireball(gp);
         attack = getAttack();
         defense = getDefense();
@@ -95,16 +115,26 @@ public class Player extends Entity{
     }
 
     public void getPlayerImage(){
+        int size = (int)(gp.tileSize * 1.3);
+        bodyAnimator.setFrameDelay(4);
 
-        up1 = setup("/player/boy_up_1", gp.tileSize, gp.tileSize);
-        up2 = setup("/player/boy_up_2", gp.tileSize, gp.tileSize);
-        down1 = setup("/player/boy_down_1", gp.tileSize, gp.tileSize);
-        down2 = setup("/player/boy_down_2", gp.tileSize, gp.tileSize);
-        left1 = setup("/player/boy_left_1", gp.tileSize, gp.tileSize);
-        left2 = setup("/player/boy_left_2", gp.tileSize, gp.tileSize);
-        right1 = setup("/player/boy_right_1", gp.tileSize, gp.tileSize);
-        right2 = setup("/player/boy_right_2", gp.tileSize, gp.tileSize);
+        BufferedImage[] idleFrames = { setup("/player/female/idle_1", size, size),
+                setup("/player/female/idle_2", size, size),
+                setup("/player/female/idle_3", size, size),
+                setup("/player/female/idle_4", size, size)};
+        bodyAnimator.addAnimation("idle", new SpriteAnimation(idleFrames,size,size,true));
 
+        BufferedImage[] runFrames = {
+                setup("/player/female/run_1", size,size),
+                setup("/player/female/run_2", size, size),
+                setup("/player/female/run_3", size, size),
+                setup("/player/female/run_4", size, size),
+                setup("/player/female/run_5", size, size),
+                setup("/player/female/run_6", size, size)
+        };
+        bodyAnimator.addAnimation("run",new SpriteAnimation(runFrames,size,size,true));
+
+        down1 = idleFrames[0];
     }
 
     public void getPlayerAttackImage(){
@@ -129,80 +159,109 @@ public class Player extends Entity{
             attackRight1 = setup("/player/boy_axe_right_1", gp.tileSize * 2, gp.tileSize);
             attackRight2 = setup("/player/boy_axe_right_2", gp.tileSize * 2, gp.tileSize);
         }
-
-
     }
 
     public void update(){
 
+        boolean movingHoriz = keyH.leftPressed || keyH.rightPressed;
+        boolean movingVert = keyH.upPressed || keyH.downPressed;
+        moving = movingHoriz || movingVert;
+        String horizDir = null;
+        String vertDir = null;
+
+        if(moving){
+            bounceCounter++;
+        }
+        else{
+            bounceCounter = 0;
+        }
+
+        if (keyH.leftPressed) {
+            horizDir = "left";
+            facingLeft = true;
+        }
+        else if(keyH.rightPressed){
+            horizDir = "right";
+            facingLeft = false;
+        }
+
+        if(keyH.upPressed){
+            vertDir = "up";
+        }
+        else if(keyH.downPressed){
+            vertDir = "down";
+        }
+
+        direction = (vertDir != null) ? vertDir : direction;
+        direction = (horizDir != null) ? horizDir : direction;
+
+        bodyAnimator.setState(moving ? "run" : "idle");
+        bodyAnimator.update();
+
         if(attacking){
             attacking();
         }
-        else if(keyH.upPressed || keyH.downPressed || keyH.leftPressed || keyH.rightPressed || keyH.ePressed || gp.mouseH.leftClicked){
-            if(keyH.upPressed){
-                direction = "up";
-            }
-            else if(keyH.downPressed){
-                direction = "down";
-            }
-            else if(keyH.leftPressed){
-                direction = "left";
-            }
-            else if(keyH.rightPressed){
-                direction = "right";
-            }
+        else if(moving || keyH.ePressed || gp.mouseH.leftClicked){
 
-            //CHECK TILE COLLISION
-            collisionOn = false;
-            gp.collisionChecker.checkTile(this);
+                //CHECK TILE COLLISION
+                collisionOn = false;
+                gp.collisionChecker.checkTile(this);
 
-            //CHECK OBJECT COLLISION
-            int objIndex = gp.collisionChecker.checkObject(this, true);
-            pickUpObject(objIndex);
+                //CHECK OBJECT COLLISION
+                int objIndex = gp.collisionChecker.checkObject(this, true);
+                pickUpObject(objIndex);
 
-            //CHECK NPC COLLISION
-            int npcIndex = gp.collisionChecker.checkEntity(this, gp.npc);
-            interactNPC(npcIndex);
+                //CHECK NPC COLLISION
+                int npcIndex = gp.collisionChecker.checkEntity(this, gp.npc);
+                interactNPC(npcIndex);
 
-            //CHECK MONSTER COLLISION
-            int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
-            contactMonster(monsterIndex);
+                //CHECK MONSTER COLLISION
+                int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
+                contactMonster(monsterIndex);
 
-            //CHECK INTERACTABLES
-            int interactableIndex = gp.collisionChecker.checkEntity(this, gp.interactable);
+                //CHECK INTERACTABLES
+                int interactableIndex = gp.collisionChecker.checkEntity(this, gp.interactable);
 
-            //CHECK EVENT
-            gp.eventHandler.checkEvent();
+                //CHECK EVENT
+                gp.eventHandler.checkEvent();
 
-            //IF COLLISION IS FALSE, PLAYER CAN MOVE
-            if(!collisionOn && !keyH.ePressed){
-                switch (direction){
-                    case "up" -> worldY -= speed;
-                    case "down" -> worldY += speed;
-                    case "left" -> worldX -= speed;
-                    case "right" -> worldX += speed;
+                //IF COLLISION IS FALSE, PLAYER CAN MOVE
+                if(!keyH.ePressed){
+
+                    boolean diagonal = (horizDir != null && vertDir != null);
+                    int moveSpeed = diagonal ? (int)Math.round(speed * 0.7071) : speed;
+                    if(diagonal && moveSpeed < 1) moveSpeed = 1;
+
+                    if(horizDir != null){
+                        direction = horizDir;
+                        collisionOn = false;
+                        gp.collisionChecker.checkTile(this);
+                        if(!collisionOn){
+                            worldX += horizDir.equals("left") ? -moveSpeed : moveSpeed;
+                        }
+                    }
+
+                    if(vertDir != null){
+                        direction = vertDir;
+                        collisionOn = false;
+                        gp.collisionChecker.checkTile(this);
+                        if(!collisionOn){
+                            worldY += vertDir.equals("up") ? -moveSpeed : moveSpeed;
+                        }
+                    }
+
+                    direction = (vertDir != null) ? vertDir : direction;
+                    direction = (horizDir != null) ? horizDir: direction;
                 }
-            }
 
-            if((keyH.ePressed || gp.mouseH.leftClicked) && !attackCanceled){
-                attacking = true;
-                spriteCounter = 0;
-            }
 
-            attackCanceled = false;
-            gp.keyH.ePressed = false;
-            gp.mouseH.leftClicked = false;
-
-            spriteCounter++;
-            if(spriteCounter > 12){
-                if(spriteNum == 1){
-                    spriteNum = 2;
+                if((keyH.ePressed || gp.mouseH.leftClicked) && !attackCanceled){
+                    attacking = true;
+                    spriteCounter = 0;
                 }
-                else if(spriteNum == 2){
-                    spriteNum = 1;
-                }
-                spriteCounter = 0;
-            }
+
+                attackCanceled = false;
+                gp.keyH.ePressed = false;
         }
 
         if(gp.keyH.shotKeyPressed && !projectile.alive && shotAvailableCounter == 30 && projectile.hasResource(this)){
@@ -412,11 +471,13 @@ public class Player extends Entity{
 
             if(selectedItem.type == type_sword || selectedItem.type == type_axe){
                 currentWeapon = selectedItem;
+                updateWeaponSprite();
                 attack = getAttack();
                 getPlayerAttackImage();
             }
             if(selectedItem.type == type_shield){
                 currentShield = selectedItem;
+                updateShieldSprite();
                 defense = getDefense();
             }
             if(selectedItem.type == type_consumable){
@@ -427,62 +488,156 @@ public class Player extends Entity{
     }
 
     public void draw(Graphics2D g2){
-        BufferedImage image = null;
+        BufferedImage bodyImage;
+        int bodyWidth, bodyHeight;
 
-        int tempScreenX = screenX;
-        int tempScreenY = screenY;
+        if(attacking){
+            SpriteAnimation attackAnim = sprites.get("attack_" + direction);
+            if(attackAnim == null) return;
+            bodyImage = attackAnim.frames[Math.min(spriteNum - 1, attackAnim.frames.length - 1)];
+            bodyWidth = attackAnim.width;
+            bodyHeight = attackAnim.height;
+        }
+        else{
+            bodyImage = bodyAnimator.getCurrentFrame(facingLeft);
+            if(bodyImage == null) return;
+            bodyWidth = bodyImage.getWidth();
+            bodyHeight = bodyImage.getHeight();
+        }
 
-        switch (direction){
-            case "up" -> {
-                if(!attacking){
-                    if(spriteNum == 1){image = up1;}
-                    if(spriteNum == 2){image = up2;}
-                }
-                if(attacking){
-                    tempScreenY = screenY - gp.tileSize;
-                    if(spriteNum == 1){image = attackUp1;}
-                    if(spriteNum == 2){image = attackUp2;}
-                }
-            }
-            case "down" -> {
-                if(!attacking){
-                    if(spriteNum == 1){image = down1;}
-                    if(spriteNum == 2){image = down2;}
-                }
-                if(attacking){
-                    if(spriteNum == 1){image = attackDown1;}
-                    if(spriteNum == 2){image = attackDown2;}
-                }
-            }
-            case "left" -> {
-                if(!attacking){
-                    if(spriteNum == 1){image = left1;}
-                    if(spriteNum == 2){image = left2;}
-                }
-                if(attacking){
-                    tempScreenX = screenX - gp.tileSize;
-                    if(spriteNum == 1){image = attackLeft1;}
-                    if(spriteNum == 2){image = attackLeft2;}
-                }
-            }
-            case "right" -> {
-                if(!attacking){
-                    if(spriteNum == 1){image = right1;}
-                    if(spriteNum == 2){image = right2;}
-                }
-                if(attacking){
-                    if(spriteNum == 1){image = attackRight1;}
-                    if(spriteNum == 2){image = attackRight2;}
-                }
+        int drawX = screenX + (gp.tileSize - bodyWidth) / 2;
+        int drawY = screenY + (gp.tileSize - bodyHeight) / 2;
+
+        if(attacking){
+            switch (direction){
+                case "up" -> drawY = screenY + gp.tileSize - bodyHeight;
+                case "down" -> drawY = screenY;
+                case "left" -> drawX = screenX + gp.tileSize - bodyWidth;
+                case "right" -> drawX = screenX;
             }
         }
+
+        //BOUNCE - transform only, no extra frames, only while running
+        double bounce = 0;
+        if(moving && !attacking){
+            bounce = Math.abs(Math.sin(bounceCounter * 0.2)) * -4;
+        }
+
+        AffineTransform originalTransform = g2.getTransform();
+        g2.translate(0, bounce);
 
         if(invincible){
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
         }
 
-        g2.drawImage(image,tempScreenX,tempScreenY,null);
+        boolean weaponInFront = isWeaponInFront();
 
-        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+        if(!attacking && !weaponInFront){
+            drawWeapon(g2,drawX,drawY,bodyWidth,bodyHeight);
+        }
+        if(weaponInFront){
+            drawShield(g2,drawX,drawY,bodyWidth,bodyHeight,true);
+        }
+
+        g2.drawImage(bodyImage,drawX,drawY,null);
+
+        if(!attacking && weaponInFront){
+            drawWeapon(g2,drawX,drawY,bodyWidth,bodyHeight);
+        }
+        if(!weaponInFront){
+            drawShield(g2,drawX,drawY,bodyWidth,bodyHeight,false);
+        }
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,1f));
+        g2.setTransform(originalTransform);
+
+        if(gp.keyH.showDebug){
+            drawHitbox(g2);
+            drawAttackHitbox(g2);
+        }
+    }
+
+    private boolean isWeaponInFront(){
+        return !facingLeft;
+    }
+
+    private void drawWeapon(Graphics2D g2, int bodyDrawX, int bodyDrawY, int bodyWidth, int bodyHeight){
+        if(currentWeapon == null || currentWeapon.down1 == null) return;
+
+        BufferedImage weaponImage = facingLeft ? currentWeaponFlipped:currentWeapon.down1;
+        if(weaponImage == null) return;
+
+        int weaponW = weaponImage.getWidth();
+        int weaponH = weaponImage.getHeight();
+
+        int offsetX = facingLeft ? leftHandOffsetX(bodyWidth, weaponW) : rightHandOffsetX(bodyWidth, weaponW);
+
+        int weaponX = bodyDrawX + offsetX;
+        int weaponY = bodyDrawY + (bodyHeight / 2);
+
+        g2.drawImage(weaponImage, weaponX, weaponY, null);
+    }
+
+    private void drawShield(Graphics2D g2, int bodyDrawX, int bodyDrawY, int bodyWidth, int bodyHeight, boolean covered){
+        if(currentShield == null || currentShield.down1 == null) return;
+
+        BufferedImage shieldImage;
+        if(facingLeft){
+            shieldImage = covered ? currentShieldFlippedDark : currentShieldFlipped;
+        }
+        else{
+            shieldImage = covered ? currentShieldDark : currentShield.down1;
+        }
+        if(shieldImage == null) return;
+
+        int shieldW = shieldImage.getWidth();
+
+        //Shield is the opposite hand from the sword, so the formulas are swapped
+        int offsetX = facingLeft ? rightHandOffsetX(bodyWidth, shieldW) : leftHandOffsetX(bodyWidth, shieldW);
+        int shieldX = bodyDrawX + offsetX;
+        int shieldY = bodyDrawY + (bodyHeight / 2);
+
+        g2.drawImage(shieldImage, shieldX, shieldY, null);
+    }
+
+    private int rightHandOffsetX(int bodyWidth, int itemWidth){
+        return bodyWidth - (int)(itemWidth * 2.5 / 3);
+    }
+
+    private int leftHandOffsetX(int bodyWidth, int itemWidth){
+        return bodyWidth - rightHandOffsetX(bodyWidth, itemWidth) - itemWidth;
+    }
+
+    private void updateWeaponSprite(){
+        if(currentWeapon != null && currentWeapon.down1 != null){
+            currentWeaponFlipped = SpriteAnimation.flipHorizontal(currentWeapon.down1);
+        }
+    }
+
+    private void updateShieldSprite(){
+        if(currentShield != null && currentShield.down1 != null){
+            currentShieldFlipped = SpriteAnimation.flipHorizontal(currentShield.down1);
+            currentShieldDark = SpriteAnimation.darken(currentShield.down1, 0.5f);
+            currentShieldFlippedDark = SpriteAnimation.darken(currentShieldFlipped, 0.5f);
+        }
+    }
+
+    private void drawAttackHitbox(Graphics2D g2){
+        if(!attacking || spriteCounter <= 5 || spriteCounter > 25) return;
+
+        int hbWorldX = worldX;
+        int hbWorldY = worldY;
+        switch (direction){
+            case "up" -> hbWorldY -= attackArea.height;
+            case "down" -> hbWorldY += attackArea.height;
+            case "left" -> hbWorldX -= attackArea.width;
+            case "right" -> hbWorldX += attackArea.width;
+        }
+
+        int screenX = hbWorldX - gp.player.worldX + gp.player.screenX + solidArea.x;
+        int screenY = hbWorldY - gp.player.worldY + gp.player.screenY + solidArea.y;
+
+        g2.setColor(Color.yellow);
+        g2.drawRect(screenX, screenY, attackArea.width, attackArea.height);
     }
 }

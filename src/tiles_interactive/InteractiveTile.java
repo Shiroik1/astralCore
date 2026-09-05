@@ -49,5 +49,9 @@ public class InteractiveTile extends Entity {
 
             g2.drawImage(down1, screenX, screenY, null);
         }
+
+        if(gp.keyH.showDebug){
+            drawHitbox(g2);
+        }
     }
 }

@@ -25,20 +25,9 @@ public class MouseHandler implements MouseListener, MouseMotionListener {
     public void mousePressed(MouseEvent e) {
         if(e.getButton() == MouseEvent.BUTTON1){
             leftPressed = true;
+            leftClicked = true;
 
-            if(gp.gameState == gp.playState){
-                leftClicked = true;
-            }
-            else if(gp.gameState == gp.titleState){
-                gp.ui.handleTitleClick();
-            }
-            else if(gp.gameState == gp.characterState){
-                gp.ui.handleInventoryClick();
-            }
-            else if(gp.gameState == gp.optionState){
-                gp.ui.handleOptionClick();
-            }
-            else if(gp.gameState == gp.pauseState){
+            if(gp.gameState == gp.pauseState){
                 gp.gameState = gp.playState;
             }
         }

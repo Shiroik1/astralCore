@@ -18,8 +18,8 @@ import static main.Main.window;
 public class Gamepanel extends JPanel implements Runnable{
 
     //GAME SETTINGS
-    final int originalTileSize = 16; //16x16 tile
-    final int scale = 3;
+    final int originalTileSize = 24; //16x16 tile
+    final int scale = 2;
 
     //SCREEN SETTINGS
     public final int tileSize =  originalTileSize * scale; //48x48 tile
@@ -216,9 +216,11 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
         }
-        if(gameState == pauseState){
-            ui.drawPauseScreen();
+        else if(gameState == titleState || gameState == optionState || gameState == characterState || gameState == gameOverState){
+            ui.update(mouseH.getScaledX(),mouseH.getScaledY(),mouseH.leftClicked);
         }
+
+        mouseH.leftClicked = false;
     }
 
     public void retry(){

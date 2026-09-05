@@ -31,6 +31,7 @@ public class UI {
     private UIButton[] fullscreenNotiButtons = {new UIButton()};
     private UIButton[] controlButtons = {new UIButton()};
     private UIButton[] endgameConfirmButtons = {new UIButton(), new UIButton()};
+    private UIButton[] gameoverButtons = {new UIButton(), new UIButton()};
     private UIButton lastHoveredButton = null;
 
     public int slotCol = 0;
@@ -69,6 +70,70 @@ public class UI {
     public void addMessage(String text){
         message.add(text);
         messageCounter.add(0);
+    }
+
+    public void update(int mouseX, int mouseY, boolean clicked){
+        if(gp.gameState == gp.titleState){
+            int hovered = processButtonHover(titleButtons, mouseX, mouseY);
+            if(hovered != -1){
+                commandNum = hovered;
+                if(clicked){
+                    confirmTitleSelection(hovered);
+                }
+            }
+        }
+        else if(gp.gameState == gp.optionState){
+            UIButton[] buttons = currentOptionButtons();
+            int hovered = processButtonHover(buttons, mouseX, mouseY);
+            if(hovered != -1){
+                commandNum = hovered;
+                if(clicked){
+                    gp.keyH.enterPressed = true;
+                }
+            }
+        }
+        else if(gp.gameState == gp.gameOverState){
+            int hovered = processButtonHover(gameoverButtons, mouseX, mouseY);
+            if(hovered != -1){
+                commandNum = hovered;
+                if(clicked){
+                    confirmGameoverSelection(hovered);
+                }
+            }
+        }
+    }
+
+    private UIButton[] currentOptionButtons(){
+        return switch (subState){
+            case 0 -> optionTopButtons;
+            case 1 -> fullscreenNotiButtons;
+            case 2 -> controlButtons;
+            case 3 -> endgameConfirmButtons;
+            default -> new UIButton[0];
+        };
+    }
+
+    private void confirmTitleSelection(int index){
+        if(index == 0){
+            gp.gameState = gp.playState;
+            gp.playMusic(0);
+        }
+        if(index == 2){
+            System.exit(0);
+        }
+    }
+
+    private void confirmGameoverSelection(int index){
+        if(index == 0){
+            gp.gameState = gp.playState;
+            gp.player.setDefaultPosition();
+            gp.player.resetHPandMP();
+            gp.playMusic(0);
+        }
+        if(index == 1){
+            gp.gameState = gp.titleState;
+            gp.stopMusic();
+        }
     }
 
     public void draw(Graphics2D g2) throws IOException {
@@ -148,18 +213,12 @@ public class UI {
         text = "RETRY";
         x = getXforCenteredText(text);
         y = gp.tileSize * 10;
-        g2.drawString(text, x, y);
-        if(commandNum == 0){
-            g2.drawString(">", x-40, y);
-        }
+        drawMenuButton(gameoverButtons[0],text,x,y,commandNum == 0 );
 
         text = "QUIT";
         x = getXforCenteredText(text);
         y += 50;
-        g2.drawString(text, x, y);
-        if(commandNum == 1){
-            g2.drawString(">", x-40, y);
-        }
+        drawMenuButton(gameoverButtons[1],text,x,y,commandNum == 1 );
 
     }
 
@@ -198,10 +257,11 @@ public class UI {
         String text = "Yes";
         textX = getXforCenteredText(text);
         textY += gp.tileSize * 3;
-        drawMenuButton(endgameConfirmButtons[0], text, textX, textY, 0, commandNum == 0 );
+        drawMenuButton(endgameConfirmButtons[0], text, textX, textY,  commandNum == 0 );
         if(commandNum == 0){
             if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
                 subState = 0;
+                gp.stopMusic();
                 gp.gameState = gp.titleState;
             }
         }
@@ -210,7 +270,7 @@ public class UI {
         text = "No";
         textX = getXforCenteredText(text);
         textY += gp.tileSize;
-        drawMenuButton(endgameConfirmButtons[1],text,textX, textY, 1, commandNum == 1 );
+        drawMenuButton(endgameConfirmButtons[1],text,textX, textY,  commandNum == 1 );
         if(commandNum == 1){
             if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
                 subState = 0;
@@ -232,7 +292,7 @@ public class UI {
         //FULLSCREEN ON/OFF
         textX = frameX + gp.tileSize;
         textY += gp.tileSize * 2;
-        drawMenuButton(optionTopButtons[0],"Full Screen", textX, textY, 0, commandNum == 0 );
+        drawMenuButton(optionTopButtons[0],"Full Screen", textX, textY,  commandNum == 0 );
         if(commandNum == 0){
             if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
                 if(!gp.fullScreenOn){
@@ -247,15 +307,15 @@ public class UI {
 
         //MUSIC
         textY += gp.tileSize;
-        drawMenuButton(optionTopButtons[1],"Music", textX, textY, 1, commandNum == 1 );
+        drawMenuButton(optionTopButtons[1],"Music", textX, textY,  commandNum == 1 );
 
         //SE
         textY += gp.tileSize;
-        drawMenuButton(optionTopButtons[2],"SE", textX, textY, 2, commandNum == 2 );
+        drawMenuButton(optionTopButtons[2],"SE", textX, textY,  commandNum == 2 );
 
         //CONTROL
         textY += gp.tileSize;
-        drawMenuButton(optionTopButtons[3],"Control", textX, textY, 3, commandNum == 3 );
+        drawMenuButton(optionTopButtons[3],"Control", textX, textY,  commandNum == 3 );
         if(commandNum == 3){
             if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
                 subState = 2;
@@ -265,7 +325,7 @@ public class UI {
 
         //ENDGAME
         textY += gp.tileSize * 2;
-        drawMenuButton(optionTopButtons[4],"END GAME", textX, textY, 4, commandNum == 4 );
+        drawMenuButton(optionTopButtons[4],"END GAME", textX, textY,  commandNum == 4 );
         if(commandNum == 4){
             if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
                 subState = 3;
@@ -275,7 +335,7 @@ public class UI {
 
         //BACK
         textY += gp.tileSize;
-        drawMenuButton(optionTopButtons[5],"BACK", textX, textY, 5, commandNum == 5 );
+        drawMenuButton(optionTopButtons[5],"BACK", textX, textY,  commandNum == 5 );
         if(commandNum == 5){
             if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
                 gp.gameState = gp.playState;
@@ -594,17 +654,17 @@ public class UI {
         text = "NEW GAME";
         x = getXforCenteredText(text);
         y += gp.tileSize * 5;
-        drawMenuButton(titleButtons[0], text, x, y, 0, commandNum == 0);
+        drawMenuButton(titleButtons[0], text, x, y,  commandNum == 0);
 
         text = "CONTINUE";
         x = getXforCenteredText(text);
         y += gp.tileSize;
-        drawMenuButton(titleButtons[1], text, x, y, 1, commandNum == 1);
+        drawMenuButton(titleButtons[1], text, x, y,  commandNum == 1);
 
         text = "QUIT";
         x = getXforCenteredText(text);
         y += gp.tileSize;
-        drawMenuButton(titleButtons[2], text, x, y, 2, commandNum == 2);
+        drawMenuButton(titleButtons[2], text, x, y,  commandNum == 2);
     }
 
     private void drawDialogueScreen() {
@@ -660,7 +720,7 @@ public class UI {
 
         //BACK
         textY = frameY + gp.tileSize * 9;
-        drawMenuButton(fullscreenNotiButtons[0], "BACK", textX, textY, 0, commandNum == 0 );
+        drawMenuButton(fullscreenNotiButtons[0], "BACK", textX, textY,  commandNum == 0 );
         if(commandNum == 0){
             if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
                 subState = 0;
@@ -709,7 +769,7 @@ public class UI {
         //BACK
         textX = frameX + gp.tileSize;
         textY = frameY + gp.tileSize*9;
-        drawMenuButton(controlButtons[0], "BACK", textX, textY, 0, commandNum == 0);
+        drawMenuButton(controlButtons[0], "BACK", textX, textY,  commandNum == 0);
         if(commandNum == 0){
             if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
                 subState = 0;
@@ -748,57 +808,25 @@ public class UI {
         g2.drawString("Time: " + decimalFormat.format(playTime), x, y);
     }
 
-    public void handleTitleClick(){
-        //buttons already have current-frame bounds;
-        //commandNum is already synced to whichever one is hovered, click to confirm it
-        if(gp.ui.titleButtonHovered()){
-            gp.gameState = commandNum == 0 ? gp.playState : gp.titleState;
-            if(commandNum == 0) gp.playMusic(0);
-            if(commandNum == 2) System.exit(0);
+
+
+    private int processButtonHover(UIButton[] buttons, int mouseX, int mouseY){
+        int hoveredIndex = -1;
+
+        for(int i = 0; i< buttons.length; i++){
+            boolean hovered = buttons[i].contains(mouseX, mouseY);
+            buttons[i].hovered = hovered;
+
+            if(hovered){
+                hoveredIndex = i;
+                if(buttons[i] != lastHoveredButton){
+                    gp.playSE(8);
+                    lastHoveredButton = buttons[i];
+                }
+            }
         }
-    }
 
-    public void handleOptionClick(){
-        boolean hovered = switch (gp.ui.subState){
-            case 0 -> optionButtonHovered();
-            case 1 -> fullScreenNotiButtonHovered();
-            case 2 -> controlButtonHovered();
-            case 3 -> endgameConfirmButtonHovered();
-            default -> false;
-        };
-
-        if(hovered){
-            gp.keyH.enterPressed = true;
-        }
-    }
-
-    public boolean optionButtonHovered(){
-        for(UIButton b : optionTopButtons){
-            if(b.hovered) return true;
-        }
-        return false;
-    }
-
-    public boolean titleButtonHovered(){
-        for(UIButton b : titleButtons){
-            if(b.hovered) return true;
-        }
-        return false;
-    }
-
-    public boolean fullScreenNotiButtonHovered(){
-        return fullscreenNotiButtons[0].hovered;
-    }
-
-    public boolean controlButtonHovered(){
-        return controlButtons[0].hovered;
-    }
-
-    public boolean endgameConfirmButtonHovered(){
-        for(UIButton b : endgameConfirmButtons){
-            if(b.hovered) return true;
-        }
-        return false;
+        return  hoveredIndex;
     }
 
     public void handleInventoryClick(){
@@ -815,7 +843,7 @@ public class UI {
         }
     }
 
-    private void drawMenuButton(UIButton button, String text, int x, int y, int index, boolean selected){
+    private void drawMenuButton(UIButton button, String text, int x, int y, boolean selected){
         FontMetrics fm = g2.getFontMetrics();
         int width = (int) fm.getStringBounds(text, g2).getWidth();
         int ascent = fm.getAscent();
@@ -824,19 +852,9 @@ public class UI {
         //Padded Hitbox - a few px larger than the text itself, easier to click
         button.setBounds(x - 10, y - ascent - 4, width + 20, ascent + descent + 8);
 
-        boolean hovered = button.checkHover(gp.mouseH.getScaledX(), gp.mouseH.getScaledY());
-
-        if(hovered && button != lastHoveredButton){
-            gp.playSE(8);
-        }
-        if (hovered){
-            lastHoveredButton = button;
-            commandNum = index; //sync mouse hover with keyboard cursor
-        }
-
-        if(hovered || selected){
-            g2.setColor((new Color(255,255,255,60)));
-            g2.fillRoundRect(button.bounds.x, button.bounds.y, button.bounds.width, button.bounds.height, 10, 10);
+        if(button.hovered || selected){
+            g2.setColor(new Color(255,255,255,60));
+            g2.fillRoundRect(button.bounds.x, button.bounds.y,button.bounds.width,button.bounds.height,10,10);
         }
 
         g2.setColor(Color.white);
