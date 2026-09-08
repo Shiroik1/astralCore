@@ -10,6 +10,7 @@ public class SpriteAnimation {
     public BufferedImage[] mirroredFrames;
     public int width;
     public int height;
+    public int frameDelay = 12;
 
     public SpriteAnimation(BufferedImage[] frames, int width, int height){
         this(frames, width, height, false);

@@ -20,20 +20,12 @@ public class Player extends Entity{
     public final int screenY;
 
     public boolean attackCanceled = false;
-    public boolean facingLeft = false;
-
-    public Animator bodyAnimator = new Animator();
-    public Animator leftWeaponAnimator = new Animator();
-    public Animator rightWeaponAnimator = new Animator();
 
     public Entity leftHandItem;
     public Entity rightHandItem;
 
     private int bounceCounter = 0;
-    private BufferedImage currentWeaponFlipped;
-    private BufferedImage currentShieldFlipped;
-    private BufferedImage currentShieldFlippedDark;
-    private BufferedImage currentShieldDark;
+    private int bodySize; // canvas size shared by every player body animation (idle/run/attack)
 
     public ArrayList<Entity> inventory = new ArrayList<>();
     public final int inventorySize = 20;
@@ -77,10 +69,8 @@ public class Player extends Entity{
         nextLevelExp = 5;
         coin = 0;
         currentWeapon = new OBJ_sword_normal(gp);
-        updateWeaponSprite();
         rightHandItem = currentWeapon;
         currentShield = new OBJ_shield_wood(gp);
-        updateShieldSprite();
         projectile = new OBJ_fireball(gp);
         attack = getAttack();
         defense = getDefense();
@@ -115,50 +105,156 @@ public class Player extends Entity{
     }
 
     public void getPlayerImage(){
-        int size = (int)(gp.tileSize * 1.3);
-        bodyAnimator.setFrameDelay(4);
+        bodySize = (int)(gp.tileSize * 3); // tunable — re-check against your art
+        int size = bodySize;
 
-        BufferedImage[] idleFrames = { setup("/player/female/idle_1", size, size),
-                setup("/player/female/idle_2", size, size),
-                setup("/player/female/idle_3", size, size),
-                setup("/player/female/idle_4", size, size)};
-        bodyAnimator.addAnimation("idle", new SpriteAnimation(idleFrames,size,size,true));
+        BufferedImage[] idleDown = { setup("/player/melee_idle/00_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/01_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/02_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/03_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/04_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/05_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/06_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/07_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/08_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/09_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/10_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/11_Swordsman_lvl2_Idle_without_shadow", size, size)};
+        BufferedImage[] idleUp = { setup("/player/melee_idle/36_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/37_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/38_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/39_Swordsman_lvl2_Idle_without_shadow", size, size),};
+        BufferedImage[] idleLeft = { setup("/player/melee_idle/12_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/13_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/14_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/15_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/16_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/17_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/18_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/19_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/20_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/21_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/22_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/23_Swordsman_lvl2_Idle_without_shadow", size, size)};
+        BufferedImage[] idleRight = { setup("/player/melee_idle/24_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/25_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/26_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/27_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/28_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/29_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/30_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/31_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/32_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/33_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/34_Swordsman_lvl2_Idle_without_shadow", size, size),
+                setup("/player/melee_idle/35_Swordsman_lvl2_Idle_without_shadow", size, size) };
 
-        BufferedImage[] runFrames = {
-                setup("/player/female/run_1", size,size),
-                setup("/player/female/run_2", size, size),
-                setup("/player/female/run_3", size, size),
-                setup("/player/female/run_4", size, size),
-                setup("/player/female/run_5", size, size),
-                setup("/player/female/run_6", size, size)
-        };
-        bodyAnimator.addAnimation("run",new SpriteAnimation(runFrames,size,size,true));
+        sprites.put("idle_down", new SpriteAnimation(idleDown, size, size));
+        sprites.put("idle_up", new SpriteAnimation(idleUp, size, size));
+        sprites.put("idle_left", new SpriteAnimation(idleLeft, size, size));
+        sprites.put("idle_right", new SpriteAnimation(idleRight, size, size));
 
-        down1 = idleFrames[0];
+        BufferedImage[] runDown = { setup("/player/melee_run/00_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/01_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/02_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/03_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/04_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/05_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/06_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/07_Swordsman_lvl2_Run_without_shadow", size, size)};
+        BufferedImage[] runUp = { setup("/player/melee_run/24_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/25_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/26_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/27_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/28_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/29_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/30_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/31_Swordsman_lvl2_Run_without_shadow", size, size) };
+        BufferedImage[] runLeft = { setup("/player/melee_run/08_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/09_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/10_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/11_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/12_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/13_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/14_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/15_Swordsman_lvl2_Run_without_shadow", size, size) };
+        BufferedImage[] runRight = { setup("/player/melee_run/16_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/17_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/18_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/19_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/20_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/21_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/22_Swordsman_lvl2_Run_without_shadow", size, size),
+                setup("/player/melee_run/23_Swordsman_lvl2_Run_without_shadow", size, size) };
+
+        SpriteAnimation runDownAnim = new SpriteAnimation(runDown, size, size);
+        runDownAnim.frameDelay = 5; // lower than the default 12 = faster cycling
+
+        SpriteAnimation runUpAnim = new SpriteAnimation(runUp, size, size);
+        runUpAnim.frameDelay = 5;
+
+        SpriteAnimation runLeftAnim = new SpriteAnimation(runLeft, size, size);
+        runLeftAnim.frameDelay = 5;
+
+        SpriteAnimation runRightAnim = new SpriteAnimation(runRight, size, size);
+        runRightAnim.frameDelay = 5;
+
+        sprites.put("run_down", runDownAnim);
+        sprites.put("run_up", runUpAnim);
+        sprites.put("run_left", runLeftAnim);
+        sprites.put("run_right", runRightAnim);
+
+        down1 = idleDown[0]; // still used by UI.drawTitleScreen() for the title portrait
     }
 
     public void getPlayerAttackImage(){
+        String weaponFolder = getWeaponFolder();
 
-        if(currentWeapon.type == type_sword){
-            attackUp1 = setup("/player/boy_attack_up_1", gp.tileSize, gp.tileSize * 2);
-            attackUp2 = setup("/player/boy_attack_up_2", gp.tileSize, gp.tileSize * 2);
-            attackDown1 = setup("/player/boy_attack_down_1", gp.tileSize, gp.tileSize * 2);
-            attackDown2 = setup("/player/boy_attack_down_2", gp.tileSize, gp.tileSize * 2);
-            attackLeft1 = setup("/player/boy_attack_left_1", gp.tileSize * 2, gp.tileSize);
-            attackLeft2 = setup("/player/boy_attack_left_2", gp.tileSize * 2, gp.tileSize);
-            attackRight1 = setup("/player/boy_attack_right_1", gp.tileSize * 2, gp.tileSize);
-            attackRight2 = setup("/player/boy_attack_right_2", gp.tileSize * 2, gp.tileSize);
-        }
-        if(currentWeapon.type == type_axe){
-            attackUp1 = setup("/player/boy_axe_up_1", gp.tileSize, gp.tileSize * 2);
-            attackUp2 = setup("/player/boy_axe_up_2", gp.tileSize, gp.tileSize * 2);
-            attackDown1 = setup("/player/boy_axe_down_1", gp.tileSize, gp.tileSize * 2);
-            attackDown2 = setup("/player/boy_axe_down_2", gp.tileSize, gp.tileSize * 2);
-            attackLeft1 = setup("/player/boy_axe_left_1", gp.tileSize * 2, gp.tileSize);
-            attackLeft2 = setup("/player/boy_axe_left_2", gp.tileSize * 2, gp.tileSize);
-            attackRight1 = setup("/player/boy_axe_right_1", gp.tileSize * 2, gp.tileSize);
-            attackRight2 = setup("/player/boy_axe_right_2", gp.tileSize * 2, gp.tileSize);
-        }
+        BufferedImage[] attackDown = {
+                setup("/player/melee_" + weaponFolder + "_attack/00_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/01_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/02_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/03_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/04_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/05_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/06_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/07_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize)
+        };
+        BufferedImage[] attackUp = {
+                setup("/player/melee_" + weaponFolder + "_attack/24_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/25_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/26_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/27_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/28_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/29_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/30_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/31_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize)
+        };
+        BufferedImage[] attackLeft = {
+                setup("/player/melee_" + weaponFolder + "_attack/08_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/09_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/10_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/11_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/12_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/13_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/14_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/15_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize)
+        };
+        BufferedImage[] attackRight = {
+                setup("/player/melee_" + weaponFolder + "_attack/16_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/17_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/18_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/19_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/20_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/21_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/22_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize),
+                setup("/player/melee_" + weaponFolder + "_attack/23_Swordsman_lvl2_Run_Attack_without_shadow", bodySize, bodySize)
+        };
+
+        sprites.put("attack_down", new SpriteAnimation(attackDown, bodySize, bodySize));
+        sprites.put("attack_up", new SpriteAnimation(attackUp, bodySize, bodySize));
+        sprites.put("attack_left", new SpriteAnimation(attackLeft, bodySize, bodySize));
+        sprites.put("attack_right", new SpriteAnimation(attackRight, bodySize, bodySize));
     }
 
     public void update(){
@@ -178,11 +274,9 @@ public class Player extends Entity{
 
         if (keyH.leftPressed) {
             horizDir = "left";
-            facingLeft = true;
         }
         else if(keyH.rightPressed){
             horizDir = "right";
-            facingLeft = false;
         }
 
         if(keyH.upPressed){
@@ -195,8 +289,21 @@ public class Player extends Entity{
         direction = (vertDir != null) ? vertDir : direction;
         direction = (horizDir != null) ? horizDir : direction;
 
-        bodyAnimator.setState(moving ? "run" : "idle");
-        bodyAnimator.update();
+        animState = attacking ? "attack" : (moving ? "run" : "idle");
+
+        if(!attacking){
+            spriteCounter++;
+            SpriteAnimation anim = getCurrentAnimation();
+            int frameDelay = (anim != null) ? anim.frameDelay : 12;
+            if(spriteCounter > frameDelay){
+                int frameCount = (anim != null) ? anim.frames.length : 1;
+                spriteNum++;
+                if(spriteNum > frameCount){
+                    spriteNum = 1;
+                }
+                spriteCounter = 0;
+            }
+        }
 
         if(attacking){
             attacking();
@@ -302,22 +409,26 @@ public class Player extends Entity{
 
     }
 
+    private final int attackFrameDelay = 3;   // ticks each attack frame is held — tune to taste
+    private final int attackHitStartFrame = 4; // first frame (1-indexed) that checks for a hit
+    private final int attackHitEndFrame = 6;   // last frame that checks for a hit
+
     public void attacking() {
         spriteCounter++;
 
-        if(spriteCounter <= 5){
-            spriteNum = 1;
-        }
-        if(spriteCounter > 5 && spriteCounter <= 25){
-            spriteNum = 2;
+        SpriteAnimation anim = getCurrentAnimation();
+        int totalFrames = (anim != null) ? anim.frames.length : 1;
 
+        int frameIndex = Math.min(spriteCounter / attackFrameDelay, totalFrames - 1);
+        spriteNum = frameIndex + 1;
+
+        if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame){
             //Save current WorldX, WorldY, SolidArea
             int currentWorldX = worldX;
             int currentWorldY = worldY;
             int solidAreaWidth = solidArea.width;
             int solidAreaHeight = solidArea.height;
 
-            //Adjust player's WorldX/Y for the Attack area
             switch (direction){
                 case "up" -> worldY -= attackArea.height;
                 case "down" -> worldY += attackArea.height;
@@ -338,26 +449,15 @@ public class Player extends Entity{
             worldY = currentWorldY;
             solidArea.width = solidAreaWidth;
             solidArea.height = solidAreaHeight;
-
         }
-        if(spriteCounter > 25){
+
+        if(spriteCounter > attackFrameDelay * totalFrames){
             spriteNum = 1;
             spriteCounter = 0;
             attacking = false;
         }
     }
 
-    private String getDirectionFromMouse(){
-        double dx = gp.mouseH.getScaledX() - (screenX + gp.tileSize / 2.0);
-        double dy = gp.mouseH.getScaledY() - (screenY + gp.tileSize / 2.0);
-
-        if(Math.abs(dx) > Math.abs(dy)){
-            return dx > 0 ? "right" : "left";
-        }
-        else{
-            return dy > 0 ? "down" : "up";
-        }
-    }
 
     public void damageMonster(int index, int attack) {
         if(index != 999){
@@ -471,13 +571,11 @@ public class Player extends Entity{
 
             if(selectedItem.type == type_sword || selectedItem.type == type_axe){
                 currentWeapon = selectedItem;
-                updateWeaponSprite();
                 attack = getAttack();
                 getPlayerAttackImage();
             }
             if(selectedItem.type == type_shield){
                 currentShield = selectedItem;
-                updateShieldSprite();
                 defense = getDefense();
             }
             if(selectedItem.type == type_consumable){
@@ -488,36 +586,16 @@ public class Player extends Entity{
     }
 
     public void draw(Graphics2D g2){
-        BufferedImage bodyImage;
-        int bodyWidth, bodyHeight;
+        SpriteAnimation anim = getCurrentAnimation();
+        BufferedImage bodyImage = getCurrentFrame();
+        if(bodyImage == null) return;
 
-        if(attacking){
-            SpriteAnimation attackAnim = sprites.get("attack_" + direction);
-            if(attackAnim == null) return;
-            bodyImage = attackAnim.frames[Math.min(spriteNum - 1, attackAnim.frames.length - 1)];
-            bodyWidth = attackAnim.width;
-            bodyHeight = attackAnim.height;
-        }
-        else{
-            bodyImage = bodyAnimator.getCurrentFrame(facingLeft);
-            if(bodyImage == null) return;
-            bodyWidth = bodyImage.getWidth();
-            bodyHeight = bodyImage.getHeight();
-        }
+        int bodyWidth = (anim != null) ? anim.width : bodyImage.getWidth();
+        int bodyHeight = (anim != null) ? anim.height : bodyImage.getHeight();
 
         int drawX = screenX + (gp.tileSize - bodyWidth) / 2;
         int drawY = screenY + (gp.tileSize - bodyHeight) / 2;
 
-        if(attacking){
-            switch (direction){
-                case "up" -> drawY = screenY + gp.tileSize - bodyHeight;
-                case "down" -> drawY = screenY;
-                case "left" -> drawX = screenX + gp.tileSize - bodyWidth;
-                case "right" -> drawX = screenX;
-            }
-        }
-
-        //BOUNCE - transform only, no extra frames, only while running
         double bounce = 0;
         if(moving && !attacking){
             bounce = Math.abs(Math.sin(bounceCounter * 0.2)) * -4;
@@ -530,97 +608,12 @@ public class Player extends Entity{
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
         }
 
-        boolean weaponInFront = isWeaponInFront();
+        g2.drawImage(bodyImage, drawX, drawY, null);
 
-        if(!attacking && !weaponInFront){
-            drawWeapon(g2,drawX,drawY,bodyWidth,bodyHeight);
-        }
-        if(weaponInFront){
-            drawShield(g2,drawX,drawY,bodyWidth,bodyHeight,true);
-        }
-
-        g2.drawImage(bodyImage,drawX,drawY,null);
-
-        if(!attacking && weaponInFront){
-            drawWeapon(g2,drawX,drawY,bodyWidth,bodyHeight);
-        }
-        if(!weaponInFront){
-            drawShield(g2,drawX,drawY,bodyWidth,bodyHeight,false);
-        }
-
-        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,1f));
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
         g2.setTransform(originalTransform);
-
-        if(gp.keyH.showDebug){
-            drawHitbox(g2);
-            drawAttackHitbox(g2);
-        }
     }
 
-    private boolean isWeaponInFront(){
-        return !facingLeft;
-    }
-
-    private void drawWeapon(Graphics2D g2, int bodyDrawX, int bodyDrawY, int bodyWidth, int bodyHeight){
-        if(currentWeapon == null || currentWeapon.down1 == null) return;
-
-        BufferedImage weaponImage = facingLeft ? currentWeaponFlipped:currentWeapon.down1;
-        if(weaponImage == null) return;
-
-        int weaponW = weaponImage.getWidth();
-        int weaponH = weaponImage.getHeight();
-
-        int offsetX = facingLeft ? leftHandOffsetX(bodyWidth, weaponW) : rightHandOffsetX(bodyWidth, weaponW);
-
-        int weaponX = bodyDrawX + offsetX;
-        int weaponY = bodyDrawY + (bodyHeight / 2);
-
-        g2.drawImage(weaponImage, weaponX, weaponY, null);
-    }
-
-    private void drawShield(Graphics2D g2, int bodyDrawX, int bodyDrawY, int bodyWidth, int bodyHeight, boolean covered){
-        if(currentShield == null || currentShield.down1 == null) return;
-
-        BufferedImage shieldImage;
-        if(facingLeft){
-            shieldImage = covered ? currentShieldFlippedDark : currentShieldFlipped;
-        }
-        else{
-            shieldImage = covered ? currentShieldDark : currentShield.down1;
-        }
-        if(shieldImage == null) return;
-
-        int shieldW = shieldImage.getWidth();
-
-        //Shield is the opposite hand from the sword, so the formulas are swapped
-        int offsetX = facingLeft ? rightHandOffsetX(bodyWidth, shieldW) : leftHandOffsetX(bodyWidth, shieldW);
-        int shieldX = bodyDrawX + offsetX;
-        int shieldY = bodyDrawY + (bodyHeight / 2);
-
-        g2.drawImage(shieldImage, shieldX, shieldY, null);
-    }
-
-    private int rightHandOffsetX(int bodyWidth, int itemWidth){
-        return bodyWidth - (int)(itemWidth * 2.5 / 3);
-    }
-
-    private int leftHandOffsetX(int bodyWidth, int itemWidth){
-        return bodyWidth - rightHandOffsetX(bodyWidth, itemWidth) - itemWidth;
-    }
-
-    private void updateWeaponSprite(){
-        if(currentWeapon != null && currentWeapon.down1 != null){
-            currentWeaponFlipped = SpriteAnimation.flipHorizontal(currentWeapon.down1);
-        }
-    }
-
-    private void updateShieldSprite(){
-        if(currentShield != null && currentShield.down1 != null){
-            currentShieldFlipped = SpriteAnimation.flipHorizontal(currentShield.down1);
-            currentShieldDark = SpriteAnimation.darken(currentShield.down1, 0.5f);
-            currentShieldFlippedDark = SpriteAnimation.darken(currentShieldFlipped, 0.5f);
-        }
-    }
 
     private void drawAttackHitbox(Graphics2D g2){
         if(!attacking || spriteCounter <= 5 || spriteCounter > 25) return;
@@ -639,5 +632,14 @@ public class Player extends Entity{
 
         g2.setColor(Color.yellow);
         g2.drawRect(screenX, screenY, attackArea.width, attackArea.height);
+    }
+
+    private String getWeaponFolder(){
+        return switch (currentWeapon.type){
+            case type_axe -> "axe";
+            // case type_spear -> "spear";
+            // case type_mace -> "mace";
+            default -> "sword";
+        };
     }
 }
