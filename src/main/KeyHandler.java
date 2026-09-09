@@ -6,6 +6,7 @@ import java.awt.event.KeyListener;
 public class KeyHandler implements KeyListener {
     Gamepanel gp;
     public boolean upPressed, downPressed, leftPressed, rightPressed;
+    public boolean[] skillKeyPressed = new boolean[5];
     public boolean ePressed;
     public boolean showDebug;
     public boolean shotKeyPressed;
@@ -140,6 +141,14 @@ public class KeyHandler implements KeyListener {
         if(code == KeyEvent.VK_ESCAPE){
             gp.gameState = gp.optionState;
         }
+
+        //SKILL KEYS
+        if(code == KeyEvent.VK_1){ skillKeyPressed[0] = true; }
+        if(code == KeyEvent.VK_2){ skillKeyPressed[1] = true; }
+        if(code == KeyEvent.VK_3){ skillKeyPressed[2] = true; }
+        if(code == KeyEvent.VK_4){ skillKeyPressed[3] = true; }
+        if(code == KeyEvent.VK_5){ skillKeyPressed[4] = true; }
+
     }
 
     public void pauseState(int code){

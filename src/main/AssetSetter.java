@@ -37,26 +37,7 @@ public class AssetSetter {
         gp.monster[i].worldX = gp.tileSize * 22;
         gp.monster[i].worldY = gp.tileSize * 36;
         i++;
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 23;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 24;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 25;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 26;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 27;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
+
     }
 
     public void setInteractiveTile(){

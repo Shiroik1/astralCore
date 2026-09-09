@@ -255,6 +255,13 @@ public class Gamepanel extends JPanel implements Runnable{
             //TILE
             tileM.draw(g2);
 
+            //GROUND-LEVEL PARTICLE EFFECTS - always drawn beneath every entity
+            for(int i = 0; i < particleList.size(); i++){
+                if(particleList.get(i) != null && particleList.get(i).groundEffect){
+                    particleList.get(i).draw(g2);
+                }
+            }
+
             for(int i = 0; i < interactable.length; i++){
                 if(interactable[i] != null){
                     interactable[i].draw(g2);
@@ -282,14 +289,8 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
-            for(int i = 0; i < projectileList.size(); i++){
-                if(projectileList.get(i) != null){
-                    entityList.add(projectileList.get(i));
-                }
-            }
-
             for(int i = 0; i < particleList.size(); i++){
-                if(particleList.get(i) != null){
+                if(particleList.get(i) != null && !particleList.get(i).groundEffect){
                     entityList.add(particleList.get(i));
                 }
             }

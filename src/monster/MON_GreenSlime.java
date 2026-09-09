@@ -16,18 +16,18 @@ public class MON_GreenSlime extends Entity {
 
         type = type_monster;
         name = "Green Slime";
-        speed = 1;
-        maxHP = 5;
+        speed = 2;
+        maxHP = 20;
         HP = maxHP;
         attack = 5;
         defense = 0;
         exp = 3;
         projectile = new OBJ_rock(gp);
 
-        solidArea.x = 3;
-        solidArea.y = 18;
-        solidArea.width = 42;
-        solidArea.height = 30;
+        solidArea.x = 3 * 3;
+        solidArea.y = 18 * 3;
+        solidArea.width = 42 * 3;
+        solidArea.height = 30 * 3;
         solidAreaDefaultX = solidArea.x;
         solidAreaDefaultY = solidArea.y;
 
@@ -35,14 +35,15 @@ public class MON_GreenSlime extends Entity {
     }
 
     public void getImage(){
-        up1 = setup("/monster/greenslime_down_1", gp.tileSize, gp.tileSize);
-        up2 = setup("/monster/greenslime_down_2", gp.tileSize, gp.tileSize);
-        down1 = setup("/monster/greenslime_down_1", gp.tileSize, gp.tileSize);
-        down2 = setup("/monster/greenslime_down_2", gp.tileSize, gp.tileSize);
-        left1 = setup("/monster/greenslime_down_1", gp.tileSize, gp.tileSize);
-        left2 = setup("/monster/greenslime_down_2", gp.tileSize, gp.tileSize);
-        right1 = setup("/monster/greenslime_down_1", gp.tileSize, gp.tileSize);
-        right2 = setup("/monster/greenslime_down_2", gp.tileSize, gp.tileSize);
+        int size = gp.tileSize * 3;
+        up1 = setup("/monster/greenslime_down_1", size, size);
+        up2 = setup("/monster/greenslime_down_2", size, size);
+        down1 = setup("/monster/greenslime_down_1", size, size);
+        down2 = setup("/monster/greenslime_down_2", size, size);
+        left1 = setup("/monster/greenslime_down_1", size, size);
+        left2 = setup("/monster/greenslime_down_2", size, size);
+        right1 = setup("/monster/greenslime_down_1", size, size);
+        right2 = setup("/monster/greenslime_down_2", size, size);
     }
 
     public void setAction(){

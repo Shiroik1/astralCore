@@ -11,6 +11,7 @@ public class Particle extends Entity{
     int size;
     int xd;
     int yd;
+    public boolean groundEffect = false;
 
     public Particle(Gamepanel gp, Entity generator, Color color, int size, int speed, int maxHP, int xd, int yd) {
         super(gp);
@@ -51,5 +52,11 @@ public class Particle extends Entity{
 
         g2.setColor(color);
         g2.fillRect(screenX, screenY, size, size);
+    }
+
+    public Particle(Gamepanel gp, Entity generator, Color color, int size, int speed, int maxHP, int xd, int yd, int spawnOffsetX, int spawnOffsetY) {
+        this(gp, generator, color, size, speed, maxHP, xd, yd);
+        worldX += spawnOffsetX;
+        worldY += spawnOffsetY;
     }
 }

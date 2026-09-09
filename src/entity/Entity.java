@@ -6,7 +6,9 @@ import main.UtilityTool;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Entity {
@@ -24,6 +26,8 @@ public class Entity {
     public boolean invincible = false;
     public int invincibleCounter = 0;
 
+    public List<StatusEffect> statusEffects = new ArrayList<>();
+
     //SPRITES
     public Map<String, SpriteAnimation> sprites = new HashMap<>();
     public String animState = "idle";
@@ -38,6 +42,7 @@ public class Entity {
     public int dyingCounter = 0;
     public int hpBarCounter = 0;
     public int shotAvailableCounter = 0;
+    public boolean groundEffect = false;
 
     String dialogues[] = new String[20];
 
@@ -194,6 +199,8 @@ public class Entity {
         if(shotAvailableCounter < 30){
             shotAvailableCounter++;
         }
+
+        updateStatusEffects();
     }
 
     public void damagePlayer(int attack){
@@ -377,5 +384,47 @@ public class Entity {
 
         g2.setColor(color);
         g2.drawRect(screenX, screenY, solidArea.width, solidArea.height);
+    }
+
+    public void addStatusEffect(StatusEffect effect){
+        statusEffects.add(effect);
+    }
+
+    public void updateStatusEffects(){
+        for(int i = statusEffects.size() - 1; i >= 0; i--){
+            StatusEffect e = statusEffects.get(i);
+            e.duration--;
+
+            if(e.type.equals("bleed")){
+                e.tickCounter++;
+                if(e.tickCounter >= e.tickInterval){
+                    HP -= e.value;
+                    if(HP < 0) HP = 0;
+                    e.tickCounter = 0;
+
+                    if(HP <= 0 && type == type_monster){
+                        dying = true; // matches the death flag damageMonster() sets - but skips EXP/kill message, since that logic lives in Player currently
+                    }
+                }
+            }
+
+            if(e.duration <= 0){
+                statusEffects.remove(i);
+            }
+        }
+    }
+
+    public boolean hasStatusEffect(String statusType){
+        for(StatusEffect e : statusEffects){
+            if(e.type.equals(statusType)) return true;
+        }
+        return false;
+    }
+
+    public int getStatusEffectValue(String statusType){
+        for(StatusEffect e : statusEffects){
+            if(e.type.equals(statusType)) return e.value;
+        }
+        return 0;
     }
 }

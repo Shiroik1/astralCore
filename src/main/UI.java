@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import entity.Skill;
 
 public class UI {
     Gamepanel gp;
@@ -160,6 +161,7 @@ public class UI {
 
             drawPlayerHP();
             drawMessage();
+            drawSkillHotbar();
         }
 
         //PAUSE STATE
@@ -859,5 +861,59 @@ public class UI {
 
         g2.setColor(Color.white);
         g2.drawString(text, x, y);
+    }
+
+    private void drawSkillHotbar(){
+        int slotSize = 50;
+        int spacing = 10;
+        int totalWidth = (slotSize * 5) + (spacing * 4);
+        int startX = (gp.screenWidth - totalWidth) / 2;
+        int y = gp.screenHeight - slotSize - 20;
+
+        for(int i = 0; i < gp.player.skills.length; i++){
+            Skill skill = gp.player.skills[i];
+            if(skill == null) continue;
+
+            int x = startX + i * (slotSize + spacing);
+
+            //SLOT BACKGROUND
+            g2.setColor(new Color(0, 0, 0, 150));
+            g2.fillRoundRect(x, y, slotSize, slotSize, 8, 8);
+
+            //ICON
+            if(skill.icon != null){
+                g2.drawImage(skill.icon, x + 9, y + 9, 32, 32, null);
+            }
+
+            //COOLDOWN OVERLAY - darkens bottom-up as it wipes away, like a classic ability timer
+            if(!skill.isReady()){
+                float cooldownFraction = (float) skill.cooldownRemaining / skill.cooldownDuration;
+                int overlayHeight = (int)(slotSize * cooldownFraction);
+                g2.setColor(new Color(0, 0, 0, 160));
+                g2.fillRect(x, y, slotSize, overlayHeight);
+
+                int secondsLeft = (int) Math.ceil(skill.cooldownRemaining / 60.0);
+                g2.setFont(g2.getFont().deriveFont(Font.BOLD, 16f));
+                g2.setColor(Color.white);
+                String text = String.valueOf(secondsLeft);
+                int textWidth = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
+                g2.drawString(text, x + (slotSize - textWidth) / 2, y + (slotSize / 2) + 6);
+            }
+
+            //INSUFFICIENT MP TINT
+            if(gp.player.MP < skill.mpCost){
+                g2.setColor(new Color(255, 0, 0, 80));
+                g2.fillRoundRect(x, y, slotSize, slotSize, 8, 8);
+            }
+
+            //BORDER
+            g2.setColor(Color.white);
+            g2.setStroke(new BasicStroke(2));
+            g2.drawRoundRect(x, y, slotSize, slotSize, 8, 8);
+
+            //KEYBIND NUMBER
+            g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 12f));
+            g2.drawString(String.valueOf(i + 1), x + 4, y + 14);
+        }
     }
 }

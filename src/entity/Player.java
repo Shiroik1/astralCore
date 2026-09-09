@@ -25,10 +25,18 @@ public class Player extends Entity{
     public Entity rightHandItem;
 
     private int bounceCounter = 0;
+    private int trailCounter = 0;
+    private final int trailInterval = 8; // ticks between trail particles — lower = denser trail
     private int bodySize; // canvas size shared by every player body animation (idle/run/attack)
 
     public ArrayList<Entity> inventory = new ArrayList<>();
     public final int inventorySize = 20;
+
+    //SKILL PARAMETERS
+    public Skill[] skills = new Skill[5];
+    private boolean powerStrikePending = false;
+    private int powerStrikeBonus = 0;
+    private boolean rendPending = false;
 
     public Player(Gamepanel gp, KeyHandler keyH){
         super(gp);
@@ -93,6 +101,7 @@ public class Player extends Entity{
         inventory.add(currentWeapon);
         inventory.add(currentShield);
         inventory.add(new OBJ_potion_red(gp));
+        setupSkills();
     }
 
     private int getDefense() {
@@ -291,6 +300,21 @@ public class Player extends Entity{
 
         animState = attacking ? "attack" : (moving ? "run" : "idle");
 
+        updateStatusEffects();
+
+        for(int i = 0; i < skills.length; i++){
+            if(skills[i] != null){
+                skills[i].update();
+                if(keyH.skillKeyPressed[i]){
+                    if(skills[i].isReady() && MP >= skills[i].mpCost){
+                        MP -= skills[i].mpCost;
+                        skills[i].trigger();
+                    }
+                    keyH.skillKeyPressed[i] = false;
+                }
+            }
+        }
+
         if(!attacking){
             spriteCounter++;
             SpriteAnimation anim = getCurrentAnimation();
@@ -302,6 +326,14 @@ public class Player extends Entity{
                     spriteNum = 1;
                 }
                 spriteCounter = 0;
+            }
+        }
+
+        if(moving && !attacking){
+            trailCounter++;
+            if(trailCounter >= trailInterval){
+                spawnTrailParticle();
+                trailCounter = 0;
             }
         }
 
@@ -419,7 +451,8 @@ public class Player extends Entity{
         SpriteAnimation anim = getCurrentAnimation();
         int totalFrames = (anim != null) ? anim.frames.length : 1;
 
-        int frameIndex = Math.min(spriteCounter / attackFrameDelay, totalFrames - 1);
+        int effectiveDelay = getEffectiveAttackFrameDelay();
+        int frameIndex = Math.min(spriteCounter / effectiveDelay, totalFrames - 1);
         spriteNum = frameIndex + 1;
 
         if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame){
@@ -440,7 +473,17 @@ public class Player extends Entity{
             solidArea.height = attackArea.height;
 
             int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
-            damageMonster(monsterIndex, attack);
+            int bonusDamage = 0;
+            if(powerStrikePending){
+                bonusDamage = powerStrikeBonus;
+                powerStrikePending = false;
+            }
+            damageMonster(monsterIndex, getEffectiveAttack() + bonusDamage);
+
+            if(rendPending && monsterIndex != 999){
+                gp.monster[monsterIndex].addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
+                rendPending = false;
+            }
 
             int interactableIndex = gp.collisionChecker.checkEntity(this, gp.interactable);
             objectInteract(interactableIndex);
@@ -451,7 +494,7 @@ public class Player extends Entity{
             solidArea.height = solidAreaHeight;
         }
 
-        if(spriteCounter > attackFrameDelay * totalFrames){
+        if(spriteCounter > effectiveDelay * totalFrames){
             spriteNum = 1;
             spriteCounter = 0;
             attacking = false;
@@ -503,7 +546,7 @@ public class Player extends Entity{
         if(index != 999){
             if(!invincible && !gp.monster[index].dying){
                 gp.playSE(6);
-                int damage = gp.monster[index].attack - defense;
+                int damage = gp.monster[index].attack - getEffectiveDefense();
                 if(damage < 0){
                     damage = 0;
                 }
@@ -641,5 +684,98 @@ public class Player extends Entity{
             // case type_mace -> "mace";
             default -> "sword";
         };
+    }
+
+    private void spawnTrailParticle(){
+        int feetOffsetY = (solidArea.y + solidArea.height) - (gp.tileSize / 2);
+        Particle p = new Particle(gp, this, getParticleColor(), getParticleSize(), getParticleSpeed(), getParticleMaxHP(), 0, 0, 0, feetOffsetY);
+        p.groundEffect = true;
+        gp.particleList.add(p);
+    }
+
+    @Override
+    public Color getParticleColor(){
+        return new Color(223, 223, 223); // dust color — tune to your art
+    }
+
+    @Override
+    public int getParticleSize(){
+        return 6;
+    }
+
+    @Override
+    public int getParticleSpeed(){
+        return 0; // trail particles stay put and just fade/expire, don't fly outward
+    }
+
+    @Override
+    public int getParticleMaxHP(){
+        return 20; // lifespan in ticks before it disappears
+    }
+
+    private void setupSkills(){
+        skills[0] = new Skill("Power Strike", 2, 300, () -> {
+            powerStrikePending = true;
+            powerStrikeBonus = attack; // roughly doubles next hit - tune to taste
+            spawnSkillParticles(new Color(255, 200, 0), 8);
+            gp.ui.addMessage("Power Strike!");
+        }, loadSkillIcon("/skill_icon/sword_powerstrike"));
+
+        skills[1] = new Skill("War Cry", 1, 600, () -> {
+            addStatusEffect(new StatusEffect("attackBoost", 300, 3, 0));
+            spawnSkillParticles(new Color(255, 80, 80), 10);
+            gp.ui.addMessage("War Cry!");
+        },loadSkillIcon("/skill_icon/sword_warcry"));
+
+        skills[2] = new Skill("Adrenaline Rush", 1, 600, () -> {
+            addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
+            spawnSkillParticles(new Color(255, 255, 0), 10);
+            gp.ui.addMessage("Adrenaline Rush!");
+        },loadSkillIcon("/skill_icon/sword_adrenaline"));
+
+        skills[3] = new Skill("Rend", 1, 480, () -> {
+            rendPending = true;
+            spawnSkillParticles(new Color(150, 0, 0), 8);
+            gp.ui.addMessage("Rend!");
+        },loadSkillIcon("/skill_icon/sword_rend"));
+
+        skills[4] = new Skill("Fortify", 1, 600, () -> {
+            addStatusEffect(new StatusEffect("defenseBoost", 300, 3, 0));
+            spawnSkillParticles(new Color(120, 180, 255), 10);
+            gp.ui.addMessage("Fortify!");
+        },loadSkillIcon("/skill_icon/fortify"));
+    }
+
+    private BufferedImage loadSkillIcon(String path){
+        BufferedImage img = null;
+        try{
+            img = ImageIO.read(getClass().getResourceAsStream(path + ".png"));
+        } catch(Exception e){
+            e.printStackTrace();
+        }
+        return img;
+    }
+
+    private void spawnSkillParticles(Color color, int count){
+        for(int i = 0; i < count; i++){
+            double angle = (2 * Math.PI / count) * i;
+            int xd = (int)Math.round(Math.cos(angle) * 2);
+            int yd = (int)Math.round(Math.sin(angle) * 2);
+            Particle p = new Particle(gp, this, color, 6, 2, 20, xd, yd);
+            gp.particleList.add(p);
+        }
+    }
+
+    public int getEffectiveAttack(){
+        return attack + getStatusEffectValue("attackBoost");
+    }
+
+    public int getEffectiveDefense(){
+        return defense + getStatusEffectValue("defenseBoost");
+    }
+
+    public int getEffectiveAttackFrameDelay(){
+        int delay = attackFrameDelay - getStatusEffectValue("attackSpeedBoost");
+        return Math.max(1, delay);
     }
 }
