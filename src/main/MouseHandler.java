@@ -10,6 +10,7 @@ public class MouseHandler implements MouseListener, MouseMotionListener {
 
     public int mouseX, mouseY;
     public boolean leftClicked; //One-shot flag FOR ATTACK
+    public boolean rightClicked;
     public boolean leftPressed; //Held state, CHARGE
 
     public MouseHandler(Gamepanel gp){
@@ -30,6 +31,9 @@ public class MouseHandler implements MouseListener, MouseMotionListener {
             if(gp.gameState == gp.pauseState){
                 gp.gameState = gp.playState;
             }
+        }
+        if(e.getButton() == MouseEvent.BUTTON3){
+            rightClicked = true;
         }
     }
 

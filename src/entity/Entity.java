@@ -57,6 +57,7 @@ public class Entity {
     public String name;
     public boolean collision = false;
     public boolean attacking = false;
+    public boolean pickupBlocked = false; // true right after a player-initiated drop, until the player's hitbox leaves this item's hitbox
     public boolean alive = true;
     public boolean dying = false;
     public boolean hpBarOn = false;
@@ -95,6 +96,13 @@ public class Entity {
     public int defenseValue;
     public String description = "";
     public int useCost;
+
+    //STACKING
+    public boolean stackable = false;
+    public int stackCount = 1;
+    public int maxStackSize = 1;
+
+    public boolean isPlaceholder = false; // true for fallback items (unarmed/no-shield) that can't be dragged or dropped
 
     public Entity(Gamepanel gp){
         this.gp = gp;
@@ -547,5 +555,9 @@ public class Entity {
         if(knockbackRemaining <= 0){
             knockbackActive = false;
         }
+    }
+
+    public boolean canStackWith(Entity other){
+        return stackable && other != null && other.stackable && this.getClass() == other.getClass();
     }
 }

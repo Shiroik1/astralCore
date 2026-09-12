@@ -3,7 +3,7 @@ package main;
 import entity.Entity;
 import object.OBJ_crystal;
 import object.OBJ_heart;
-import org.w3c.dom.css.Rect;
+import entity.Player;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -35,13 +35,30 @@ public class UI {
     private UIButton[] gameoverButtons = {new UIButton(), new UIButton()};
     private UIButton lastHoveredButton = null;
 
-    public int slotCol = 0;
-    public int slotRow = 0;
-
     public int subState = 0;
 
     double playTime;
     DecimalFormat decimalFormat = new DecimalFormat("#0.00");
+
+    private static final int SLOT_BAG = 0;
+
+    private boolean draggingItem = false;
+    private Entity draggedItem = null;
+    private int dragSourceType = SLOT_BAG;
+    private int dragSourceIndex = -1;
+    private Rectangle inventoryWindowBounds = new Rectangle();
+    private Entity hoveredItem = null;
+    private Rectangle weaponSlotBounds = new Rectangle();
+    private Rectangle shieldSlotBounds = new Rectangle();
+
+    private final int slotIconSize = 48;      // visual size of one slot — currently matches gp.tileSize
+    private final int slotSpacing = 3;        // gap between adjacent slot cells
+    private final int slotStride = slotIconSize + slotSpacing;
+    private final int bagColumns = 5;
+    private final int equipSlotGap = 10;       // vertical gap between weapon/shield slots
+    private final int equipBagGap = 30;        // horizontal gap between paperdoll column and bag grid
+    private final int windowPadding = 20;      // inner margin on all sides of the window
+    private final int screenRightMargin = 48;  // distance kept from the right edge of the screen
 
     public UI(Gamepanel gp){
         this.gp = gp;
@@ -82,6 +99,7 @@ public class UI {
                     confirmTitleSelection(hovered);
                 }
             }
+            gp.mouseH.leftClicked = false;
         }
         else if(gp.gameState == gp.optionState){
             UIButton[] buttons = currentOptionButtons();
@@ -92,6 +110,7 @@ public class UI {
                     gp.keyH.enterPressed = true;
                 }
             }
+            gp.mouseH.leftClicked = false;
         }
         else if(gp.gameState == gp.gameOverState){
             int hovered = processButtonHover(gameoverButtons, mouseX, mouseY);
@@ -101,6 +120,10 @@ public class UI {
                     confirmGameoverSelection(hovered);
                 }
             }
+            gp.mouseH.leftClicked = false;
+        }
+        else if(gp.gameState == gp.characterState){
+            updateInventoryDrag(mouseX, mouseY);
         }
     }
 
@@ -370,92 +393,126 @@ public class UI {
     }
 
     private void drawInventory() {
-        int frameX = gp.tileSize * 18;
-        int frameY = gp.tileSize;
-        int frameWidth = gp.tileSize * 6;
-        int frameHeight = gp.tileSize * 5;
-        drawSubWindow(frameX, frameY, frameWidth, frameHeight);
+        int bagRows = (int) Math.ceil((double) gp.player.inventorySlots.length / bagColumns);
+        int bagGridWidth = bagColumns * slotStride - slotSpacing;
+        int bagGridHeight = bagRows * slotStride - slotSpacing;
+        int equipColumnHeight = 2 * slotIconSize + equipSlotGap;
 
-        //SLOT
-        final int slotStartX = frameX + 20;
-        final int slotStartY = frameY + 20;
+        int frameWidth = windowPadding + slotIconSize + equipBagGap + bagGridWidth + windowPadding;
+        int frameHeight = windowPadding + Math.max(equipColumnHeight, bagGridHeight) + windowPadding;
+        int frameX = gp.screenWidth - frameWidth - screenRightMargin;
+        int frameY = gp.tileSize;
+
+        drawSubWindow(frameX, frameY, frameWidth, frameHeight);
+        inventoryWindowBounds.setBounds(frameX, frameY, frameWidth, frameHeight);
+
+        //EQUIPMENT PAPERDOLL
+        int equipX = frameX + windowPadding;
+        int weaponSlotY = frameY + windowPadding;
+        int shieldSlotY = weaponSlotY + slotIconSize + equipSlotGap;
+
+        weaponSlotBounds.setBounds(equipX, weaponSlotY, slotIconSize, slotIconSize);
+        shieldSlotBounds.setBounds(equipX, shieldSlotY, slotIconSize, slotIconSize);
+
+        drawEquipSlot(weaponSlotBounds, (draggingItem && dragSourceType == Player.EQUIP_WEAPON) ? null : gp.player.currentWeapon);
+        drawEquipSlot(shieldSlotBounds, (draggingItem && dragSourceType == Player.EQUIP_SHIELD) ? null : gp.player.currentShield);
+
+        //BAG GRID
+        final int slotStartX = equipX + slotIconSize + equipBagGap;
+        final int slotStartY = frameY + windowPadding;
         int slotX = slotStartX;
         int slotY = slotStartY;
-        int slotSize = gp.tileSize+3;
 
-        for(int i = 0; i< gp.player.inventory.size(); i++){
-            if(gp.player.inventory.get(i) == gp.player.currentWeapon || gp.player.inventory.get(i) == gp.player.currentShield){
-                g2.setColor(Color.orange);
-                g2.fillRoundRect(slotX, slotY, gp.tileSize, gp.tileSize, 10, 10);
+        for(int i = 0; i < gp.player.inventorySlots.length; i++){
+            inventorySlotBounds[i] = new Rectangle(slotX, slotY, slotIconSize, slotIconSize);
+
+            g2.setColor(new Color(255, 255, 255, 40));
+            g2.fillRoundRect(slotX, slotY, slotIconSize, slotIconSize, 8, 8);
+
+            Entity item = gp.player.inventorySlots[i];
+            boolean isBeingDragged = draggingItem && dragSourceType == SLOT_BAG && dragSourceIndex == i;
+
+            if(item != null && !isBeingDragged){
+                g2.drawImage(item.down1, slotX, slotY, null);
+                if(item.stackable && item.stackCount > 1){
+                    drawStackCount(item.stackCount, slotX, slotY);
+                }
             }
 
-            inventorySlotBounds[i] = new Rectangle(slotX, slotY,gp.tileSize, gp.tileSize);
-
-            g2.drawImage(gp.player.inventory.get(i).down1, slotX, slotY, null);
-            slotX += slotSize;
-
-            if(i == 4 || i == 9 || i == 14){
+            slotX += slotStride;
+            if((i + 1) % bagColumns == 0){
                 slotX = slotStartX;
-                slotY += slotSize;
+                slotY += slotStride;
             }
         }
 
-
-
-        //Draw Player's Items
-        for(int i = 0; i < gp.player.inventory.size(); i++){
-
-            //EQUIP CURSOR
-            if(gp.player.inventory.get(i) == gp.player.currentWeapon || gp.player.inventory.get(i) == gp.player.currentShield){
-                g2.setColor(Color.orange);
-                g2.fillRoundRect(slotX, slotY, gp.tileSize, gp.tileSize, 10, 10);
-            }
-
-            g2.drawImage(gp.player.inventory.get(i).down1, slotX, slotY, null);
-            slotX += slotSize;
-
-            if(i == 4 || i == 9|| i == 14){
-                slotX = slotStartX;
-                slotY += slotSize;
-            }
+        //FLOATING DRAGGED ITEM
+        if(draggingItem && draggedItem != null){
+            int mx = gp.mouseH.getScaledX();
+            int my = gp.mouseH.getScaledY();
+            g2.drawImage(draggedItem.down1, mx - slotIconSize/2, my - slotIconSize/2, null);
         }
 
-        //CURSOR
-        int cursorX = slotStartX + (slotSize * slotCol);
-        int cursorY = slotStartY + (slotSize * slotRow);
-        int cursorWidth = gp.tileSize;
-        int cursorHeight = gp.tileSize;
-
-        //DESCRIPTION FRAME
-        int dFrameX = frameX;
-        int dFrameY = frameY + frameHeight;
-        int dFrameWidth = frameWidth;
-        int dFrameHeight = gp.tileSize * 3;
-
-        //DESCRIPTION TEXT
-        int textX = dFrameX + 20;
-        int textY = dFrameY + gp.tileSize;
-        g2.setFont(g2.getFont().deriveFont(15f));
-
-        //DRAW CURSOR
-        g2.setColor(Color.white);
-        g2.setStroke(new BasicStroke(3));
-        g2.drawRoundRect(cursorX, cursorY, cursorWidth, cursorHeight, 10, 10);
-
-        int itemIndex = getItemIndexOnSlot();
-
-        if(itemIndex < gp.player.inventory.size()){
-            drawSubWindow(dFrameX, dFrameY, dFrameWidth, dFrameHeight);
-            for(String line: gp.player.inventory.get(itemIndex).description.split("\n")){
-                g2.drawString(line, textX, textY );
-                textY += 32;
-            }
+        //TOOLTIP
+        if(!draggingItem && hoveredItem != null){
+            drawTooltip(hoveredItem, gp.mouseH.getScaledX(), gp.mouseH.getScaledY());
         }
     }
 
-    public int getItemIndexOnSlot(){
-        int itemIndex = slotCol + (slotRow * 5);
-        return itemIndex;
+    private void drawEquipSlot(Rectangle bounds, Entity equipped){
+        g2.setColor(new Color(255, 200, 0, 60));
+        g2.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 8, 8);
+        g2.setColor(Color.white);
+        g2.setStroke(new BasicStroke(2));
+        g2.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 8, 8);
+
+        if(equipped != null && equipped.down1 != null){
+            g2.drawImage(equipped.down1, bounds.x, bounds.y, null);
+        }
+    }
+
+    private void drawStackCount(int count, int slotX, int slotY){
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 14f));
+        String text = String.valueOf(count);
+        int textWidth = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
+        int textX = slotX + gp.tileSize - textWidth - 4;
+        int textY = slotY + gp.tileSize - 4;
+
+        g2.setColor(Color.black);
+        g2.drawString(text, textX + 1, textY + 1);
+        g2.setColor(Color.white);
+        g2.drawString(text, textX, textY);
+    }
+
+    private void drawTooltip(Entity item, int mouseX, int mouseY){
+        g2.setFont(g2.getFont().deriveFont(15f));
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        lines.add(item.name);
+        for(String line : item.description.split("\n")){
+            lines.add(line);
+        }
+        if(item.stackable){
+            lines.add("Stack: " + item.stackCount + "/" + item.maxStackSize);
+        }
+
+        int padding = 10;
+        int lineHeight = 20;
+        int tooltipWidth = 0;
+        for(String line : lines){
+            int w = (int) g2.getFontMetrics().getStringBounds(line, g2).getWidth();
+            tooltipWidth = Math.max(tooltipWidth, w);
+        }
+        tooltipWidth += padding * 2;
+        int tooltipHeight = lines.size() * lineHeight + padding;
+
+        drawSubWindow(mouseX + 16, mouseY + 16, tooltipWidth, tooltipHeight);
+
+        int textX = mouseX + 16 + padding;
+        int textY = mouseY + 16 + padding + 12;
+        for(String line : lines){
+            g2.drawString(line, textX, textY);
+            textY += lineHeight;
+        }
     }
 
     private void drawMessage() {
@@ -831,20 +888,6 @@ public class UI {
         return  hoveredIndex;
     }
 
-    public void handleInventoryClick(){
-        int mx = gp.mouseH.getScaledX();
-        int my = gp.mouseH.getScaledY();
-
-        for(int i = 0; i < gp.player.inventory.size(); i++){
-            if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mx, my)){
-                slotCol = i % 5;
-                slotRow = i / 5;
-                gp.player.setItems();
-                break;
-            }
-        }
-    }
-
     private void drawMenuButton(UIButton button, String text, int x, int y, boolean selected){
         FontMetrics fm = g2.getFontMetrics();
         int width = (int) fm.getStringBounds(text, g2).getWidth();
@@ -915,5 +958,107 @@ public class UI {
             g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 12f));
             g2.drawString(String.valueOf(i + 1), x + 4, y + 14);
         }
+    }
+
+    private void updateInventoryDrag(int mouseX, int mouseY){
+        if(gp.mouseH.rightClicked){
+            handleRightClick(mouseX, mouseY);
+            gp.mouseH.rightClicked = false;
+        }
+
+        if(gp.mouseH.leftPressed && !draggingItem){
+            if(weaponSlotBounds.contains(mouseX, mouseY) && gp.player.currentWeapon != null && !gp.player.currentWeapon.isPlaceholder){
+                draggingItem = true;
+                draggedItem = gp.player.currentWeapon;
+                dragSourceType = Player.EQUIP_WEAPON;
+                dragSourceIndex = -1;
+            }
+            else if(shieldSlotBounds.contains(mouseX, mouseY) && gp.player.currentShield != null && !gp.player.currentShield.isPlaceholder){
+                draggingItem = true;
+                draggedItem = gp.player.currentShield;
+                dragSourceType = Player.EQUIP_SHIELD;
+                dragSourceIndex = -1;
+            }
+            else {
+                for(int i = 0; i < inventorySlotBounds.length; i++){
+                    if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY) && gp.player.inventorySlots[i] != null){
+                        draggingItem = true;
+                        draggedItem = gp.player.inventorySlots[i];
+                        dragSourceType = SLOT_BAG;
+                        dragSourceIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        hoveredItem = draggingItem ? null : getItemAtPosition(mouseX, mouseY);
+
+        if(!gp.mouseH.leftPressed && draggingItem){
+            resolveDrop(mouseX, mouseY);
+            draggingItem = false;
+            draggedItem = null;
+            dragSourceIndex = -1;
+        }
+    }
+
+    private void handleRightClick(int mouseX, int mouseY){
+        for(int i = 0; i < inventorySlotBounds.length; i++){
+            if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY)){
+                gp.player.useInventoryItem(i);
+                return;
+            }
+        }
+    }
+
+    private void resolveDrop(int mouseX, int mouseY){
+        if(weaponSlotBounds.contains(mouseX, mouseY)){
+            if(dragSourceType == SLOT_BAG){
+                gp.player.tryEquipFromBag(dragSourceIndex, Player.EQUIP_WEAPON);
+            }
+            return; // equip-slot-onto-itself, or wrong-type drag — no-op either way
+        }
+        if(shieldSlotBounds.contains(mouseX, mouseY)){
+            if(dragSourceType == SLOT_BAG){
+                gp.player.tryEquipFromBag(dragSourceIndex, Player.EQUIP_SHIELD);
+            }
+            return;
+        }
+
+        for(int i = 0; i < inventorySlotBounds.length; i++){
+            if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY)){
+                if(dragSourceType == SLOT_BAG){
+                    gp.player.swapOrMergeBagSlots(dragSourceIndex, i);
+                } else {
+                    gp.player.unequipToBagIndex(dragSourceType, i);
+                }
+                return;
+            }
+        }
+
+        // released outside every slot
+        if(!inventoryWindowBounds.contains(mouseX, mouseY)){
+            if(dragSourceType == SLOT_BAG){
+                gp.player.dropBagItemToWorld(dragSourceIndex);
+            } else {
+                gp.player.unequipToWorld(dragSourceType);
+            }
+        }
+        // else: released in a gap inside the window — item was never removed from its source, so it just reverts
+    }
+
+    private Entity getItemAtPosition(int mouseX, int mouseY){
+        if(weaponSlotBounds.contains(mouseX, mouseY)){
+            return (gp.player.currentWeapon != null && !gp.player.currentWeapon.isPlaceholder) ? gp.player.currentWeapon : null;
+        }
+        if(shieldSlotBounds.contains(mouseX, mouseY)){
+            return (gp.player.currentShield != null && !gp.player.currentShield.isPlaceholder) ? gp.player.currentShield : null;
+        }
+        for(int i = 0; i < inventorySlotBounds.length; i++){
+            if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY) && gp.player.inventorySlots[i] != null){
+                return gp.player.inventorySlots[i];
+            }
+        }
+        return null;
     }
 }

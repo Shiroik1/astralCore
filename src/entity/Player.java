@@ -39,8 +39,11 @@ public class Player extends Entity{
     private final int trailInterval = 8; // ticks between trail particles — lower = denser trail
     private int bodySize; // canvas size shared by every player body animation (idle/run/attack)
 
-    public ArrayList<Entity> inventory = new ArrayList<>();
+    public Entity[] inventorySlots = new Entity[20];
     public final int inventorySize = 20;
+
+    public static final int EQUIP_WEAPON = 1;
+    public static final int EQUIP_SHIELD = 2;
 
     //SKILL PARAMETERS
     public Skill[] skills = new Skill[5];
@@ -107,10 +110,9 @@ public class Player extends Entity{
     }
 
     public void setItems(){
-        inventory.clear();
-        inventory.add(currentWeapon);
-        inventory.add(currentShield);
-        inventory.add(new OBJ_potion_red(gp));
+        java.util.Arrays.fill(inventorySlots, null);
+        Entity starterPotion = new OBJ_potion_red(gp);
+        inventorySlots[0] = starterPotion;
         setupSkills();
     }
 
@@ -311,6 +313,7 @@ public class Player extends Entity{
         animState = attacking ? "attack" : (moving ? "run" : "idle");
 
         updateStatusEffects();
+        updateDroppedItemPickupBlocks();
 
         for(int i = 0; i < skills.length; i++){
             if(skills[i] != null){
@@ -596,28 +599,178 @@ public class Player extends Entity{
 
     public void pickUpObject(int index){
         if(index != 999){
+            Entity picked = gp.obj[index];
+            if(picked.pickupBlocked) return; // still standing on it from the drop — must step off first
 
-            if(gp.obj[index].type == type_pickuponly){
-                //PICK UP ONLY ITEM
-                gp.obj[index].use(this);
+            if(picked.type == type_pickuponly){
+                picked.use(this);
                 gp.obj[index] = null;
-            }
-            else{
-                //INVENTORY ITEM
-                String text;
-                if(inventory.size() != inventorySize){
-                    inventory.add(gp.obj[index]);
-                    gp.playSE(1);
-                    text = "Picked up a " + gp.obj[index].name + "!";
-                }
-                else{
-                    text = "Inventory is full!";
-                }
-                gp.ui.addMessage(text);
-                gp.obj[index] = null;
+                return;
             }
 
+            String text;
+            if(addToInventory(picked)){
+                gp.playSE(1);
+                text = "Picked up a " + picked.name + "!";
+            } else {
+                text = "Inventory is full!";
+            }
+            gp.ui.addMessage(text);
+            gp.obj[index] = null;
+        }
+    }
 
+    public boolean addToInventory(Entity item){
+        if(item.stackable){
+            for(int i = 0; i < inventorySlots.length; i++){
+                Entity slot = inventorySlots[i];
+                if(slot != null && slot.canStackWith(item) && slot.stackCount < slot.maxStackSize){
+                    int room = slot.maxStackSize - slot.stackCount;
+                    int toAdd = Math.min(room, item.stackCount);
+                    slot.stackCount += toAdd;
+                    item.stackCount -= toAdd;
+                    if(item.stackCount <= 0) return true;
+                }
+            }
+        }
+
+        for(int i = 0; i < inventorySlots.length; i++){
+            if(inventorySlots[i] == null){
+                inventorySlots[i] = item;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void tryEquipFromBag(int bagIndex, int slotType){
+        Entity item = inventorySlots[bagIndex];
+        if(item == null) return;
+
+        boolean validForSlot = (slotType == EQUIP_WEAPON && (item.type == type_sword || item.type == type_axe))
+                || (slotType == EQUIP_SHIELD && item.type == type_shield);
+        if(!validForSlot) return; // wrong item for this slot — leave it in the bag
+
+        Entity previous;
+        if(slotType == EQUIP_WEAPON){
+            previous = currentWeapon;
+            currentWeapon = item;
+            attack = getAttack();
+            getPlayerAttackImage();
+        } else {
+            previous = currentShield;
+            currentShield = item;
+            defense = getDefense();
+        }
+
+        inventorySlots[bagIndex] = previous; // the slot the new item left is guaranteed empty for the old one
+        gp.playSE(3);
+    }
+
+    public void swapOrMergeBagSlots(int fromIndex, int toIndex){
+        if(fromIndex == toIndex) return;
+
+        Entity fromItem = inventorySlots[fromIndex];
+        Entity toItem = inventorySlots[toIndex];
+        if(fromItem == null) return;
+
+        if(toItem != null && fromItem.canStackWith(toItem) && toItem.stackCount < toItem.maxStackSize){
+            int room = toItem.maxStackSize - toItem.stackCount;
+            int toMove = Math.min(room, fromItem.stackCount);
+            toItem.stackCount += toMove;
+            fromItem.stackCount -= toMove;
+            if(fromItem.stackCount <= 0){
+                inventorySlots[fromIndex] = null;
+            }
+            return;
+        }
+
+        inventorySlots[fromIndex] = toItem;
+        inventorySlots[toIndex] = fromItem;
+    }
+
+    public void unequipToBagIndex(int slotType, int bagIndex){
+        Entity equipped = (slotType == EQUIP_WEAPON) ? currentWeapon : currentShield;
+        if(equipped == null || equipped.isPlaceholder) return;
+
+        Entity bagItem = inventorySlots[bagIndex];
+        boolean bagItemIsValidReplacement = bagItem != null &&
+                ((slotType == EQUIP_WEAPON && (bagItem.type == type_sword || bagItem.type == type_axe)) ||
+                        (slotType == EQUIP_SHIELD && bagItem.type == type_shield));
+
+        if(bagItemIsValidReplacement){
+            // swap: the bag item takes over the slot, the old equipped item goes into the bag
+            if(slotType == EQUIP_WEAPON){ currentWeapon = bagItem; attack = getAttack(); getPlayerAttackImage(); }
+            else { currentShield = bagItem; defense = getDefense(); }
+            inventorySlots[bagIndex] = equipped;
+            gp.playSE(3);
+            return;
+        }
+
+        if(bagItem != null) return; // slot occupied by something unrelated — invalid drop, revert silently
+
+        // empty bag slot — true unequip, fall back to placeholder so attack/defense math never sees null
+        inventorySlots[bagIndex] = equipped;
+        if(slotType == EQUIP_WEAPON){ currentWeapon = new object.OBJ_fists(gp); attack = getAttack(); getPlayerAttackImage(); }
+        else { currentShield = new object.OBJ_no_shield(gp); defense = getDefense(); }
+        gp.playSE(3);
+    }
+
+    public void unequipToWorld(int slotType){
+        Entity equipped = (slotType == EQUIP_WEAPON) ? currentWeapon : currentShield;
+        if(equipped == null || equipped.isPlaceholder) return;
+
+        if(slotType == EQUIP_WEAPON){ currentWeapon = new object.OBJ_fists(gp); attack = getAttack(); getPlayerAttackImage(); }
+        else { currentShield = new object.OBJ_no_shield(gp); defense = getDefense(); }
+
+        dropItemAtPlayer(equipped); // inherited from Entity — places it at the player's current worldX/worldY
+        gp.ui.addMessage("Dropped " + equipped.name + ".");
+    }
+
+    public void dropBagItemToWorld(int index){
+        Entity item = inventorySlots[index];
+        if(item == null) return;
+
+        inventorySlots[index] = null;
+        dropItemAtPlayer(item);
+        gp.ui.addMessage("Dropped " + item.name + ".");
+    }
+
+    private void dropItemAtPlayer(Entity item){
+        item.pickupBlocked = true;
+
+        for(int i = 0; i < gp.obj.length; i++){
+            if(gp.obj[i] == null){
+                gp.obj[i] = item;
+                gp.obj[i].worldX = worldX;
+                gp.obj[i].worldY = worldY;
+                break;
+            }
+        }
+    }
+
+    public void useInventoryItem(int index){
+        Entity item = inventorySlots[index];
+        if(item == null || item.type != type_consumable) return;
+
+        item.use(this);
+        item.stackCount--;
+        if(item.stackCount <= 0){
+            inventorySlots[index] = null;
+        }
+    }
+
+    private void updateDroppedItemPickupBlocks(){
+        Rectangle playerBounds = new Rectangle(worldX + solidArea.x, worldY + solidArea.y, solidArea.width, solidArea.height);
+
+        for(Entity obj : gp.obj){
+            if(obj != null && obj.pickupBlocked){
+                Rectangle objBounds = new Rectangle(obj.worldX + obj.solidArea.x, obj.worldY + obj.solidArea.y, obj.solidArea.width, obj.solidArea.height);
+                if(!playerBounds.intersects(objBounds)){
+                    obj.pickupBlocked = false; // player has physically stepped away — normal pickup rules resume
+                }
+            }
         }
     }
 
@@ -640,28 +793,6 @@ public class Player extends Entity{
 
             if(gp.interactable[index].HP <= 0){
                 gp.interactable[index] = gp.interactable[index].getDestroyedForm();
-            }
-        }
-    }
-
-    public void selectItem(){
-        int itemIndex = gp.ui.getItemIndexOnSlot();
-        if(itemIndex < inventory.size()){
-
-            Entity selectedItem = inventory.get(itemIndex);
-
-            if(selectedItem.type == type_sword || selectedItem.type == type_axe){
-                currentWeapon = selectedItem;
-                attack = getAttack();
-                getPlayerAttackImage();
-            }
-            if(selectedItem.type == type_shield){
-                currentShield = selectedItem;
-                defense = getDefense();
-            }
-            if(selectedItem.type == type_consumable){
-                selectedItem.use(this);
-                inventory.remove(itemIndex);
             }
         }
     }

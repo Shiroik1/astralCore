@@ -12,6 +12,8 @@ public class OBJ_potion_red extends Entity {
         type = type_consumable;
         down1 = setup("/object/potion_red", gp.tileSize, gp.tileSize);
         description = "(" + name + ")\nA potion to restore\nyour health.";
+        stackable = true;
+        maxStackSize = 5;
     }
 
     public void use(Entity entity){
