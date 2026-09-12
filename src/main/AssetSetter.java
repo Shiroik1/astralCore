@@ -34,7 +34,23 @@ public class AssetSetter {
         int i = 0;
 
         gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 22;
+        gp.monster[i].worldX = gp.tileSize * 16;
+        gp.monster[i].worldY = gp.tileSize * 36;
+        i++;
+        gp.monster[i] = new MON_GreenSlime(gp);
+        gp.monster[i].worldX = gp.tileSize * 20;
+        gp.monster[i].worldY = gp.tileSize * 36;
+        i++;
+        gp.monster[i] = new MON_GreenSlime(gp);
+        gp.monster[i].worldX = gp.tileSize * 24;
+        gp.monster[i].worldY = gp.tileSize * 36;
+        i++;
+        gp.monster[i] = new MON_GreenSlime(gp);
+        gp.monster[i].worldX = gp.tileSize * 28;
+        gp.monster[i].worldY = gp.tileSize * 36;
+        i++;
+        gp.monster[i] = new MON_GreenSlime(gp);
+        gp.monster[i].worldX = gp.tileSize * 32;
         gp.monster[i].worldY = gp.tileSize * 36;
         i++;
 

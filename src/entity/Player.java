@@ -20,12 +20,22 @@ public class Player extends Entity{
     public final int screenY;
 
     public boolean attackCanceled = false;
+    private final int attackWindupFrameDelay = 2;   // slower hold on anticipation frames — gives the hit time to be read/reacted to
+    private final int attackActiveFrameDelay = 2;   // fast during the actual hit window — makes the strike itself feel sharp
+    private final int attackRecoveryFrameDelay = 4; // frames after the hit window, before returning to idle/run
+    private final int attackHitStartFrame = 4;
+    private final int attackHitEndFrame = 6;
+
+    private int attackFrameHoldCounter = 0;
+    private boolean attackBuffered = false;
 
     public Entity leftHandItem;
     public Entity rightHandItem;
 
     private int bounceCounter = 0;
     private int trailCounter = 0;
+    private final int hitStopOnHitMonster = 6; // ticks frozen when the player lands a hit — tune to taste
+    private final int hitStopOnTakingDamage = 8; // slightly longer than dealing a hit — getting hit should read heavier
     private final int trailInterval = 8; // ticks between trail particles — lower = denser trail
     private int bodySize; // canvas size shared by every player body animation (idle/run/attack)
 
@@ -337,7 +347,14 @@ public class Player extends Entity{
             }
         }
 
-        if(attacking){
+        if(knockbackActive){
+            updateKnockback();
+        }
+        else if(attacking){
+            if(gp.mouseH.leftClicked){
+                attackBuffered = true;   // remember the click, don't let the flag wipe reach anywhere
+                gp.mouseH.leftClicked = false;
+            }
             attacking();
         }
         else if(moving || keyH.ePressed || gp.mouseH.leftClicked){
@@ -396,11 +413,14 @@ public class Player extends Entity{
 
                 if((keyH.ePressed || gp.mouseH.leftClicked) && !attackCanceled){
                     attacking = true;
-                    spriteCounter = 0;
+                    spriteNum = 1;
+                    attackFrameHoldCounter = 0;
                 }
 
                 attackCanceled = false;
                 gp.keyH.ePressed = false;
+                gp.mouseH.leftClicked = false;
+                attackBuffered = false;
         }
 
         if(gp.keyH.shotKeyPressed && !projectile.alive && shotAvailableCounter == 30 && projectile.hasResource(this)){
@@ -418,6 +438,14 @@ public class Player extends Entity{
             if(invincibleCounter > 60){
                 invincible = false;
                 invincibleCounter = 0;
+            }
+        }
+
+        if(flashing){
+            flashCounter++;
+            if(flashCounter > flashDuration){
+                flashing = false;
+                flashCounter = 0;
             }
         }
 
@@ -441,19 +469,23 @@ public class Player extends Entity{
 
     }
 
-    private final int attackFrameDelay = 3;   // ticks each attack frame is held — tune to taste
-    private final int attackHitStartFrame = 4; // first frame (1-indexed) that checks for a hit
-    private final int attackHitEndFrame = 6;   // last frame that checks for a hit
-
     public void attacking() {
-        spriteCounter++;
-
         SpriteAnimation anim = getCurrentAnimation();
         int totalFrames = (anim != null) ? anim.frames.length : 1;
 
-        int effectiveDelay = getEffectiveAttackFrameDelay();
-        int frameIndex = Math.min(spriteCounter / effectiveDelay, totalFrames - 1);
-        spriteNum = frameIndex + 1;
+        int delayForCurrentFrame = getAttackFrameDelay(spriteNum);
+
+        attackFrameHoldCounter++;
+        if(attackFrameHoldCounter >= delayForCurrentFrame){
+            attackFrameHoldCounter = 0;
+            spriteNum++;
+
+            if(spriteNum > totalFrames){
+                spriteNum = 1;
+                attacking = false;
+                return;
+            }
+        }
 
         if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame){
             //Save current WorldX, WorldY, SolidArea
@@ -493,12 +525,6 @@ public class Player extends Entity{
             solidArea.width = solidAreaWidth;
             solidArea.height = solidAreaHeight;
         }
-
-        if(spriteCounter > effectiveDelay * totalFrames){
-            spriteNum = 1;
-            spriteCounter = 0;
-            attacking = false;
-        }
     }
 
 
@@ -513,7 +539,13 @@ public class Player extends Entity{
                 gp.monster[index].HP -= damage;
                 gp.ui.addMessage(damage + " damage!");
                 gp.monster[index].invincible = true;
+                gp.monster[index].flashing = true;
+                gp.monster[index].flashCounter = 0;
+                gp.monster[index].startKnockback(direction, gp.monster[index].knockbackDistance);
+                gp.startScreenShake(hitStopOnHitMonster, 4);
+                gp.monster[index].spawnHitParticles();
                 gp.monster[index].damageReaction();
+                gp.startHitStop(hitStopOnHitMonster);
 
                 if(gp.monster[index].HP <= 0){
                     gp.monster[index].dying = true;
@@ -552,6 +584,12 @@ public class Player extends Entity{
                 }
                 HP -= damage;
                 invincible = true;
+                flashing = true;
+                flashCounter = 0;
+                startKnockback(gp.monster[index].direction, knockbackDistance);
+                gp.startScreenShake(hitStopOnTakingDamage, 6);
+                spawnHitParticles();
+                gp.startHitStop(hitStopOnTakingDamage);
             }
         }
     }
@@ -774,8 +812,18 @@ public class Player extends Entity{
         return defense + getStatusEffectValue("defenseBoost");
     }
 
+    private int getAttackFrameDelay(int frameNumber){
+        if(frameNumber < attackHitStartFrame){
+            return attackWindupFrameDelay;
+        }
+        if(frameNumber <= attackHitEndFrame){
+            return getEffectiveAttackFrameDelay(); // active window — still respects Adrenaline Rush's attackSpeedBoost
+        }
+        return attackRecoveryFrameDelay;
+    }
+
     public int getEffectiveAttackFrameDelay(){
-        int delay = attackFrameDelay - getStatusEffectValue("attackSpeedBoost");
+        int delay = attackActiveFrameDelay - getStatusEffectValue("attackSpeedBoost");
         return Math.max(1, delay);
     }
 }

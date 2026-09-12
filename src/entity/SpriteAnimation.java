@@ -44,14 +44,14 @@ public class SpriteAnimation {
         return flipped;
     }
 
-    public static BufferedImage darken(BufferedImage src, float brightnessFactor){
-        BufferedImage darkened = new BufferedImage(src.getWidth(),src.getHeight(),BufferedImage.TYPE_INT_ARGB);
+    public static BufferedImage whiteFlash(BufferedImage src){
+        BufferedImage flashed = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_ARGB);
         RescaleOp op = new RescaleOp(
-                new float[]{brightnessFactor, brightnessFactor,brightnessFactor, 1f},
-                new float[]{0f,0f,0f,0f},
+                new float[]{0f, 0f, 0f, 1f},
+                new float[]{255f, 255f, 255f, 0f},
                 null
         );
-        op.filter(src,darkened);
-        return darkened;
+        op.filter(src, flashed);
+        return flashed;
     }
 }

@@ -6,10 +6,8 @@ import main.UtilityTool;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 public class Entity {
     public Gamepanel gp;
@@ -25,8 +23,17 @@ public class Entity {
 
     public boolean invincible = false;
     public int invincibleCounter = 0;
+    public boolean flashing = false;
+    public int flashCounter = 0;
+    public int flashDuration = 6; // ticks — short blip, independent of invincibility length
+    public boolean knockbackActive = false;
+    public String knockbackDirection;
+    public int knockbackRemaining = 0;
+    public int knockbackSpeed = 10; // px per tick — lower = smoother/slower, higher = snappier
+    public int knockbackDistance = 50; // pixels — tunable per hit weight
 
     public List<StatusEffect> statusEffects = new ArrayList<>();
+    private Map<BufferedImage, BufferedImage> flashCache = new IdentityHashMap<>();
 
     //SPRITES
     public Map<String, SpriteAnimation> sprites = new HashMap<>();
@@ -152,6 +159,11 @@ public class Entity {
 
     public void update(){
         setAction();
+
+        if(knockbackActive){
+            updateKnockback();
+        }
+
         collisionOn = false;
         gp.collisionChecker.checkTile(this);
         gp.collisionChecker.checkObject(this, false);
@@ -167,8 +179,8 @@ public class Entity {
         moving = !collisionOn;
         animState = moving ? "walk" : "idle";
 
-        //IF COLLISION IS FALSE, PLAYER CAN MOVE
-        if(!collisionOn){
+        //IF COLLISION IS FALSE, ENTITY CAN MOVE
+        if(!collisionOn && !knockbackActive){
             switch (direction){
                 case "up" -> worldY -= speed;
                 case "down" -> worldY += speed;
@@ -196,6 +208,14 @@ public class Entity {
             }
         }
 
+        if(flashing){
+            flashCounter++;
+            if(flashCounter > flashDuration){
+                flashing = false;
+                flashCounter = 0;
+            }
+        }
+
         if(shotAvailableCounter < 30){
             shotAvailableCounter++;
         }
@@ -211,6 +231,12 @@ public class Entity {
             }
             gp.player.HP -= damage;
             gp.player.invincible = true;
+            gp.startHitStop(8); // matches contactMonster's weight for consistency; no local constant here since Entity is shared across all monster types
+            gp.startScreenShake(8, 6);
+//            gp.player.flashing = true;
+//            gp.player.flashCounter = 0;
+//            gp.player.startKnockback(this.direction, gp.player.knockbackDistance);
+//            gp.player.spawnHitParticles();
         }
     }
 
@@ -249,7 +275,6 @@ public class Entity {
             if(invincible){
                 hpBarOn= true;
                 hpBarCounter = 0;
-                changeAlpha(g2, 0.4f);
             }
 
             if(dying){
@@ -355,9 +380,8 @@ public class Entity {
 
     protected BufferedImage getCurrentFrame(){
         SpriteAnimation anim = getCurrentAnimation();
-        if(anim == null) return getLegacyFrame();
-        int index = Math.min(spriteNum - 1, anim.frames.length - 1);
-        return anim.frames[index];
+        BufferedImage frame = (anim == null) ? getLegacyFrame() : anim.frames[Math.min(spriteNum - 1, anim.frames.length - 1)];
+        return flashing ? getFlashVersion(frame) : frame;
     }
 
     protected BufferedImage getLegacyFrame(){
@@ -426,5 +450,102 @@ public class Entity {
             if(e.type.equals(statusType)) return e.value;
         }
         return 0;
+    }
+
+    public void spawnHitParticles(){
+        Color color = Color.white;
+        int size = 5;
+        int speed = 2;
+        int maxHP = 15;
+
+        for(int i = 0; i < 4; i++){
+            double angle = (2 * Math.PI / 4) * i + (Math.PI / 4); // 45° offset so it doesn't align with movement axes
+            int xd = (int) Math.round(Math.cos(angle) * 2);
+            int yd = (int) Math.round(Math.sin(angle) * 2);
+            Particle p = new Particle(gp, this, color, size, speed, maxHP, xd, yd);
+            gp.particleList.add(p);
+        }
+    }
+
+    // Add near the other CHARACTER STATUS fields
+    public int aggroRange = 0; // tiles; 0 = chase disabled, monster subclasses override
+
+    protected boolean isPlayerInAggroRange(){
+        if(aggroRange <= 0) return false;
+        int xDistance = Math.abs(worldX - gp.player.worldX);
+        int yDistance = Math.abs(worldY - gp.player.worldY);
+        int tileDistance = Math.max(xDistance, yDistance) / gp.tileSize;
+        return tileDistance < aggroRange;
+    }
+
+    protected void chasePlayer(){
+        int xDist = gp.player.worldX - worldX;
+        int yDist = gp.player.worldY - worldY;
+
+        if(Math.abs(xDist) > Math.abs(yDist)){
+            direction = xDist > 0 ? "right" : "left";
+        } else {
+            direction = yDist > 0 ? "down" : "up";
+        }
+    }
+
+    protected BufferedImage getFlashVersion(BufferedImage src){
+        if(src == null) return null;
+        return flashCache.computeIfAbsent(src, SpriteAnimation::whiteFlash);
+    }
+
+    public void startKnockback(String fromDirection, int distance){
+        knockbackActive = true;
+        knockbackDirection = fromDirection;
+        knockbackRemaining = distance;
+    }
+
+    public void updateKnockback(){
+        if(knockbackRemaining <= 0){
+            knockbackActive = false;
+            return;
+        }
+
+        int step = Math.min(knockbackSpeed, knockbackRemaining);
+
+        String savedDirection = direction;
+        int savedSpeed = speed;
+        direction = knockbackDirection;
+        speed = step;
+
+        collisionOn = false;
+        gp.collisionChecker.checkTile(this);
+        gp.collisionChecker.checkObject(this, false);
+
+        // Check against whichever entity lists are relevant, so knockback stops
+        // at the edge of another entity instead of overlapping it
+        if(type == type_player){
+            gp.collisionChecker.checkEntity(this, gp.monster);
+            gp.collisionChecker.checkEntity(this, gp.npc);
+        } else {
+            gp.collisionChecker.checkEntity(this, gp.monster);
+            gp.collisionChecker.checkEntity(this, gp.npc);
+            gp.collisionChecker.checkPlayer(this);
+        }
+
+        if(!collisionOn){
+            switch (knockbackDirection){
+                case "up" -> worldY -= step;
+                case "down" -> worldY += step;
+                case "left" -> worldX -= step;
+                case "right" -> worldX += step;
+            }
+            knockbackRemaining -= step;
+        } else {
+            knockbackRemaining = 0; // hit something — stop cleanly here, don't tunnel or overlap
+        }
+
+        direction = savedDirection;
+        speed = savedSpeed;
+        collisionOn = false;
+
+        if(knockbackRemaining <= 0){
+            knockbackActive = false;
+        }
     }
 }

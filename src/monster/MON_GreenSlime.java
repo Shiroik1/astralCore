@@ -17,17 +17,18 @@ public class MON_GreenSlime extends Entity {
         type = type_monster;
         name = "Green Slime";
         speed = 2;
-        maxHP = 20;
+        maxHP = 5;
         HP = maxHP;
         attack = 5;
         defense = 0;
         exp = 3;
         projectile = new OBJ_rock(gp);
+        aggroRange = 5; // tiles — tunable
 
-        solidArea.x = 3 * 3;
-        solidArea.y = 18 * 3;
-        solidArea.width = 42 * 3;
-        solidArea.height = 30 * 3;
+        solidArea.x = 3;
+        solidArea.y = 18;
+        solidArea.width = 42;
+        solidArea.height = 30;
         solidAreaDefaultX = solidArea.x;
         solidAreaDefaultY = solidArea.y;
 
@@ -35,7 +36,7 @@ public class MON_GreenSlime extends Entity {
     }
 
     public void getImage(){
-        int size = gp.tileSize * 3;
+        int size = gp.tileSize;
         up1 = setup("/monster/greenslime_down_1", size, size);
         up2 = setup("/monster/greenslime_down_2", size, size);
         down1 = setup("/monster/greenslime_down_1", size, size);
@@ -47,35 +48,41 @@ public class MON_GreenSlime extends Entity {
     }
 
     public void setAction(){
-        actionLockCounter++;
 
-        if(actionLockCounter == 120){
-            Random random = new Random();
-            int i = random.nextInt(100) + 1;
+        if(isPlayerInAggroRange()){
+            chasePlayer();
+            actionLockCounter = 0; // so it doesn't immediately resume wandering the instant it loses aggro
+        }
+        else{
+            actionLockCounter++;
+            if(actionLockCounter == 120){
+                Random random = new Random();
+                int i = random.nextInt(100) + 1;
 
-            if(i <= 25){
-                direction = "up";
-            }
-            if(i > 25 && i <= 50){
-                direction = "down";
-            }
-            if(i > 50 && i <= 75){
-                direction = "left";
-            }
-            if(i > 75 && i <= 100){
-                direction = "right";
-            }
+                if(i <= 25){
+                    direction = "up";
+                }
+                if(i > 25 && i <= 50){
+                    direction = "down";
+                }
+                if(i > 50 && i <= 75){
+                    direction = "left";
+                }
+                if(i > 75 && i <= 100){
+                    direction = "right";
+                }
 
-            actionLockCounter = 0;
+                actionLockCounter = 0;
+            }
         }
 
-        int i = new Random().nextInt(100)+1;
-
-        if(i > 99 && !projectile.alive && shotAvailableCounter == 30){
-            projectile.set(worldX, worldY, direction, true, this);
-            gp.projectileList.add(projectile);
-            shotAvailableCounter = 0;
-        }
+//        int i = new Random().nextInt(100)+1;
+//
+//        if(i > 99 && !projectile.alive && shotAvailableCounter == 30){
+//            projectile.set(worldX, worldY, direction, true, this);
+//            gp.projectileList.add(projectile);
+//            shotAvailableCounter = 0;
+//        }
     }
 
     public void damageReaction(){

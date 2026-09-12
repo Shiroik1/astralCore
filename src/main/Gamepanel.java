@@ -50,6 +50,10 @@ public class Gamepanel extends JPanel implements Runnable{
     public EventHandler eventHandler = new EventHandler(this);
     Config config = new Config(this);
     Thread gameThread;
+    public int hitStopCounter = 0;
+    public int screenShakeCounter = 0;
+    public int screenShakeIntensity = 0;
+    private final java.util.Random shakeRandom = new java.util.Random();
 
     //MOUSE SETTING
     public MouseHandler mouseH = new MouseHandler(this);
@@ -161,6 +165,12 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void update(){
+
+        if(hitStopCounter > 0){
+            hitStopCounter--;
+            return; // skip every entity's update this tick — drawToTempscreen()/drawToScreen() still run right after, so the frame stays visible and still, not black
+        }
+
         if(gameState == playState){
             //PLAYER
             player.update();
@@ -219,8 +229,6 @@ public class Gamepanel extends JPanel implements Runnable{
         else if(gameState == titleState || gameState == optionState || gameState == characterState || gameState == gameOverState){
             ui.update(mouseH.getScaledX(),mouseH.getScaledY(),mouseH.leftClicked);
         }
-
-        mouseH.leftClicked = false;
     }
 
     public void retry(){
@@ -246,12 +254,27 @@ public class Gamepanel extends JPanel implements Runnable{
         g2.setColor(Color.black);
         g2.fillRect(0, 0, screenWidth, screenHeight);
 
+        int shakeX = 0;
+        int shakeY = 0;
+        if(screenShakeCounter > 0){
+            shakeX = shakeRandom.nextInt(screenShakeIntensity * 2 + 1) - screenShakeIntensity;
+            shakeY = shakeRandom.nextInt(screenShakeIntensity * 2 + 1) - screenShakeIntensity;
+            screenShakeCounter--;
+            if(screenShakeCounter <= 0){
+                screenShakeIntensity = 0;
+            }
+        }
+
         //TITLE SCREEN
         if(gameState == titleState){
             ui.draw(g2);
         }
         //INGAME SCREEN
         else{
+
+            //SCREENSHAKE
+            g2.translate(shakeX, shakeY);
+
             //TILE
             tileM.draw(g2);
 
@@ -312,6 +335,8 @@ public class Gamepanel extends JPanel implements Runnable{
             //EMPTY ENTITY LIST
             entityList.clear();
 
+            g2.translate(-shakeX, -shakeY);
+
             //UI
             ui.draw(g2);
         }
@@ -337,5 +362,14 @@ public class Gamepanel extends JPanel implements Runnable{
     public void playSE(int i){
         soundEffect.setFile(i);
         soundEffect.play();
+    }
+
+    public void startHitStop(int duration){
+        hitStopCounter = Math.max(hitStopCounter, duration); // a bigger hit shouldn't get cut short by a smaller one already in progress
+    }
+
+    public void startScreenShake(int duration, int intensity){
+        screenShakeCounter = Math.max(screenShakeCounter, duration);
+        screenShakeIntensity = Math.max(screenShakeIntensity, intensity);
     }
 }
