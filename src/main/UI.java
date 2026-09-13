@@ -29,7 +29,7 @@ public class UI {
 
     private Rectangle[] inventorySlotBounds = new Rectangle[20];
 
-    private UIButton[] titleButtons = {new UIButton(), new UIButton(), new UIButton()};
+    private UIButton[] titleButtons = {new UIButton(), new UIButton(), new UIButton(), new UIButton()};
     private UIButton[] optionTopButtons = {new UIButton(), new UIButton(), new UIButton(), new UIButton(), new UIButton(), new UIButton()};
     private UIButton[] fullscreenNotiButtons = {new UIButton()};
     private UIButton[] controlButtons = {new UIButton()};
@@ -81,6 +81,7 @@ public class UI {
     private final int chatFadeStartTicks = 300;   // ~5s before an unread message starts fading
     private final int chatFadeDurationTicks = 60; // ~1s fade-out
     private final int chatMaxHistory = 200;       // scrollback cap
+    private String joinStatusMessage = null;
 
     public UI(Gamepanel gp){
         this.gp = gp;
@@ -123,6 +124,10 @@ public class UI {
 
     public void update(int mouseX, int mouseY, boolean clicked){
         if(gp.gameState == gp.titleState){
+            if(gp.keyH.enteringNetworkAddress){
+                gp.mouseH.leftClicked = false;
+                return;
+            }
             int hovered = processButtonHover(titleButtons, mouseX, mouseY);
             if(hovered != -1){
                 commandNum = hovered;
@@ -173,7 +178,13 @@ public class UI {
             gp.gameState = gp.playState;
             gp.playMusic(0);
         }
+        if(index == 1){
+            startHostFlow();
+        }
         if(index == 2){
+            startJoinFlow();
+        }
+        if(index == 3){
             System.exit(0);
         }
     }
@@ -181,8 +192,8 @@ public class UI {
     private void confirmGameoverSelection(int index){
         if(index == 0){
             gp.gameState = gp.playState;
-            gp.player.setDefaultPosition();
-            gp.player.resetHPandMP();
+            gp.localPlayer().setDefaultPosition();
+            gp.localPlayer().resetHPandMP();
             gp.playMusic(0);
         }
         if(index == 1){
@@ -424,7 +435,7 @@ public class UI {
     }
 
     private void drawInventory() {
-        int bagRows = (int) Math.ceil((double) gp.player.inventorySlots.length / bagColumns);
+        int bagRows = (int) Math.ceil((double) gp.localPlayer().inventorySlots.length / bagColumns);
         int bagGridWidth = bagColumns * slotStride - slotSpacing;
         int bagGridHeight = bagRows * slotStride - slotSpacing;
         int equipColumnHeight = 2 * slotIconSize + equipSlotGap;
@@ -445,8 +456,8 @@ public class UI {
         weaponSlotBounds.setBounds(equipX, weaponSlotY, slotIconSize, slotIconSize);
         shieldSlotBounds.setBounds(equipX, shieldSlotY, slotIconSize, slotIconSize);
 
-        drawEquipSlot(weaponSlotBounds, (draggingItem && dragSourceType == Player.EQUIP_WEAPON) ? null : gp.player.currentWeapon);
-        drawEquipSlot(shieldSlotBounds, (draggingItem && dragSourceType == Player.EQUIP_SHIELD) ? null : gp.player.currentShield);
+        drawEquipSlot(weaponSlotBounds, (draggingItem && dragSourceType == Player.EQUIP_WEAPON) ? null : gp.localPlayer().currentWeapon);
+        drawEquipSlot(shieldSlotBounds, (draggingItem && dragSourceType == Player.EQUIP_SHIELD) ? null : gp.localPlayer().currentShield);
 
         //BAG GRID
         final int slotStartX = equipX + slotIconSize + equipBagGap;
@@ -454,13 +465,13 @@ public class UI {
         int slotX = slotStartX;
         int slotY = slotStartY;
 
-        for(int i = 0; i < gp.player.inventorySlots.length; i++){
+        for(int i = 0; i < gp.localPlayer().inventorySlots.length; i++){
             inventorySlotBounds[i] = new Rectangle(slotX, slotY, slotIconSize, slotIconSize);
 
             g2.setColor(new Color(255, 255, 255, 40));
             g2.fillRoundRect(slotX, slotY, slotIconSize, slotIconSize, 8, 8);
 
-            Entity item = gp.player.inventorySlots[i];
+            Entity item = gp.localPlayer().inventorySlots[i];
             boolean isBeingDragged = draggingItem && dragSourceType == SLOT_BAG && dragSourceIndex == i;
 
             if(item != null && !isBeingDragged){
@@ -642,60 +653,60 @@ public class UI {
         textY = frameY + gp.tileSize;
         String value;
 
-        value = String.valueOf(gp.player.level);
+        value = String.valueOf(gp.localPlayer().level);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.player.HP + "/" + gp.player.maxHP);
+        value = String.valueOf(gp.localPlayer().HP + "/" + gp.localPlayer().maxHP);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.player.MP + "/" + gp.player.maxMP);
+        value = String.valueOf(gp.localPlayer().MP + "/" + gp.localPlayer().maxMP);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.player.strength);
+        value = String.valueOf(gp.localPlayer().strength);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.player.dexterity);
+        value = String.valueOf(gp.localPlayer().dexterity);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.player.attack);
+        value = String.valueOf(gp.localPlayer().attack);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.player.defense);
+        value = String.valueOf(gp.localPlayer().defense);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.player.exp);
+        value = String.valueOf(gp.localPlayer().exp);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.player.nextLevelExp);
+        value = String.valueOf(gp.localPlayer().nextLevelExp);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.player.coin);
+        value = String.valueOf(gp.localPlayer().coin);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        g2.drawImage(gp.player.currentWeapon.down1, tailX - gp.tileSize, textY, null);
+        g2.drawImage(gp.localPlayer().currentWeapon.down1, tailX - gp.tileSize, textY, null);
         textY += gp.tileSize;
 
-        g2.drawImage(gp.player.currentShield.down1, tailX - gp.tileSize, textY, null);
+        g2.drawImage(gp.localPlayer().currentShield.down1, tailX - gp.tileSize, textY, null);
     }
 
     private void drawPlayerHP() {
@@ -705,7 +716,7 @@ public class UI {
         int i = 0;
 
         //DISPLAY MAXHP
-        while(i < gp.player.maxHP/2){
+        while(i < gp.localPlayer().maxHP/2){
             g2.drawImage(heart_blank, x, y, null);
             i++;
             x += gp.tileSize;
@@ -717,10 +728,10 @@ public class UI {
         i = 0;
 
         //DISPLAY CURRENT HP
-        while(i < gp.player.HP){
+        while(i < gp.localPlayer().HP){
             g2.drawImage(heart_half, x, y, null);
             i++;
-            if(i < gp.player.HP){
+            if(i < gp.localPlayer().HP){
                 g2.drawImage(heart_full, x, y, null);
             }
             i++;
@@ -731,7 +742,7 @@ public class UI {
         x = (gp.tileSize/2) - 5;
         y = (int)(gp.tileSize*1.5);
         i = 0;
-        while(i < gp.player.maxMP){
+        while(i < gp.localPlayer().maxMP){
             g2.drawImage(crystal_blank, x, y, null);
             i++;
             x += 35;
@@ -741,7 +752,7 @@ public class UI {
         x = (gp.tileSize/2) - 5;
         y = (int)(gp.tileSize*1.5);
         i = 0;
-        while(i < gp.player.MP){
+        while(i < gp.localPlayer().MP){
             g2.drawImage(crystal_full, x, y, null);
             i++;
             x += 35;
@@ -749,42 +760,74 @@ public class UI {
     }
 
     private void drawTitleScreen() {
-        //TITLE SCREEN
         g2.setFont(solomonKey.deriveFont(Font.BOLD, 90F));
         String text = "AstralCore";
         int x = getXforCenteredText(text);
         int y = gp.tileSize * 5;
 
-        //SHADOW
         g2.setColor(Color.gray);
         g2.drawString(text, x+10, y+10);
-
-        //MAIN TEXT
         g2.setColor(Color.white);
         g2.drawString(text, x, y);
 
-        //IMAGE
         x = gp.screenWidth/2 - (gp.tileSize*2)/2;
         y += gp.tileSize;
-        g2.drawImage(gp.player.down1, x, y, gp.tileSize * 2, gp.tileSize * 2, null);
+        g2.drawImage(gp.localPlayer().down1, x, y, gp.tileSize * 2, gp.tileSize * 2, null);
 
-        //MENU
         g2.setFont(jetbrainsMono.deriveFont(Font.PLAIN, 30F));
 
         text = "NEW GAME";
         x = getXforCenteredText(text);
         y += gp.tileSize * 5;
-        drawMenuButton(titleButtons[0], text, x, y,  commandNum == 0);
+        drawMenuButton(titleButtons[0], text, x, y, commandNum == 0);
 
-        text = "CONTINUE";
+        text = "HOST GAME";
         x = getXforCenteredText(text);
         y += gp.tileSize;
-        drawMenuButton(titleButtons[1], text, x, y,  commandNum == 1);
+        drawMenuButton(titleButtons[1], text, x, y, commandNum == 1);
+
+        text = "JOIN GAME";
+        x = getXforCenteredText(text);
+        y += gp.tileSize;
+        drawMenuButton(titleButtons[2], text, x, y, commandNum == 2);
 
         text = "QUIT";
         x = getXforCenteredText(text);
         y += gp.tileSize;
-        drawMenuButton(titleButtons[2], text, x, y,  commandNum == 2);
+        drawMenuButton(titleButtons[3], text, x, y, commandNum == 3);
+
+        //NETWORK STATUS / INPUT — anchored to the bottom of the screen, independent of menu length
+        int networkUIY = gp.screenHeight - 100;
+
+        if(joinStatusMessage != null){
+            g2.setFont(jetbrainsMono.deriveFont(16f));
+            g2.setColor(Color.red);
+            int mx = getXforCenteredText(joinStatusMessage);
+            g2.drawString(joinStatusMessage, mx, networkUIY);
+        }
+
+        if(gp.keyH.enteringNetworkAddress){
+            drawJoinAddressInput(networkUIY + 20);
+        }
+    }
+
+    private void drawJoinAddressInput(int y){
+        int boxWidth = 340;
+        int boxHeight = 36;
+        int boxX = gp.screenWidth/2 - boxWidth/2;
+
+        drawSubWindow(boxX, y, boxWidth, boxHeight);
+
+        g2.setFont(jetbrainsMono.deriveFont(16f));
+        g2.setColor(Color.white);
+        String label = "Host IP  (Enter to join, Esc to cancel)";
+        g2.drawString(label, getXforCenteredText(label), y - 10);
+
+        String display = gp.keyH.networkAddressInput.toString();
+        if((System.currentTimeMillis() / 400) % 2 == 0){
+            display += "_";
+        }
+        g2.drawString(display, boxX + 12, y + 24);
     }
 
     private void drawDialogueScreen() {
@@ -914,8 +957,8 @@ public class UI {
         g2.setFont(new Font("Arial", Font.PLAIN, 18));
         g2.setColor(Color.white);
 
-        int playerTileX = (gp.player.worldX + gp.player.solidArea.x) / gp.tileSize;
-        int playerTileY = (gp.player.worldY + gp.player.solidArea.y) / gp.tileSize;
+        int playerTileX = (gp.localPlayer().worldX + gp.localPlayer().solidArea.x) / gp.tileSize;
+        int playerTileY = (gp.localPlayer().worldY + gp.localPlayer().solidArea.y) / gp.tileSize;
 
         int x = 24 * gp.tileSize;
         int y = 25;
@@ -974,8 +1017,8 @@ public class UI {
         int startX = (gp.screenWidth - totalWidth) / 2;
         int y = gp.screenHeight - slotSize - 20;
 
-        for(int i = 0; i < gp.player.skills.length; i++){
-            Skill skill = gp.player.skills[i];
+        for(int i = 0; i < gp.localPlayer().skills.length; i++){
+            Skill skill = gp.localPlayer().skills[i];
             if(skill == null) continue;
 
             int x = startX + i * (slotSize + spacing);
@@ -1005,7 +1048,7 @@ public class UI {
             }
 
             //INSUFFICIENT MP TINT
-            if(gp.player.MP < skill.mpCost){
+            if(gp.localPlayer().MP < skill.mpCost){
                 g2.setColor(new Color(255, 0, 0, 80));
                 g2.fillRoundRect(x, y, slotSize, slotSize, 8, 8);
             }
@@ -1028,23 +1071,23 @@ public class UI {
         }
 
         if(gp.mouseH.leftPressed && !draggingItem){
-            if(weaponSlotBounds.contains(mouseX, mouseY) && gp.player.currentWeapon != null && !gp.player.currentWeapon.isPlaceholder){
+            if(weaponSlotBounds.contains(mouseX, mouseY) && gp.localPlayer().currentWeapon != null && !gp.localPlayer().currentWeapon.isPlaceholder){
                 draggingItem = true;
-                draggedItem = gp.player.currentWeapon;
+                draggedItem = gp.localPlayer().currentWeapon;
                 dragSourceType = Player.EQUIP_WEAPON;
                 dragSourceIndex = -1;
             }
-            else if(shieldSlotBounds.contains(mouseX, mouseY) && gp.player.currentShield != null && !gp.player.currentShield.isPlaceholder){
+            else if(shieldSlotBounds.contains(mouseX, mouseY) && gp.localPlayer().currentShield != null && !gp.localPlayer().currentShield.isPlaceholder){
                 draggingItem = true;
-                draggedItem = gp.player.currentShield;
+                draggedItem = gp.localPlayer().currentShield;
                 dragSourceType = Player.EQUIP_SHIELD;
                 dragSourceIndex = -1;
             }
             else {
                 for(int i = 0; i < inventorySlotBounds.length; i++){
-                    if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY) && gp.player.inventorySlots[i] != null){
+                    if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY) && gp.localPlayer().inventorySlots[i] != null){
                         draggingItem = true;
-                        draggedItem = gp.player.inventorySlots[i];
+                        draggedItem = gp.localPlayer().inventorySlots[i];
                         dragSourceType = SLOT_BAG;
                         dragSourceIndex = i;
                         break;
@@ -1066,7 +1109,7 @@ public class UI {
     private void handleRightClick(int mouseX, int mouseY){
         for(int i = 0; i < inventorySlotBounds.length; i++){
             if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY)){
-                gp.player.useInventoryItem(i);
+                gp.localPlayer().useInventoryItem(i);
                 return;
             }
         }
@@ -1075,13 +1118,13 @@ public class UI {
     private void resolveDrop(int mouseX, int mouseY){
         if(weaponSlotBounds.contains(mouseX, mouseY)){
             if(dragSourceType == SLOT_BAG){
-                gp.player.tryEquipFromBag(dragSourceIndex, Player.EQUIP_WEAPON);
+                gp.localPlayer().tryEquipFromBag(dragSourceIndex, Player.EQUIP_WEAPON);
             }
             return; // equip-slot-onto-itself, or wrong-type drag — no-op either way
         }
         if(shieldSlotBounds.contains(mouseX, mouseY)){
             if(dragSourceType == SLOT_BAG){
-                gp.player.tryEquipFromBag(dragSourceIndex, Player.EQUIP_SHIELD);
+                gp.localPlayer().tryEquipFromBag(dragSourceIndex, Player.EQUIP_SHIELD);
             }
             return;
         }
@@ -1089,9 +1132,9 @@ public class UI {
         for(int i = 0; i < inventorySlotBounds.length; i++){
             if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY)){
                 if(dragSourceType == SLOT_BAG){
-                    gp.player.swapOrMergeBagSlots(dragSourceIndex, i);
+                    gp.localPlayer().swapOrMergeBagSlots(dragSourceIndex, i);
                 } else {
-                    gp.player.unequipToBagIndex(dragSourceType, i);
+                    gp.localPlayer().unequipToBagIndex(dragSourceType, i);
                 }
                 return;
             }
@@ -1100,9 +1143,9 @@ public class UI {
         // released outside every slot
         if(!inventoryWindowBounds.contains(mouseX, mouseY)){
             if(dragSourceType == SLOT_BAG){
-                gp.player.dropBagItemToWorld(dragSourceIndex);
+                gp.localPlayer().dropBagItemToWorld(dragSourceIndex);
             } else {
-                gp.player.unequipToWorld(dragSourceType);
+                gp.localPlayer().unequipToWorld(dragSourceType);
             }
         }
         // else: released in a gap inside the window — item was never removed from its source, so it just reverts
@@ -1110,16 +1153,56 @@ public class UI {
 
     private Entity getItemAtPosition(int mouseX, int mouseY){
         if(weaponSlotBounds.contains(mouseX, mouseY)){
-            return (gp.player.currentWeapon != null && !gp.player.currentWeapon.isPlaceholder) ? gp.player.currentWeapon : null;
+            return (gp.localPlayer().currentWeapon != null && !gp.localPlayer().currentWeapon.isPlaceholder) ? gp.localPlayer().currentWeapon : null;
         }
         if(shieldSlotBounds.contains(mouseX, mouseY)){
-            return (gp.player.currentShield != null && !gp.player.currentShield.isPlaceholder) ? gp.player.currentShield : null;
+            return (gp.localPlayer().currentShield != null && !gp.localPlayer().currentShield.isPlaceholder) ? gp.localPlayer().currentShield : null;
         }
         for(int i = 0; i < inventorySlotBounds.length; i++){
-            if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY) && gp.player.inventorySlots[i] != null){
-                return gp.player.inventorySlots[i];
+            if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY) && gp.localPlayer().inventorySlots[i] != null){
+                return gp.localPlayer().inventorySlots[i];
             }
         }
         return null;
+    }
+
+    public void startHostFlow(){
+        System.out.println("[UI] startHostFlow() called");
+        try{
+            gp.hostGame(Gamepanel.NETWORK_PORT);
+            gp.gameState = gp.playState;
+            gp.playMusic(0);
+            addMessage("Hosting on port " + Gamepanel.NETWORK_PORT + " — waiting for players to join.", new Color(150, 220, 255));
+        } catch(Exception e){ // widen from IOException — catch anything that goes wrong here
+            e.printStackTrace();
+            joinStatusMessage = "Failed to host: " + e;
+            gp.isNetworked = false;
+            gp.isHost = false;
+        }
+    }
+
+    public void startJoinFlow(){
+        System.out.println("[UI] startJoinFlow() called");
+        gp.keyH.beginEnteringNetworkAddress();
+    }
+
+    public void submitJoinAddress(String address){
+        System.out.println("[UI] submitJoinAddress() called with address='" + address + "'");
+        if(address.isEmpty()){
+            joinStatusMessage = "Enter a host IP address.";
+            return;
+        }
+        try{
+            gp.joinGame(address, Gamepanel.NETWORK_PORT);
+            gp.gameState = gp.playState;
+            gp.playMusic(0);
+        } catch(Exception e){
+            e.printStackTrace();
+            joinStatusMessage = "Failed to connect: " + e;
+        }
+    }
+
+    public void cancelJoinAddress(){
+        joinStatusMessage = null;
     }
 }

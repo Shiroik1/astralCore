@@ -12,18 +12,31 @@ public class KeyHandler implements KeyListener {
     public boolean shotKeyPressed;
     public boolean enterPressed;
 
+    public boolean enteringNetworkAddress = false;
+    public StringBuilder networkAddressInput = new StringBuilder();
+
     public KeyHandler(Gamepanel gp){
         this.gp = gp;
     }
 
     @Override
     public void keyTyped(KeyEvent e) {
+        if(!enteringNetworkAddress) return;
 
+        char c = e.getKeyChar();
+        if(c >= 32 && c < 127 && networkAddressInput.length() < 64){
+            networkAddressInput.append(c);
+        }
     }
 
     @Override
     public void keyPressed(KeyEvent e) {
         int code = e.getKeyCode();
+
+        if(enteringNetworkAddress){
+            handleNetworkAddressKeyPress(code);
+            return;
+        }
 
         //TITLE STATE
         if(gp.gameState == gp.titleState){
@@ -87,12 +100,12 @@ public class KeyHandler implements KeyListener {
         if(code == KeyEvent.VK_W){
             gp.ui.commandNum--;
             if(gp.ui.commandNum < 0){
-                gp.ui.commandNum = 2;
+                gp.ui.commandNum = 3;
             }
         }
         if(code == KeyEvent.VK_S){
             gp.ui.commandNum++;
-            if(gp.ui.commandNum > 2){
+            if(gp.ui.commandNum > 3){
                 gp.ui.commandNum = 0;
             }
         }
@@ -102,9 +115,12 @@ public class KeyHandler implements KeyListener {
                 gp.playMusic(0);
             }
             if(gp.ui.commandNum == 1){
-
+                gp.ui.startHostFlow();
             }
             if(gp.ui.commandNum == 2){
+                gp.ui.startJoinFlow();
+            }
+            if(gp.ui.commandNum == 3){
                 System.exit(0);
             }
         }
@@ -245,4 +261,32 @@ public class KeyHandler implements KeyListener {
             shotKeyPressed = false;
         }
     }
+
+    private void handleNetworkAddressKeyPress(int code){
+        if(code == KeyEvent.VK_ENTER){
+            String address = networkAddressInput.toString().trim();
+            System.out.println("[UI] Enter pressed in address box, raw text='" + address + "'");
+            enteringNetworkAddress = false;
+            networkAddressInput.setLength(0);
+            gp.ui.submitJoinAddress(address);
+        }
+        else if(code == KeyEvent.VK_ESCAPE){
+            enteringNetworkAddress = false;
+            networkAddressInput.setLength(0);
+            gp.ui.cancelJoinAddress();
+        }
+        else if(code == KeyEvent.VK_BACK_SPACE){
+            if(networkAddressInput.length() > 0){
+                networkAddressInput.deleteCharAt(networkAddressInput.length() - 1);
+            }
+        }
+    }
+
+    public void beginEnteringNetworkAddress(){
+        System.out.println("[UI] beginEnteringNetworkAddress() called, opening text input");
+        enteringNetworkAddress = true;
+        networkAddressInput.setLength(0);
+    }
+
+
 }

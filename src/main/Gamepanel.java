@@ -2,6 +2,7 @@ package main;
 
 import entity.Entity;
 import entity.Player;
+import net.InputState;
 import tile.TileManager;
 import tiles_interactive.InteractiveTile;
 
@@ -16,6 +17,14 @@ import java.util.Comparator;
 import static main.Main.window;
 
 public class Gamepanel extends JPanel implements Runnable{
+
+    //NETWORK
+    public long currentTick = 0;
+    public boolean isNetworked = false;
+    public boolean isHost = false;
+    public net.GameServer gameServer;
+    public net.GameClient gameClient;
+    public static final int NETWORK_PORT = 5001;
 
     //GAME SETTINGS
     final int originalTileSize = 24; //16x16 tile
@@ -59,7 +68,15 @@ public class Gamepanel extends JPanel implements Runnable{
     public MouseHandler mouseH = new MouseHandler(this);
 
     //ENTITY AND OBJECTS
-    public Player player = new Player(this, keyH);
+    public Player[] players = new Player[4];
+    public int localPlayerIndex = 0;
+    {
+        players[localPlayerIndex] = new Player(this, keyH); // instance initializer — preserves the same construction timing the old field had, relative to keyH above it
+    }
+
+    public Player localPlayer(){
+        return players[localPlayerIndex];
+    }
     public Entity obj[] = new Entity[50];
     public Entity npc[] = new Entity[10];
     public Entity monster[] = new Entity[20];
@@ -169,14 +186,40 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void update(){
 
+        currentTick++;
+
         if(hitStopCounter > 0){
             hitStopCounter--;
-            return; // skip every entity's update this tick — drawToTempscreen()/drawToScreen() still run right after, so the frame stays visible and still, not black
+            return;
         }
 
         if(gameState == playState){
+            Player local = localPlayer();
+            InputState localInput = null;
+            if(local != null){
+                localInput = InputState.captureFrom(keyH, mouseH, currentTick);
+                local.applyInput(localInput);
+            }
+
+            if(isNetworked){
+                if(isHost){
+                    gameServer.processConnectionEvents();
+                    gameServer.applyPendingInputs();
+                } else {
+                    if(localInput != null){
+                        gameClient.sendInput(localInput);
+                    }
+                    gameClient.processPendingJoinAccepted();
+                    gameClient.applyPendingSnapshots();
+                }
+            }
+
             //PLAYER
-            player.update();
+            for(Player p : players){
+                if(p != null){
+                    p.update();
+                }
+            }
 
             //NPC
             for(int i = 0; i < npc.length; i++){
@@ -228,6 +271,10 @@ public class Gamepanel extends JPanel implements Runnable{
                     interactable[i].update();
                 }
             }
+
+            if(isNetworked && isHost){
+                broadcastWorldSnapshot();
+            }
         }
         else if(gameState == titleState || gameState == optionState || gameState == characterState || gameState == gameOverState){
             ui.update(mouseH.getScaledX(),mouseH.getScaledY(),mouseH.leftClicked);
@@ -235,17 +282,23 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void retry(){
-        player.setDefaultPosition();
-        player.resetHPandMP();
+        for(Player p : players){
+            if(p != null){
+                p.setDefaultPosition();
+                p.resetHPandMP();
+            }
+        }
         assetSetter.setNPC();
         assetSetter.setMonster();
     }
 
     public void restart(){
-        player.setDefaultValues();
-        player.setDefaultPosition();
-        player.resetHPandMP();
-        player.setItems();
+        for(Player p : players){
+            if(p != null){
+                p.setDefaultPosition();
+                p.resetHPandMP();
+            }
+        }
         assetSetter.setNPC();
         assetSetter.setMonster();
         assetSetter.setInteractiveTile();
@@ -295,7 +348,11 @@ public class Gamepanel extends JPanel implements Runnable{
             }
 
             //ADD ENTITIES TO THE LIST
-            entityList.add(player);
+            for(Player p : players){
+                if(p != null){
+                    entityList.add(p);
+                }
+            }
 
             for(int i = 0; i < npc.length; i++){
                 if(npc[i] != null){
@@ -374,5 +431,67 @@ public class Gamepanel extends JPanel implements Runnable{
     public void startScreenShake(int duration, int intensity){
         screenShakeCounter = Math.max(screenShakeCounter, duration);
         screenShakeIntensity = Math.max(screenShakeIntensity, intensity);
+    }
+
+    public void hostGame(int port) throws java.io.IOException {
+        System.out.println("[HOST] hostGame() called, port=" + port);
+        if(isNetworked){
+            System.out.println("[HOST] already networked, aborting");
+            return;
+        }
+        isNetworked = true;
+        isHost = true;
+        gameServer = new net.GameServer(this);
+        gameServer.start(port);
+        System.out.println("[HOST] gameServer.start() returned successfully");
+    }
+
+    public void joinGame(String hostAddress, int port) throws java.io.IOException {
+        System.out.println("[CLIENT] joinGame() called, target=" + hostAddress + ":" + port);
+        isNetworked = true;
+        isHost = false;
+        gameClient = new net.GameClient(this);
+        gameClient.connect(hostAddress, port);
+        System.out.println("[CLIENT] gameClient.connect() returned successfully");
+    }
+
+    private void broadcastWorldSnapshot(){
+        java.util.List<net.PlayerState> playerStates = new java.util.ArrayList<>();
+        for(Player p : players){
+            if(p == null) continue;
+            net.PlayerState ps = new net.PlayerState();
+            ps.playerId = p.playerId;
+            ps.worldX = p.worldX;
+            ps.worldY = p.worldY;
+            ps.direction = p.direction;
+            ps.HP = p.HP;
+            ps.maxHP = p.maxHP;
+            ps.MP = p.MP;
+            ps.maxMP = p.maxMP;
+            ps.animState = p.animState;
+            ps.attacking = p.attacking;
+            playerStates.add(ps);
+        }
+
+        net.MonsterState[] monsterStates = new net.MonsterState[monster.length];
+        for(int i = 0; i < monster.length; i++){
+            if(monster[i] == null) continue;
+            net.MonsterState ms = new net.MonsterState();
+            ms.worldX = monster[i].worldX;
+            ms.worldY = monster[i].worldY;
+            ms.direction = monster[i].direction;
+            ms.HP = monster[i].HP;
+            ms.maxHP = monster[i].maxHP;
+            ms.dying = monster[i].dying;
+            ms.alive = monster[i].alive;
+            monsterStates[i] = ms;
+        }
+
+        net.WorldSnapshot snapshot = new net.WorldSnapshot();
+        snapshot.tick = currentTick;
+        snapshot.players = playerStates.toArray(new net.PlayerState[0]);
+        snapshot.monsters = monsterStates;
+
+        gameServer.broadcastSnapshot(snapshot);
     }
 }

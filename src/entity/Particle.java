@@ -47,8 +47,8 @@ public class Particle extends Entity{
     }
 
     public void draw(Graphics2D g2){
-        int screenX = worldX - gp.player.worldX + gp.player.screenX;
-        int screenY = worldY - gp.player.worldY + gp.player.screenY;
+        int screenX = worldX - gp.localPlayer().worldX + gp.localPlayer().screenX;
+        int screenY = worldY - gp.localPlayer().worldY + gp.localPlayer().screenY;
 
         g2.setColor(color);
         g2.fillRect(screenX, screenY, size, size);

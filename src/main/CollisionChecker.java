@@ -1,6 +1,7 @@
 package main;
 
 import entity.Entity;
+import entity.Player;
 
 public class CollisionChecker {
     Gamepanel gp;
@@ -153,43 +154,38 @@ public class CollisionChecker {
         return index;
     }
 
-    public boolean checkPlayer(Entity entity){
-        boolean contactPlayer = false;
+    public Player checkPlayer(Entity entity){
+        Player contactedPlayer = null;
 
-        //Get entity's solid area position
-        entity.solidArea.x += entity.worldX;
-        entity.solidArea.y += entity.worldY;
+        for(Player p : gp.players){
+            if(p == null) continue;
 
-        //Get object's solid area position
-        gp.player.solidArea.x += gp.player.worldX;
-        gp.player.solidArea.y += gp.player.worldY;
+            entity.solidArea.x += entity.worldX;
+            entity.solidArea.y += entity.worldY;
+            p.solidArea.x += p.worldX;
+            p.solidArea.y += p.worldY;
 
-        switch (entity.direction){
-            case "up" -> {
-                entity.solidArea.y -= entity.speed;
+            switch (entity.direction){
+                case "up" -> entity.solidArea.y -= entity.speed;
+                case "down" -> entity.solidArea.y += entity.speed;
+                case "left" -> entity.solidArea.x -= entity.speed;
+                case "right" -> entity.solidArea.x += entity.speed;
             }
-            case "down" -> {
-                entity.solidArea.y += entity.speed;
+
+            if(entity.solidArea.intersects(p.solidArea)){
+                entity.collisionOn = true;
+                contactedPlayer = p;
             }
-            case "left" -> {
-                entity.solidArea.x -= entity.speed;
-            }
-            case "right" -> {
-                entity.solidArea.x += entity.speed;
-            }
+
+            entity.solidArea.x = entity.solidAreaDefaultX;
+            entity.solidArea.y = entity.solidAreaDefaultY;
+            p.solidArea.x = p.solidAreaDefaultX;
+            p.solidArea.y = p.solidAreaDefaultY;
+
+            if(contactedPlayer != null) break; // a monster's single collision check only needs the first player it touches
         }
 
-        if(entity.solidArea.intersects(gp.player.solidArea)){
-            entity.collisionOn = true;
-            contactPlayer= true;
-        }
-
-        entity.solidArea.x = entity.solidAreaDefaultX;
-        entity.solidArea.y = entity.solidAreaDefaultY;
-        gp.player.solidArea.x = gp.player.solidAreaDefaultX;
-        gp.player.solidArea.y = gp.player.solidAreaDefaultY;
-
-        return contactPlayer;
+        return contactedPlayer;
     }
 
 }

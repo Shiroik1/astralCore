@@ -9,12 +9,18 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
-import java.util.ArrayList;
-import java.util.Map;
+import net.InputState;
+import java.util.ArrayDeque;
 
 public class Player extends Entity{
     KeyHandler keyH;
+
+    public int playerId;
+    public boolean isLocal = true; // remote players (Step 3+) will explicitly set this false
+
+    public InputState currentInput;
+    private ArrayDeque<InputState> inputHistory = new ArrayDeque<>();
+    private final int inputHistoryCapacity = 128; // ~2s at 60fps — this isn't consumed yet
 
     public final int screenX;
     public final int screenY;
@@ -54,6 +60,7 @@ public class Player extends Entity{
     public Player(Gamepanel gp, KeyHandler keyH){
         super(gp);
         this.keyH = keyH;
+        currentInput = new InputState();
 
         screenX = gp.screenWidth/2 - (gp.tileSize/2);
         screenY = gp.screenHeight/2 - (gp.tileSize/2);
@@ -73,6 +80,7 @@ public class Player extends Entity{
     }
 
     public void setDefaultValues(){
+        type = type_player;
         worldX = gp.tileSize * 12;
         worldY = gp.tileSize * 20;
         speed = 4;
@@ -279,9 +287,14 @@ public class Player extends Entity{
     }
 
     public void update(){
+        if(!isLocal && !gp.isHost){
+            // Remote players are driven by network state starting in Step 3 — no local input processing yet
+            updateStatusEffects();
+            return;
+        }
 
-        boolean movingHoriz = keyH.leftPressed || keyH.rightPressed;
-        boolean movingVert = keyH.upPressed || keyH.downPressed;
+        boolean movingHoriz = currentInput.left || currentInput.right;
+        boolean movingVert = currentInput.up || currentInput.down;
         moving = movingHoriz || movingVert;
         String horizDir = null;
         String vertDir = null;
@@ -293,17 +306,17 @@ public class Player extends Entity{
             bounceCounter = 0;
         }
 
-        if (keyH.leftPressed) {
+        if (currentInput.left) {
             horizDir = "left";
         }
-        else if(keyH.rightPressed){
+        else if(currentInput.right){
             horizDir = "right";
         }
 
-        if(keyH.upPressed){
+        if(currentInput.up){
             vertDir = "up";
         }
-        else if(keyH.downPressed){
+        else if(currentInput.down){
             vertDir = "down";
         }
 
@@ -318,7 +331,7 @@ public class Player extends Entity{
         for(int i = 0; i < skills.length; i++){
             if(skills[i] != null){
                 skills[i].update();
-                if(keyH.skillKeyPressed[i]){
+                if(currentInput.skillKeyPressed[i]){
                     if(skills[i].isReady() && MP >= skills[i].mpCost){
                         MP -= skills[i].mpCost;
                         skills[i].trigger();
@@ -354,13 +367,13 @@ public class Player extends Entity{
             updateKnockback();
         }
         else if(attacking){
-            if(gp.mouseH.leftClicked){
+            if(currentInput.leftClicked){
                 attackBuffered = true;   // remember the click, don't let the flag wipe reach anywhere
                 gp.mouseH.leftClicked = false;
             }
             attacking();
         }
-        else if(moving || keyH.ePressed || gp.mouseH.leftClicked){
+        else if(moving || currentInput.ePressed || currentInput.leftClicked){
 
                 //CHECK TILE COLLISION
                 collisionOn = false;
@@ -385,7 +398,7 @@ public class Player extends Entity{
                 gp.eventHandler.checkEvent();
 
                 //IF COLLISION IS FALSE, PLAYER CAN MOVE
-                if(!keyH.ePressed){
+                if(!currentInput.ePressed){
 
                     boolean diagonal = (horizDir != null && vertDir != null);
                     int moveSpeed = diagonal ? (int)Math.round(speed * 0.7071) : speed;
@@ -414,7 +427,7 @@ public class Player extends Entity{
                 }
 
 
-                if((keyH.ePressed || gp.mouseH.leftClicked) && !attackCanceled){
+                if((currentInput.ePressed || currentInput.leftClicked || attackBuffered) && !attackCanceled){
                     attacking = true;
                     spriteNum = 1;
                     attackFrameHoldCounter = 0;
@@ -426,15 +439,15 @@ public class Player extends Entity{
                 attackBuffered = false;
         }
 
-        if(gp.keyH.shotKeyPressed && !projectile.alive && shotAvailableCounter == 30 && projectile.hasResource(this)){
-            //SET DEFAULT POSITION, DIRECTION AND USER
-            projectile.set(worldX, worldY, direction, true, this);
-
-            projectile.subtractResource(this);
-            gp.projectileList.add(projectile);
-            gp.playSE(9);
-            shotAvailableCounter = 0;
-        }
+//        if(gp.keyH.shotKeyPressed && !projectile.alive && shotAvailableCounter == 30 && projectile.hasResource(this)){
+//            //SET DEFAULT POSITION, DIRECTION AND USER
+//            projectile.set(worldX, worldY, direction, true, this);
+//
+//            projectile.subtractResource(this);
+//            gp.projectileList.add(projectile);
+//            gp.playSE(9);
+//            shotAvailableCounter = 0;
+//        }
 
         if(invincible){
             invincibleCounter++;
@@ -805,8 +818,18 @@ public class Player extends Entity{
         int bodyWidth = (anim != null) ? anim.width : bodyImage.getWidth();
         int bodyHeight = (anim != null) ? anim.height : bodyImage.getHeight();
 
-        int drawX = screenX + (gp.tileSize - bodyWidth) / 2;
-        int drawY = screenY + (gp.tileSize - bodyHeight) / 2;
+        int drawX;
+        int drawY;
+        if(isLocal){
+            drawX = screenX + (gp.tileSize - bodyWidth) / 2;
+            drawY = screenY + (gp.tileSize - bodyHeight) / 2;
+        } else {
+            Player camera = gp.localPlayer();
+            int relScreenX = worldX - camera.worldX + camera.screenX;
+            int relScreenY = worldY - camera.worldY + camera.screenY;
+            drawX = relScreenX + (gp.tileSize - bodyWidth) / 2;
+            drawY = relScreenY + (gp.tileSize - bodyHeight) / 2;
+        }
 
         double bounce = 0;
         if(moving && !attacking){
@@ -815,36 +838,29 @@ public class Player extends Entity{
 
         AffineTransform originalTransform = g2.getTransform();
         g2.translate(0, bounce);
-
-        if(invincible){
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-        }
-
         g2.drawImage(bodyImage, drawX, drawY, null);
-
-        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
         g2.setTransform(originalTransform);
     }
 
 
-    private void drawAttackHitbox(Graphics2D g2){
-        if(!attacking || spriteCounter <= 5 || spriteCounter > 25) return;
-
-        int hbWorldX = worldX;
-        int hbWorldY = worldY;
-        switch (direction){
-            case "up" -> hbWorldY -= attackArea.height;
-            case "down" -> hbWorldY += attackArea.height;
-            case "left" -> hbWorldX -= attackArea.width;
-            case "right" -> hbWorldX += attackArea.width;
-        }
-
-        int screenX = hbWorldX - gp.player.worldX + gp.player.screenX + solidArea.x;
-        int screenY = hbWorldY - gp.player.worldY + gp.player.screenY + solidArea.y;
-
-        g2.setColor(Color.yellow);
-        g2.drawRect(screenX, screenY, attackArea.width, attackArea.height);
-    }
+//    private void drawAttackHitbox(Graphics2D g2){
+//        if(!attacking || spriteCounter <= 5 || spriteCounter > 25) return;
+//
+//        int hbWorldX = worldX;
+//        int hbWorldY = worldY;
+//        switch (direction){
+//            case "up" -> hbWorldY -= attackArea.height;
+//            case "down" -> hbWorldY += attackArea.height;
+//            case "left" -> hbWorldX -= attackArea.width;
+//            case "right" -> hbWorldX += attackArea.width;
+//        }
+//
+//        int screenX = hbWorldX - gp.player.worldX + gp.player.screenX + solidArea.x;
+//        int screenY = hbWorldY - gp.player.worldY + gp.player.screenY + solidArea.y;
+//
+//        g2.setColor(Color.yellow);
+//        g2.drawRect(screenX, screenY, attackArea.width, attackArea.height);
+//    }
 
     private String getWeaponFolder(){
         return switch (currentWeapon.type){
@@ -956,5 +972,15 @@ public class Player extends Entity{
     public int getEffectiveAttackFrameDelay(){
         int delay = attackActiveFrameDelay - getStatusEffectValue("attackSpeedBoost");
         return Math.max(1, delay);
+    }
+
+    public void applyInput(InputState input){
+        currentInput = input;
+        if(isLocal){
+            inputHistory.addLast(input);
+            while(inputHistory.size() > inputHistoryCapacity){
+                inputHistory.removeFirst();
+            }
+        }
     }
 }

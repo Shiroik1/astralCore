@@ -1,6 +1,7 @@
 package monster;
 
 import entity.Entity;
+import entity.Player;
 import main.Gamepanel;
 import object.OBJ_bronzecoin;
 import object.OBJ_crystal;
@@ -87,7 +88,10 @@ public class MON_GreenSlime extends Entity {
 
     public void damageReaction(){
         actionLockCounter = 0;
-        direction = gp.player.direction;
+        Player nearest = findNearestPlayer();
+        if(nearest != null){
+            direction = nearest.direction;
+        }
     }
 
     public void checkDrop(){

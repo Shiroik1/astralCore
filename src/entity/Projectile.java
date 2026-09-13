@@ -21,19 +21,19 @@ public class Projectile extends Entity{
 
     public void update(){
 
-        if(user == gp.player){
+        if(user.type == type_player){
             int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
             if(monsterIndex != 999){
-                gp.player.damageMonster(monsterIndex, attack);
+                ((Player) user).damageMonster(monsterIndex, attack);
                 generateParticle(user.projectile, gp.monster[monsterIndex]);
                 alive = false;
             }
         }
-        if(user != gp.player){
-            boolean contactPlayer = gp.collisionChecker.checkPlayer(this);
-            if(!gp.player.invincible && contactPlayer){
-                damagePlayer(attack);
-                generateParticle(user.projectile, gp.player);
+        else {
+            Player contactedPlayer = gp.collisionChecker.checkPlayer(this);
+            if(contactedPlayer != null && !contactedPlayer.invincible){
+                damagePlayer(contactedPlayer, attack);
+                generateParticle(user.projectile, contactedPlayer);
                 alive = false;
             }
         }

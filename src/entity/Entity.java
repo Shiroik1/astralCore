@@ -157,7 +157,7 @@ public class Entity {
         gp.ui.currentDialogue = dialogues[dialogueIndex];
         dialogueIndex++;
 
-        switch (gp.player.direction){
+        switch (gp.localPlayer().direction){
             case "up" -> direction = "down";
             case "down" -> direction = "up";
             case "left" -> direction = "right";
@@ -178,10 +178,11 @@ public class Entity {
         gp.collisionChecker.checkEntity(this, gp.npc);
         gp.collisionChecker.checkEntity(this, gp.monster);
         gp.collisionChecker.checkEntity(this, gp.interactable);
-        boolean contactPlayer = gp.collisionChecker.checkPlayer(this);
 
-        if(this.type == type_monster && contactPlayer){
-            damagePlayer(attack);
+        Player contactedPlayer = gp.collisionChecker.checkPlayer(this);
+
+        if(this.type == type_monster && contactedPlayer != null){
+            damagePlayer(contactedPlayer, attack);
         }
 
         moving = !collisionOn;
@@ -231,32 +232,32 @@ public class Entity {
         updateStatusEffects();
     }
 
-    public void damagePlayer(int attack){
-        if(!gp.player.invincible){
-            int damage = attack - gp.player.defense;
+    public void damagePlayer(Player target, int attack){
+        if(!target.invincible){
+            int damage = attack - target.defense;
             if(damage < 0){
                 damage = 0;
             }
-            gp.player.HP -= damage;
-            gp.player.invincible = true;
-            gp.startHitStop(8); // matches contactMonster's weight for consistency; no local constant here since Entity is shared across all monster types
+            target.HP -= damage;
+            target.invincible = true;
+            target.flashing = true;
+            target.flashCounter = 0;
+            target.spawnHitParticles();
+//            target.startKnockback(this.direction, target.knockbackDistance);
+//            gp.startHitStop(8);
             gp.startScreenShake(8, 6);
-//            gp.player.flashing = true;
-//            gp.player.flashCounter = 0;
-//            gp.player.startKnockback(this.direction, gp.player.knockbackDistance);
-//            gp.player.spawnHitParticles();
         }
     }
 
     public void draw(Graphics2D g2){
         BufferedImage image = null;
-        int screenX = worldX - gp.player.worldX + gp.player.screenX;
-        int screenY = worldY - gp.player.worldY + gp.player.screenY;
+        int screenX = worldX - gp.localPlayer().worldX + gp.localPlayer().screenX;
+        int screenY = worldY - gp.localPlayer().worldY + gp.localPlayer().screenY;
 
-        if(worldX + gp.tileSize > gp.player.worldX - gp.player.screenX &&
-                worldX - gp.tileSize < gp.player.worldX + gp.player.screenX &&
-                worldY + gp.tileSize > gp.player.worldY - gp.player.screenY &&
-                worldY - gp.tileSize < gp.player.worldY + gp.player.screenY){
+        if(worldX + gp.tileSize > gp.localPlayer().worldX - gp.localPlayer().screenX &&
+                worldX - gp.tileSize < gp.localPlayer().worldX + gp.localPlayer().screenX &&
+                worldY + gp.tileSize > gp.localPlayer().worldY - gp.localPlayer().screenY &&
+                worldY - gp.tileSize < gp.localPlayer().worldY + gp.localPlayer().screenY){
 
             SpriteAnimation anim = getCurrentAnimation();
             image = getCurrentFrame();
@@ -404,8 +405,8 @@ public class Entity {
     }
 
     public void drawHitbox(Graphics2D g2){
-        int screenX = worldX - gp.player.worldX + gp.player.screenX + solidArea.x;
-        int screenY = worldY - gp.player.worldY + gp.player.screenY + solidArea.y;
+        int screenX = worldX - gp.localPlayer().worldX + gp.localPlayer().screenX + solidArea.x;
+        int screenY = worldY - gp.localPlayer().worldY + gp.localPlayer().screenY + solidArea.y;
 
         Color color = switch (type){
             case type_monster -> Color.red;
@@ -475,20 +476,40 @@ public class Entity {
         }
     }
 
+    protected Player findNearestPlayer(){
+        Player nearest = null;
+        int nearestDist = Integer.MAX_VALUE;
+        for(Player p : gp.players){
+            if(p == null) continue;
+            int dist = Math.abs(worldX - p.worldX) + Math.abs(worldY - p.worldY);
+            if(dist < nearestDist){
+                nearestDist = dist;
+                nearest = p;
+            }
+        }
+        return nearest;
+    }
+
     // Add near the other CHARACTER STATUS fields
     public int aggroRange = 0; // tiles; 0 = chase disabled, monster subclasses override
 
     protected boolean isPlayerInAggroRange(){
         if(aggroRange <= 0) return false;
-        int xDistance = Math.abs(worldX - gp.player.worldX);
-        int yDistance = Math.abs(worldY - gp.player.worldY);
+        Player target = findNearestPlayer();
+        if(target == null) return false;
+
+        int xDistance = Math.abs(worldX - target.worldX);
+        int yDistance = Math.abs(worldY - target.worldY);
         int tileDistance = Math.max(xDistance, yDistance) / gp.tileSize;
         return tileDistance < aggroRange;
     }
 
     protected void chasePlayer(){
-        int xDist = gp.player.worldX - worldX;
-        int yDist = gp.player.worldY - worldY;
+        Player target = findNearestPlayer();
+        if(target == null) return;
+
+        int xDist = target.worldX - worldX;
+        int yDist = target.worldY - worldY;
 
         if(Math.abs(xDist) > Math.abs(yDist)){
             direction = xDist > 0 ? "right" : "left";
@@ -560,4 +581,6 @@ public class Entity {
     public boolean canStackWith(Entity other){
         return stackable && other != null && other.stackable && this.getClass() == other.getClass();
     }
+
+
 }

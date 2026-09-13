@@ -8,6 +8,7 @@ public class Main {
     public static JFrame window;
 
     public static void main(String[] args) throws IOException {
+        com.esotericsoftware.minlog.Log.set(com.esotericsoftware.minlog.Log.LEVEL_DEBUG);
         window = new JFrame();
         window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         window.setResizable(false);
