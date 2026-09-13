@@ -16,11 +16,13 @@ import entity.Skill;
 public class UI {
     Gamepanel gp;
     Graphics2D g2;
+
+    //FONTS
     Font solomonKey;
+    Font jetbrainsMono;
+
     BufferedImage heart_full, heart_half, heart_blank, crystal_full, crystal_blank;
     public boolean messageOn = false;
-    ArrayList<String> message = new ArrayList<>();
-    ArrayList<Integer> messageCounter = new ArrayList<>();
     public boolean gameFinished = false;
     public String currentDialogue = "";
     public int commandNum = 0;
@@ -60,12 +62,34 @@ public class UI {
     private final int windowPadding = 20;      // inner margin on all sides of the window
     private final int screenRightMargin = 48;  // distance kept from the right edge of the screen
 
+    //CHAT MESSAGE
+    private static class ChatMessage {
+        String text;
+        Color color;
+        int ageTicks = 0;
+        ChatMessage(String text, Color color){ this.text = text; this.color = color; }
+    }
+
+    private ArrayList<ChatMessage> chatHistory = new ArrayList<>();
+    private int chatScrollOffset = 0;       // 0 = live view; >0 = scrolled back into history
+    private Rectangle combatLogBounds = new Rectangle();
+
+    private final int chatLogWidth = 420;
+    private final int chatLogHeight = 160;
+    private final int chatLogMargin = 16;
+    private final int chatVisibleLines = 7;
+    private final int chatFadeStartTicks = 300;   // ~5s before an unread message starts fading
+    private final int chatFadeDurationTicks = 60; // ~1s fade-out
+    private final int chatMaxHistory = 200;       // scrollback cap
+
     public UI(Gamepanel gp){
         this.gp = gp;
 
         try{
             InputStream is = getClass().getResourceAsStream("/font/SolomonsKey.ttf");
             solomonKey = Font.createFont(Font.TRUETYPE_FONT, is);
+            InputStream is2 = getClass().getResourceAsStream("/font/JetBrainsMono-Regular.ttf");
+            jetbrainsMono = Font.createFont(Font.TRUETYPE_FONT, is2);
         }
         catch (FontFormatException e){
             e.printStackTrace();
@@ -86,8 +110,15 @@ public class UI {
     }
 
     public void addMessage(String text){
-        message.add(text);
-        messageCounter.add(0);
+        addMessage(text, Color.white);
+    }
+
+    public void addMessage(String text, Color color){
+        chatHistory.add(new ChatMessage(text, color));
+        if(chatHistory.size() > chatMaxHistory){
+            chatHistory.remove(0);
+        }
+        chatScrollOffset = 0; // new activity snaps the view back to live, like WoW
     }
 
     public void update(int mouseX, int mouseY, boolean clicked){
@@ -164,7 +195,7 @@ public class UI {
 
         this.g2 = g2;
 
-        g2.setFont(solomonKey);
+        g2.setFont(jetbrainsMono);
         g2.setColor(Color.white);
 
         //TITLE STATE
@@ -183,7 +214,7 @@ public class UI {
             }
 
             drawPlayerHP();
-            drawMessage();
+            drawCombatLog();
             drawSkillHotbar();
         }
 
@@ -515,24 +546,54 @@ public class UI {
         }
     }
 
-    private void drawMessage() {
-        int messageX = gp.tileSize;
-        int messageY = gp.tileSize * 4;
-        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 15f));
-        for(int i = 0; i < message.size(); i++){
-            if(message.get(i) != null){
-                g2.setColor(Color.white);
-                g2.drawString(message.get(i), messageX, messageY);
+    private void drawCombatLog(){
+        int boxX = chatLogMargin;
+        int boxY = gp.screenHeight - chatLogHeight - chatLogMargin;
+        combatLogBounds.setBounds(boxX, boxY, chatLogWidth, chatLogHeight);
 
-                int counter = messageCounter.get(i) + 1;
-                messageCounter.set(i, counter);
-                messageY += 20;
+        int mx = gp.mouseH.getScaledX();
+        int my = gp.mouseH.getScaledY();
+        boolean hovering = combatLogBounds.contains(mx, my);
 
-                if(messageCounter.get(i) > 180){
-                    message.remove(i);
-                    messageCounter.remove(i);
-                }
+        if(hovering && gp.mouseH.wheelRotation != 0){
+            chatScrollOffset -= gp.mouseH.wheelRotation; // scroll up = view older history
+            int maxOffset = Math.max(0, chatHistory.size() - chatVisibleLines);
+            chatScrollOffset = Math.max(0, Math.min(chatScrollOffset, maxOffset));
+            gp.mouseH.wheelRotation = 0;
+        }
+
+        //Background only shows while actively interacting — otherwise messages float transparently over gameplay
+        boolean boxVisible = hovering || chatScrollOffset > 0;
+        if(boxVisible){
+            g2.setColor(new Color(0, 0, 0, 80));
+            g2.fillRoundRect(boxX, boxY, chatLogWidth, chatLogHeight, 12, 12);
+        }
+
+        g2.setFont(jetbrainsMono.deriveFont(14f));
+        int lineHeight = 20;
+        int textX = boxX + 10;
+        int textY = boxY + chatLogHeight - 10;
+
+        int endIndex = chatHistory.size() - chatScrollOffset;
+        int startIndex = Math.max(0, endIndex - chatVisibleLines);
+
+        for(int i = endIndex - 1; i >= startIndex; i--){
+            ChatMessage msg = chatHistory.get(i);
+
+            float alpha = 1f;
+            if(chatScrollOffset == 0 && !hovering && msg.ageTicks > chatFadeStartTicks){
+                float fadeProgress = (msg.ageTicks - chatFadeStartTicks) / (float) chatFadeDurationTicks;
+                alpha = Math.max(0f, 1f - fadeProgress);
             }
+
+            if(alpha > 0f){
+                Color c = msg.color;
+                g2.setColor(new Color(c.getRed(), c.getGreen(), c.getBlue(), (int)(alpha * 255)));
+                g2.drawString(msg.text, textX, textY);
+            }
+
+            textY -= lineHeight;
+            msg.ageTicks++; // only ages while it's one of the visible latest lines — history you scroll back to stays fully readable, never fades
         }
     }
 
@@ -689,7 +750,7 @@ public class UI {
 
     private void drawTitleScreen() {
         //TITLE SCREEN
-        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 90F));
+        g2.setFont(solomonKey.deriveFont(Font.BOLD, 90F));
         String text = "AstralCore";
         int x = getXforCenteredText(text);
         int y = gp.tileSize * 5;
@@ -708,7 +769,7 @@ public class UI {
         g2.drawImage(gp.player.down1, x, y, gp.tileSize * 2, gp.tileSize * 2, null);
 
         //MENU
-        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 30F));
+        g2.setFont(jetbrainsMono.deriveFont(Font.PLAIN, 30F));
 
         text = "NEW GAME";
         x = getXforCenteredText(text);
