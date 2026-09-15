@@ -29,6 +29,7 @@ public class Gamepanel extends JPanel implements Runnable{
     //GAME SETTINGS
     final int originalTileSize = 24; //16x16 tile
     final int scale = 2;
+    public boolean inventoryOpen = false;
 
     //SCREEN SETTINGS
     public final int tileSize =  originalTileSize * scale; //48x48 tile
@@ -190,10 +191,20 @@ public class Gamepanel extends JPanel implements Runnable{
 
         if(hitStopCounter > 0){
             hitStopCounter--;
-            return;
         }
 
+        ui.update(mouseH.getScaledX(),mouseH.getScaledY(),mouseH.leftClicked);
+
         if(gameState == playState){
+
+            // 1. Reconcile FIRST, using only inputs already buffered from previous ticks
+            if(isNetworked && !isHost){
+                gameClient.processPendingJoinAccepted();
+                gameClient.applyPendingSnapshots();
+                gameClient.applyPendingEvents();
+            }
+
+            // 2. THEN capture and apply this tick's fresh input
             Player local = localPlayer();
             InputState localInput = null;
             if(local != null){
@@ -205,12 +216,11 @@ public class Gamepanel extends JPanel implements Runnable{
                 if(isHost){
                     gameServer.processConnectionEvents();
                     gameServer.applyPendingInputs();
+                    gameServer.relayPendingClientEvents();
                 } else {
                     if(localInput != null){
                         gameClient.sendInput(localInput);
                     }
-                    gameClient.processPendingJoinAccepted();
-                    gameClient.applyPendingSnapshots();
                 }
             }
 
@@ -221,22 +231,32 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            boolean simulateWorld = !isNetworked || isHost;
+
             //NPC
             for(int i = 0; i < npc.length; i++){
                 if(npc[i] != null){
-                    npc[i].update();
+                    if(simulateWorld){
+                        npc[i].update();
+                    } else {
+                        npc[i].updateAnimation();
+                    }
                 }
             }
 
             //MONSTER
             for(int i = 0; i< monster.length; i++){
                 if(monster[i] != null){
-                    if(monster[i].alive && !monster[i].dying){
-                        monster[i].update();
-                    }
-                    if(!monster[i].alive){
-                        monster[i].checkDrop();
-                        monster[i] = null;
+                    if(simulateWorld){
+                        if(monster[i].alive){
+                            monster[i].update();
+                        }
+                        if(!monster[i].alive){
+                            monster[i].checkDrop();
+                            monster[i] = null;
+                        }
+                    } else {
+                        monster[i].updateAnimation();
                     }
                 }
             }
@@ -266,9 +286,11 @@ public class Gamepanel extends JPanel implements Runnable{
             }
 
             //INTERACTABLE TILES
-            for(int i = 0; i < interactable.length; i++){
-                if(interactable[i] != null){
-                    interactable[i].update();
+            if(simulateWorld){
+                for(int i = 0; i < interactable.length; i++){
+                    if(interactable[i] != null){
+                        interactable[i].update();
+                    }
                 }
             }
 
@@ -470,7 +492,21 @@ public class Gamepanel extends JPanel implements Runnable{
             ps.maxMP = p.maxMP;
             ps.animState = p.animState;
             ps.attacking = p.attacking;
+            ps.ackTick = p.lastProcessedInputTick;
             playerStates.add(ps);
+            String[] invTypeIds = new String[p.inventorySlots.length];
+            int[] invStackCounts = new int[p.inventorySlots.length];
+            for(int i = 0; i < p.inventorySlots.length; i++){
+                Entity slot = p.inventorySlots[i];
+                if(slot != null){
+                    invTypeIds[i] = object.ItemRegistry.idFor(slot);
+                    invStackCounts[i] = slot.stackCount;
+                }
+            }
+            ps.inventoryTypeIds = invTypeIds;
+            ps.inventoryStackCounts = invStackCounts;
+            ps.weaponTypeId = (p.currentWeapon != null) ? object.ItemRegistry.idFor(p.currentWeapon) : null;
+            ps.shieldTypeId = (p.currentShield != null) ? object.ItemRegistry.idFor(p.currentShield) : null;
         }
 
         net.MonsterState[] monsterStates = new net.MonsterState[monster.length];
@@ -487,11 +523,84 @@ public class Gamepanel extends JPanel implements Runnable{
             monsterStates[i] = ms;
         }
 
+        net.ObjectState[] objectStates = new net.ObjectState[obj.length];
+        for(int i = 0; i < obj.length; i++){
+            if(obj[i] == null) continue;
+            net.ObjectState os = new net.ObjectState();
+            os.typeId = object.ItemRegistry.idFor(obj[i]);
+            os.worldX = obj[i].worldX;
+            os.worldY = obj[i].worldY;
+            os.stackCount = obj[i].stackCount;
+            objectStates[i] = os;
+        }
+
+        net.NpcState[] npcStates = new net.NpcState[npc.length];
+        for(int i = 0; i < npc.length; i++){
+            if(npc[i] == null) continue;
+            net.NpcState ns = new net.NpcState();
+            ns.worldX = npc[i].worldX;
+            ns.worldY = npc[i].worldY;
+            ns.direction = npc[i].direction;
+            npcStates[i] = ns;
+        }
+
         net.WorldSnapshot snapshot = new net.WorldSnapshot();
         snapshot.tick = currentTick;
         snapshot.players = playerStates.toArray(new net.PlayerState[0]);
         snapshot.monsters = monsterStates;
+        snapshot.objects = objectStates;
+        snapshot.npcs = npcStates;
 
         gameServer.broadcastSnapshot(snapshot);
+    }
+
+    public void broadcastPlayerEvent(int playerId, String type, String ambientMessage, String personalMessage){
+        if(isNetworked && !isHost){
+            // Clients don't apply locally here and don't resolve authority —
+            // send to the host, which applies it once and relays to everyone (including echoing back to us)
+            net.GameEvent event = new net.GameEvent();
+            event.playerId = playerId;
+            event.type = type;
+            event.message = ambientMessage;
+            event.personalText = personalMessage;
+            if(gameClient != null){
+                gameClient.sendEvent(event);
+            }
+            return;
+        }
+
+        applyGameEventLocally(playerId, type, ambientMessage, personalMessage);
+        if(isNetworked && isHost && gameServer != null){
+            net.GameEvent event = new net.GameEvent();
+            event.playerId = playerId;
+            event.type = type;
+            event.message = ambientMessage;
+            event.personalText = personalMessage;
+            gameServer.broadcastEvent(event);
+        }
+    }
+
+    public void applyGameEventLocally(int playerId, String type, String ambientMessage, String personalMessage){
+        if(ambientMessage != null){
+            ui.addMessage(ambientMessage, colorForEventType(type));
+        }
+        if(playerId == localPlayerIndex && personalMessage != null){
+            Player p = localPlayer();
+            if(p != null){
+                p.showPersonalNotification(personalMessage);
+            }
+        }
+    }
+
+    private Color colorForEventType(String type){
+        return switch(type){
+            case "levelup" -> new Color(255, 215, 0);
+            case "kill" -> Color.yellow;
+            case "damage" -> Color.orange;
+            case "pickup" -> new Color(120, 220, 120);
+            case "death" -> Color.red;
+            case "heal" -> new Color(120, 200, 255);
+            default -> Color.white;
+        };
     }
 }

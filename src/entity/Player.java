@@ -17,10 +17,15 @@ public class Player extends Entity{
 
     public int playerId;
     public boolean isLocal = true; // remote players (Step 3+) will explicitly set this false
+    public boolean inDialogue = false;
+    public String dialogueText = "";
 
     public InputState currentInput;
     private ArrayDeque<InputState> inputHistory = new ArrayDeque<>();
     private final int inputHistoryCapacity = 128; // ~2s at 60fps — this isn't consumed yet
+    public long lastProcessedInputTick = 0;
+    public int previousEventX = -9999, previousEventY = -9999;
+    public boolean canTouchEvent = true;
 
     public final int screenX;
     public final int screenY;
@@ -124,11 +129,11 @@ public class Player extends Entity{
         setupSkills();
     }
 
-    private int getDefense() {
+    public int getDefense() {
         return defense = dexterity * currentShield.defenseValue;
     }
 
-    private int getAttack() {
+    public int getAttack() {
         attackArea = currentWeapon.attackArea;
         return attack = strength * currentWeapon.attackValue;
     }
@@ -288,8 +293,18 @@ public class Player extends Entity{
 
     public void update(){
         if(!isLocal && !gp.isHost){
-            // Remote players are driven by network state starting in Step 3 — no local input processing yet
             updateStatusEffects();
+            return;
+        }
+
+        if(inDialogue){
+            interactNPC(999); // only checks for a close-via-E while talking — index 999 means "no NPC collision"
+            return; // freezes only THIS player's movement/attack — never touches gp.gameState, so nobody else is affected
+        }
+
+        if(!isLocal && gp.inventoryOpen){
+            updateStatusEffects();
+            updateAnimation();
             return;
         }
 
@@ -336,22 +351,27 @@ public class Player extends Entity{
                         MP -= skills[i].mpCost;
                         skills[i].trigger();
                     }
-                    keyH.skillKeyPressed[i] = false;
+                    if(isLocal){
+                        keyH.skillKeyPressed[i] = false;
+                    }
+                    currentInput.skillKeyPressed[i] = false;
                 }
             }
         }
 
         if(!attacking){
-            spriteCounter++;
-            SpriteAnimation anim = getCurrentAnimation();
-            int frameDelay = (anim != null) ? anim.frameDelay : 12;
-            if(spriteCounter > frameDelay){
-                int frameCount = (anim != null) ? anim.frames.length : 1;
-                spriteNum++;
-                if(spriteNum > frameCount){
-                    spriteNum = 1;
+            if(gp.hitStopCounter <= 0){
+                spriteCounter++;
+                SpriteAnimation anim = getCurrentAnimation();
+                int frameDelay = (anim != null) ? anim.frameDelay : 12;
+                if(spriteCounter > frameDelay){
+                    int frameCount = (anim != null) ? anim.frames.length : 1;
+                    spriteNum++;
+                    if(spriteNum > frameCount){
+                        spriteNum = 1;
+                    }
+                    spriteCounter = 0;
                 }
-                spriteCounter = 0;
             }
         }
 
@@ -368,8 +388,11 @@ public class Player extends Entity{
         }
         else if(attacking){
             if(currentInput.leftClicked){
-                attackBuffered = true;   // remember the click, don't let the flag wipe reach anywhere
-                gp.mouseH.leftClicked = false;
+                attackBuffered = true;
+                if(isLocal){
+                    gp.mouseH.leftClicked = false;
+                }
+                currentInput.leftClicked = false;
             }
             attacking();
         }
@@ -395,7 +418,7 @@ public class Player extends Entity{
                 int interactableIndex = gp.collisionChecker.checkEntity(this, gp.interactable);
 
                 //CHECK EVENT
-                gp.eventHandler.checkEvent();
+                gp.eventHandler.checkEvent(this);
 
                 //IF COLLISION IS FALSE, PLAYER CAN MOVE
                 if(!currentInput.ePressed){
@@ -433,10 +456,14 @@ public class Player extends Entity{
                     attackFrameHoldCounter = 0;
                 }
 
-                attackCanceled = false;
+            if(isLocal){
                 gp.keyH.ePressed = false;
                 gp.mouseH.leftClicked = false;
-                attackBuffered = false;
+            }
+            currentInput.ePressed = false;
+            currentInput.leftClicked = false;
+            attackCanceled = false;
+            attackBuffered = false;
         }
 
 //        if(gp.keyH.shotKeyPressed && !projectile.alive && shotAvailableCounter == 30 && projectile.hasResource(this)){
@@ -477,15 +504,21 @@ public class Player extends Entity{
         }
 
         if(HP <= 0){
-            gp.gameState = gp.gameOverState;
-            gp.ui.commandNum = -1;
-            gp.stopMusic();
-            gp.playSE(11);
+            if(gp.isNetworked){
+                respawnSolo();
+            } else {
+                gp.gameState = gp.gameOverState;
+                gp.ui.commandNum = -1;
+                gp.stopMusic();
+                gp.playSE(11);
+            }
         }
 
     }
 
     public void attacking() {
+        if(gp.hitStopCounter > 0) return;
+
         SpriteAnimation anim = getCurrentAnimation();
         int totalFrames = (anim != null) ? anim.frames.length : 1;
 
@@ -504,42 +537,44 @@ public class Player extends Entity{
         }
 
         if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame){
-            //Save current WorldX, WorldY, SolidArea
-            int currentWorldX = worldX;
-            int currentWorldY = worldY;
-            int solidAreaWidth = solidArea.width;
-            int solidAreaHeight = solidArea.height;
+            if(canResolveWorldActions()){
+                //Save current WorldX, WorldY, SolidArea
+                int currentWorldX = worldX;
+                int currentWorldY = worldY;
+                int solidAreaWidth = solidArea.width;
+                int solidAreaHeight = solidArea.height;
 
-            switch (direction){
-                case "up" -> worldY -= attackArea.height;
-                case "down" -> worldY += attackArea.height;
-                case "left" -> worldX -= attackArea.width;
-                case "right" -> worldX += attackArea.width;
+                switch (direction){
+                    case "up" -> worldY -= attackArea.height;
+                    case "down" -> worldY += attackArea.height;
+                    case "left" -> worldX -= attackArea.width;
+                    case "right" -> worldX += attackArea.width;
+                }
+
+                solidArea.width = attackArea.width;
+                solidArea.height = attackArea.height;
+
+                int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
+                int bonusDamage = 0;
+                if(powerStrikePending){
+                    bonusDamage = powerStrikeBonus;
+                    powerStrikePending = false;
+                }
+                damageMonster(monsterIndex, getEffectiveAttack() + bonusDamage);
+
+                if(rendPending && monsterIndex != 999){
+                    gp.monster[monsterIndex].addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
+                    rendPending = false;
+                }
+
+                int interactableIndex = gp.collisionChecker.checkEntity(this, gp.interactable);
+                objectInteract(interactableIndex);
+
+                worldX = currentWorldX;
+                worldY = currentWorldY;
+                solidArea.width = solidAreaWidth;
+                solidArea.height = solidAreaHeight;
             }
-
-            solidArea.width = attackArea.width;
-            solidArea.height = attackArea.height;
-
-            int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
-            int bonusDamage = 0;
-            if(powerStrikePending){
-                bonusDamage = powerStrikeBonus;
-                powerStrikePending = false;
-            }
-            damageMonster(monsterIndex, getEffectiveAttack() + bonusDamage);
-
-            if(rendPending && monsterIndex != 999){
-                gp.monster[monsterIndex].addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
-                rendPending = false;
-            }
-
-            int interactableIndex = gp.collisionChecker.checkEntity(this, gp.interactable);
-            objectInteract(interactableIndex);
-
-            worldX = currentWorldX;
-            worldY = currentWorldY;
-            solidArea.width = solidAreaWidth;
-            solidArea.height = solidAreaHeight;
         }
     }
 
@@ -553,10 +588,12 @@ public class Player extends Entity{
                     damage = 0;
                 }
                 gp.monster[index].HP -= damage;
-                gp.ui.addMessage(damage + " damage!");
+                gp.broadcastPlayerEvent(playerId, "damage", "Player " + (playerId + 1) + " dealt " + damage + " damage!", null);
                 gp.monster[index].invincible = true;
                 gp.monster[index].flashing = true;
                 gp.monster[index].flashCounter = 0;
+                gp.monster[index].hpBarOn = true;
+                gp.monster[index].hpBarCounter = 0;
                 gp.monster[index].startKnockback(direction, gp.monster[index].knockbackDistance);
                 gp.startScreenShake(hitStopOnHitMonster, 4);
                 gp.monster[index].spawnHitParticles();
@@ -566,8 +603,8 @@ public class Player extends Entity{
                 if(gp.monster[index].HP <= 0){
                     gp.monster[index].dying = true;
                     exp += gp.monster[index].exp;
-                    gp.ui.addMessage("Killed the " + gp.monster[index].name + "!");
-                    gp.ui.addMessage("Gained " + gp.monster[index].exp + " EXP" );
+                    gp.broadcastPlayerEvent(playerId, "kill",
+                            "Player " + (playerId + 1) + " killed the " + gp.monster[index].name + "! (+" + gp.monster[index].exp + " EXP)", null);
                     checkLevelUp();
                 }
             }
@@ -585,14 +622,17 @@ public class Player extends Entity{
             defense = getDefense();
 
             gp.playSE(7);
-            gp.gameState = gp.dialogueState;
-            gp.ui.currentDialogue = "You are level " + level + " now!\nYour will is stronger than ever!";
+            String ambient = "Player " + (playerId + 1) + " reached level " + level + "!";
+            String personal = "You are level " + level + " now!\nYour will is stronger than ever!";
+            gp.broadcastPlayerEvent(playerId, "levelup", ambient, personal);
         }
     }
 
     private void contactMonster(int index) {
         if(index != 999){
             if(!invincible && !gp.monster[index].dying){
+                if(!canResolveWorldActions()) return;
+
                 gp.playSE(6);
                 int damage = gp.monster[index].attack - getEffectiveDefense();
                 if(damage < 0){
@@ -612,8 +652,10 @@ public class Player extends Entity{
 
     public void pickUpObject(int index){
         if(index != 999){
+            if(!canResolveWorldActions()) return; // host-only — only the authoritative simulation removes items from the shared world
+
             Entity picked = gp.obj[index];
-            if(picked.pickupBlocked) return; // still standing on it from the drop — must step off first
+            if(picked.pickupBlocked) return;
 
             if(picked.type == type_pickuponly){
                 picked.use(this);
@@ -621,14 +663,14 @@ public class Player extends Entity{
                 return;
             }
 
-            String text;
+            String ambient;
             if(addToInventory(picked)){
                 gp.playSE(1);
-                text = "Picked up a " + picked.name + "!";
+                ambient = "Player " + (playerId + 1) + " picked up a " + picked.name + "!";
             } else {
-                text = "Inventory is full!";
+                ambient = "Player " + (playerId + 1) + "'s inventory is full!";
             }
-            gp.ui.addMessage(text);
+            gp.broadcastPlayerEvent(playerId, "pickup", ambient, null);
             gp.obj[index] = null;
         }
     }
@@ -788,12 +830,17 @@ public class Player extends Entity{
     }
 
     public void interactNPC(int index){
-        if(gp.keyH.ePressed){
-            if(index != 999){
-                attackCanceled = true;
-                gp.gameState = gp.dialogueState;
-                gp.npc[index].speak();
+        if(inDialogue){
+            if(currentInput.ePressed){
+                closeDialogue();
             }
+            return;
+        }
+        if(currentInput.ePressed && index != 999){
+            if(!canResolveWorldActions()) return; // host-only — NPC dialogue index is shared world state
+            attackCanceled = true;
+            String line = gp.npc[index].speak(this);
+            gp.broadcastPlayerEvent(playerId, "dialogue", null, line);
         }
     }
 
@@ -976,11 +1023,88 @@ public class Player extends Entity{
 
     public void applyInput(InputState input){
         currentInput = input;
+        lastProcessedInputTick = input.tick;
         if(isLocal){
             inputHistory.addLast(input);
             while(inputHistory.size() > inputHistoryCapacity){
                 inputHistory.removeFirst();
             }
+        }
+    }
+
+    public void showPersonalNotification(String text){
+        inDialogue = true;
+        dialogueText = text;
+    }
+
+    private void closeDialogue(){
+        inDialogue = false;
+        dialogueText = "";
+    }
+
+    private void respawnSolo(){
+        setDefaultPosition();
+        resetHPandMP();
+        gp.playSE(11);
+        gp.broadcastPlayerEvent(playerId, "death",
+                "Player " + (playerId + 1) + " was defeated and respawned.", null);
+    }
+
+    public boolean canResolveWorldActions(){
+        return !gp.isNetworked || gp.isHost;
+    }
+
+    public void simulateMovement(InputState input){
+        if(input.ePressed) return; // matches the live rule: holding E suppresses movement that tick
+
+        String horizDir = input.left ? "left" : (input.right ? "right" : null);
+        String vertDir = input.up ? "up" : (input.down ? "down" : null);
+
+        boolean diagonal = (horizDir != null && vertDir != null);
+        int moveSpeed = diagonal ? (int) Math.round(speed * 0.7071) : speed;
+        if(diagonal && moveSpeed < 1) moveSpeed = 1;
+
+        if(horizDir != null){
+            direction = horizDir;
+            collisionOn = false;
+            gp.collisionChecker.checkTile(this);
+            if(!collisionOn){
+                worldX += horizDir.equals("left") ? -moveSpeed : moveSpeed;
+            }
+        }
+
+        if(vertDir != null){
+            direction = vertDir;
+            collisionOn = false;
+            gp.collisionChecker.checkTile(this);
+            if(!collisionOn){
+                worldY += vertDir.equals("up") ? -moveSpeed : moveSpeed;
+            }
+        }
+
+        direction = (vertDir != null) ? vertDir : direction;
+        direction = (horizDir != null) ? horizDir : direction;
+    }
+
+    public void reconcile(int authoritativeX, int authoritativeY, String authoritativeDirection,
+                          int hp, int maxHp, int mp, int maxMp, long ackTick){
+        HP = hp;
+        maxHP = maxHp;
+        MP = mp;
+        maxMP = maxMp;
+
+        // Drop every buffered input the host has confirmed it already processed
+        while(!inputHistory.isEmpty() && inputHistory.peekFirst().tick <= ackTick){
+            inputHistory.pollFirst();
+        }
+
+        // Snap to the host's confirmed position, then fast-forward through everything since
+        worldX = authoritativeX;
+        worldY = authoritativeY;
+        direction = authoritativeDirection;
+
+        for(InputState buffered : inputHistory){
+            simulateMovement(buffered);
         }
     }
 }

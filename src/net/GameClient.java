@@ -3,6 +3,7 @@ package net;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
+import entity.Entity;
 import entity.Player;
 import main.Gamepanel;
 import monster.MON_GreenSlime;
@@ -15,6 +16,7 @@ public class GameClient {
     private Client client;
     private ConcurrentLinkedQueue<WorldSnapshot> pendingSnapshots = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<JoinAccepted> pendingJoinAccepted = new ConcurrentLinkedQueue<>();
+    private ConcurrentLinkedQueue<GameEvent> pendingEvents = new ConcurrentLinkedQueue<>();
 
     public GameClient(Gamepanel gp){
         this.gp = gp;
@@ -43,8 +45,11 @@ public class GameClient {
                 if(object instanceof JoinAccepted accepted){
                     pendingJoinAccepted.add(accepted);
                 }
-                if(object instanceof WorldSnapshot snapshot){
+                if(object instanceof WorldSnapshot snapshot) {
                     pendingSnapshots.add(snapshot);
+                }
+                if(object instanceof GameEvent event){
+                    pendingEvents.add(event);
                 }
             }
         });
@@ -69,6 +74,7 @@ public class GameClient {
             Player existingLocal = gp.players[gp.localPlayerIndex];
             gp.players[gp.localPlayerIndex] = null;
             gp.localPlayerIndex = assigned;
+            existingLocal.playerId = assigned;
             gp.players[assigned] = existingLocal;
             gp.ui.addMessage("Joined as player " + assigned + ".", java.awt.Color.green);
         }
@@ -96,7 +102,33 @@ public class GameClient {
                 p.isLocal = (ps.playerId == gp.localPlayerIndex);
                 gp.players[ps.playerId] = p;
             }
-            if(!p.isLocal){
+
+            if(p.isLocal){
+                for(int i = 0; i < ps.inventoryTypeIds.length; i++){
+                    String typeId = ps.inventoryTypeIds[i];
+                    if(typeId == null){
+                        p.inventorySlots[i] = null;
+                        continue;
+                    }
+                    Entity existing = p.inventorySlots[i];
+                    if(existing == null || !object.ItemRegistry.idFor(existing).equals(typeId)){
+                        p.inventorySlots[i] = object.ItemRegistry.create(typeId, gp);
+                    }
+                    if(p.inventorySlots[i] != null){
+                        p.inventorySlots[i].stackCount = ps.inventoryStackCounts[i];
+                    }
+                }
+
+                if(ps.weaponTypeId != null && (p.currentWeapon == null || !object.ItemRegistry.idFor(p.currentWeapon).equals(ps.weaponTypeId))){
+                    p.currentWeapon = object.ItemRegistry.create(ps.weaponTypeId, gp);
+                    p.attack = p.getAttack();
+                    p.getPlayerAttackImage();
+                }
+                if(ps.shieldTypeId != null && (p.currentShield == null || !object.ItemRegistry.idFor(p.currentShield).equals(ps.shieldTypeId))){
+                    p.currentShield = object.ItemRegistry.create(ps.shieldTypeId, gp);
+                    p.defense = p.getDefense();
+                }
+            } else {
                 p.worldX = ps.worldX;
                 p.worldY = ps.worldY;
                 p.direction = ps.direction;
@@ -116,14 +148,63 @@ public class GameClient {
                 continue;
             }
             if(gp.monster[i] == null){
-                gp.monster[i] = new MON_GreenSlime(gp); // simplification: assumes one monster type for now
+                gp.monster[i] = new MON_GreenSlime(gp);
+                gp.monster[i].HP = ms.HP; // avoid a false "just got hit" trigger on first creation
             }
-            gp.monster[i].worldX = ms.worldX;
-            gp.monster[i].worldY = ms.worldY;
-            gp.monster[i].direction = ms.direction;
-            gp.monster[i].HP = ms.HP;
-            gp.monster[i].maxHP = ms.maxHP;
-            gp.monster[i].dying = ms.dying;
+
+            Entity m = gp.monster[i];
+            if(ms.HP < m.HP){
+                // The HP delta IS the hit signal — no separate "you got hit" event needed
+                m.flashing = true;
+                m.flashCounter = 0;
+                m.hpBarOn = true;
+                m.hpBarCounter = 0;
+                m.spawnHitParticles();
+            }
+
+            m.worldX = ms.worldX;
+            m.worldY = ms.worldY;
+            m.direction = ms.direction;
+            m.HP = ms.HP;
+            m.maxHP = ms.maxHP;
+            m.dying = ms.dying;
+        }
+
+        for(int i = 0; i < snapshot.objects.length; i++){
+            net.ObjectState os = snapshot.objects[i];
+            if(os == null){
+                gp.obj[i] = null;
+                continue;
+            }
+            if(gp.obj[i] == null || !object.ItemRegistry.idFor(gp.obj[i]).equals(os.typeId)){
+                gp.obj[i] = object.ItemRegistry.create(os.typeId, gp);
+            }
+            if(gp.obj[i] != null){
+                gp.obj[i].worldX = os.worldX;
+                gp.obj[i].worldY = os.worldY;
+                gp.obj[i].stackCount = os.stackCount;
+            }
+        }
+
+        for(int i = 0; i < snapshot.npcs.length; i++){
+            net.NpcState ns = snapshot.npcs[i];
+            if(ns == null || gp.npc[i] == null) continue;
+            gp.npc[i].worldX = ns.worldX;
+            gp.npc[i].worldY = ns.worldY;
+            gp.npc[i].direction = ns.direction;
+        }
+    }
+
+    public void applyPendingEvents(){
+        GameEvent event;
+        while((event = pendingEvents.poll()) != null){
+            gp.applyGameEventLocally(event.playerId, event.type, event.message, event.personalText);
+        }
+    }
+
+    public void sendEvent(GameEvent event){
+        if(client != null && client.isConnected()){
+            client.sendTCP(event);
         }
     }
 }

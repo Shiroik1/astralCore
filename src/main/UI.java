@@ -158,7 +158,7 @@ public class UI {
             }
             gp.mouseH.leftClicked = false;
         }
-        else if(gp.gameState == gp.characterState){
+        else if(gp.inventoryOpen){
             updateInventoryDrag(mouseX, mouseY);
         }
     }
@@ -227,6 +227,15 @@ public class UI {
             drawPlayerHP();
             drawCombatLog();
             drawSkillHotbar();
+            if(gp.inventoryOpen){
+                drawCharacterScreen();
+                drawInventory();
+            }
+
+            Player local = gp.localPlayer();
+            if(local != null && local.inDialogue){
+                drawPersonalDialogue(local.dialogueText);
+            }
         }
 
         //PAUSE STATE
@@ -238,12 +247,6 @@ public class UI {
         //DIALOGUE STATE
         if(gp.gameState == gp.dialogueState){
             drawDialogueScreen();
-        }
-
-        //CHARACTER STATE
-        if(gp.gameState == gp.characterState){
-            drawCharacterScreen();
-            drawInventory();
         }
 
         //OPTION STATE
@@ -850,6 +853,24 @@ public class UI {
 
     }
 
+    private void drawPersonalDialogue(String text){
+        int x = gp.tileSize * 2;
+        int y = gp.tileSize / 2;
+        int width = gp.screenWidth - (gp.tileSize * 4);
+        int height = gp.tileSize * 5;
+
+        drawSubWindow(x, y, width, height);
+
+        g2.setFont(jetbrainsMono.deriveFont(Font.PLAIN, 20F));
+        x += gp.tileSize;
+        y += gp.tileSize;
+
+        for(String line : text.split("\n")){
+            g2.drawString(line, x, y);
+            y += 40;
+        }
+    }
+
     public void drawSubWindow(int x, int y, int width, int height){
         Color color = new Color(0,0,0, 200);
         g2.setColor(color);
@@ -1205,4 +1226,6 @@ public class UI {
     public void cancelJoinAddress(){
         joinStatusMessage = null;
     }
+
+
 }

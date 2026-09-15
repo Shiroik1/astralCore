@@ -1,12 +1,13 @@
 package main;
 
+import entity.Player;
+
 import java.awt.*;
 
 public class EventHandler {
     Gamepanel gp;
     EventRect eventRect[][];
 
-    int previousEventX, previousEventY;
     boolean canTouchEvent = true;
 
     public EventHandler(Gamepanel gp){
@@ -33,22 +34,17 @@ public class EventHandler {
         }
     }
 
-    public void checkEvent(){
-
-        //Check if the player moves away 1 tile from the last event
-        int xDistance = Math.abs(gp.localPlayer().worldX - previousEventX);
-        int yDistance = Math.abs(gp.localPlayer().worldY - previousEventY);
+    public void checkEvent(Player player){
+        int xDistance = Math.abs(player.worldX - player.previousEventX);
+        int yDistance = Math.abs(player.worldY - player.previousEventY);
         int distance = Math.max(xDistance, yDistance);
         if(distance > gp.tileSize){
-            canTouchEvent = true;
+            player.canTouchEvent = true;
         }
 
-        if(canTouchEvent){
-//            if(hit(54,79,"down")){
-//                damagePit(54,79,gp.dialogueState);
-//            }
-            if(hit(32,18,"up")){
-                healingPool(32,18, gp.dialogueState);
+        if(player.canTouchEvent){
+            if(hit(32,18,"up", player)){
+                healingPool(32,18, player);
             }
         }
     }
@@ -61,37 +57,38 @@ public class EventHandler {
         canTouchEvent = false;
     }
 
-    public void healingPool(int col, int row, int gameState){
-        if(gp.keyH.ePressed){
-            gp.gameState = gameState;
+    public void healingPool(int col, int row, Player player){
+        if(player.currentInput != null && player.currentInput.ePressed && player.canResolveWorldActions()){
+            player.attackCanceled = true;
+            player.HP = player.maxHP;
+            player.MP = player.maxMP;
             gp.playSE(2);
-            gp.localPlayer().attackCanceled = true;
-            gp.ui.currentDialogue = "You drink the aqua of life.\nYour wounds has been fully healed!";
-            gp.localPlayer().HP = gp.localPlayer().maxHP;
-            gp.localPlayer().MP = gp.localPlayer().maxMP;
+            gp.broadcastPlayerEvent(player.playerId, "heal",
+                    "Player " + (player.playerId + 1) + " drank the aqua of life and was fully healed!",
+                    "You drink the aqua of life.\nYour wounds have been fully healed!");
             gp.assetSetter.setMonster();
+            player.canTouchEvent = false;
         }
     }
 
-    public boolean hit(int col, int row, String reqDirection){
+    public boolean hit(int col, int row, String reqDirection, Player player){
         boolean hit = false;
 
-        gp.localPlayer().solidArea.x = gp.localPlayer().worldX + gp.localPlayer().solidArea.x;
-        gp.localPlayer().solidArea.y = gp.localPlayer().worldY + gp.localPlayer().solidArea.y;
+        player.solidArea.x = player.worldX + player.solidArea.x;
+        player.solidArea.y = player.worldY + player.solidArea.y;
         eventRect[col][row].x = col*gp.tileSize + eventRect[col][row].x;
         eventRect[col][row].y = row*gp.tileSize + eventRect[col][row].y;
 
-        if(gp.localPlayer().solidArea.intersects(eventRect[col][row]) && !eventRect[col][row].eventDone){
-            if(gp.localPlayer().direction.contentEquals(reqDirection) || reqDirection.contentEquals("any")){
+        if(player.solidArea.intersects(eventRect[col][row]) && !eventRect[col][row].eventDone){
+            if(player.direction.contentEquals(reqDirection) || reqDirection.contentEquals("any")){
                 hit = true;
-
-                previousEventX = gp.localPlayer().worldX;
-                previousEventY = gp.localPlayer().worldY;
+                player.previousEventX = player.worldX;
+                player.previousEventY = player.worldY;
             }
         }
 
-        gp.localPlayer().solidArea.x = gp.localPlayer().solidAreaDefaultX;
-        gp.localPlayer().solidArea.y = gp.localPlayer().solidAreaDefaultY;
+        player.solidArea.x = player.solidAreaDefaultX;
+        player.solidArea.y = player.solidAreaDefaultY;
         eventRect[col][row].x = eventRect[col][row].eventRectDefaultX;
         eventRect[col][row].y = eventRect[col][row].eventRectDefaultY;
 

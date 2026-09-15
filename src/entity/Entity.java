@@ -149,23 +149,31 @@ public class Entity {
         }
     }
 
-    public void speak(){
+    public String speak(Player interactingPlayer){
         if(dialogues[dialogueIndex] == null){
             dialogueIndex = 0;
         }
-
-        gp.ui.currentDialogue = dialogues[dialogueIndex];
+        String line = dialogues[dialogueIndex];
         dialogueIndex++;
 
-        switch (gp.localPlayer().direction){
+        switch (interactingPlayer.direction){
             case "up" -> direction = "down";
             case "down" -> direction = "up";
             case "left" -> direction = "right";
             case "right" -> direction = "left";
         }
+        return line;
     }
 
     public void update(){
+        if(dying){
+            updateAnimation();
+            if(dyingCounter > 40){
+                alive = false;
+            }
+            return;
+        }
+
         setAction();
 
         if(knockbackActive){
@@ -198,6 +206,26 @@ public class Entity {
             }
         }
 
+        updateAnimation();
+
+        if(invincible){
+            invincibleCounter++;
+            if(invincibleCounter > 40){
+                invincible = false;
+                invincibleCounter = 0;
+            }
+        }
+
+        if(shotAvailableCounter < 30){
+            shotAvailableCounter++;
+        }
+
+        updateStatusEffects();
+    }
+
+    public void updateAnimation(){
+        if(gp.hitStopCounter > 0) return;
+
         spriteCounter++;
         if(spriteCounter > 12){
             SpriteAnimation anim = getCurrentAnimation();
@@ -209,14 +237,6 @@ public class Entity {
             spriteCounter = 0;
         }
 
-        if(invincible){
-            invincibleCounter++;
-            if(invincibleCounter > 40){
-                invincible = false;
-                invincibleCounter = 0;
-            }
-        }
-
         if(flashing){
             flashCounter++;
             if(flashCounter > flashDuration){
@@ -225,11 +245,17 @@ public class Entity {
             }
         }
 
-        if(shotAvailableCounter < 30){
-            shotAvailableCounter++;
+        if(hpBarOn){
+            hpBarCounter++;
+            if(hpBarCounter > 600){
+                hpBarCounter = 0;
+                hpBarOn = false;
+            }
         }
 
-        updateStatusEffects();
+        if(dying){
+            dyingCounter++;
+        }
     }
 
     public void damagePlayer(Player target, int attack){
@@ -264,7 +290,6 @@ public class Entity {
 
             //HP Bar
             if(type == type_monster && hpBarOn){
-
                 double oneScale = (double) gp.tileSize/maxHP;
                 double hpBarValue = oneScale * HP;
 
@@ -272,22 +297,10 @@ public class Entity {
                 g2.fillRect(screenX - 1, screenY - 16, gp.tileSize + 2, 7);
                 g2.setColor(Color.red);
                 g2.fillRect(screenX, screenY - 15, (int) hpBarValue , 5);
-
-                hpBarCounter++;
-
-                if(hpBarCounter > 600){
-                    hpBarCounter = 0;
-                    hpBarOn = false;
-                }
-            }
-
-            if(invincible){
-                hpBarOn= true;
-                hpBarCounter = 0;
             }
 
             if(dying){
-                dyingAnimation(g2);
+                drawDyingAlpha(g2);
             }
 
             int drawX = screenX;
@@ -305,37 +318,19 @@ public class Entity {
         }
     }
 
-    public void dyingAnimation(Graphics2D g2) {
-        dyingCounter++;
+    public void drawDyingAlpha(Graphics2D g2) {
         int i = 5;
+        int c = dyingCounter;
 
-        if(dyingCounter <= i){
-            changeAlpha(g2, 0f);
-        }
-        if(dyingCounter > i && dyingCounter <= i*2){
-            changeAlpha(g2, 1f);
-        }
-        if(dyingCounter > i*2 && dyingCounter <= i*3){
-            changeAlpha(g2, 0f);
-        }
-        if(dyingCounter > i*3 && dyingCounter <= i*4){
-            changeAlpha(g2, 1f);
-        }
-        if(dyingCounter > i*4 && dyingCounter <= i*5){
-            changeAlpha(g2, 0f);
-        }
-        if(dyingCounter > i*5 && dyingCounter <= i*6){
-            changeAlpha(g2, 1f);
-        }
-        if(dyingCounter > i*6 && dyingCounter <= i*7){
-            changeAlpha(g2, 0f);
-        }
-        if(dyingCounter > i*7 && dyingCounter <= i*8){
-            changeAlpha(g2, 1f);
-        }
-        if(dyingCounter > i*8){
-            alive = false;
-        }
+        if(c <= i)            changeAlpha(g2, 0f);
+        else if(c <= i*2)     changeAlpha(g2, 1f);
+        else if(c <= i*3)     changeAlpha(g2, 0f);
+        else if(c <= i*4)     changeAlpha(g2, 1f);
+        else if(c <= i*5)     changeAlpha(g2, 0f);
+        else if(c <= i*6)     changeAlpha(g2, 1f);
+        else if(c <= i*7)     changeAlpha(g2, 0f);
+        else if(c <= i*8)     changeAlpha(g2, 1f);
+        else                  changeAlpha(g2, 0f);
     }
 
     public void changeAlpha(Graphics2D g2, float alphaValue){

@@ -14,5 +14,12 @@ public class NetworkRegistration {
         kryo.register(WorldSnapshot.class);
         kryo.register(JoinRequest.class);
         kryo.register(JoinAccepted.class);
+        kryo.register(GameEvent.class);
+        kryo.register(ObjectState.class);
+        kryo.register(ObjectState[].class);
+        kryo.register(String[].class);
+        kryo.register(int[].class);
+        kryo.register(NpcState.class);
+        kryo.register(NpcState[].class);
     }
 }

@@ -26,4 +26,19 @@ public class InputState {
         }
         return state;
     }
+
+    public void mergeOneShotFlags(InputState newer){
+        // Keep the newest directional/held state, but latch any one-shot press seen in this batch
+        up = newer.up;
+        down = newer.down;
+        left = newer.left;
+        right = newer.right;
+        ePressed = ePressed || newer.ePressed;
+        leftClicked = leftClicked || newer.leftClicked;
+        shotKeyPressed = shotKeyPressed || newer.shotKeyPressed;
+        for(int i = 0; i < skillKeyPressed.length; i++){
+            skillKeyPressed[i] = skillKeyPressed[i] || newer.skillKeyPressed[i];
+        }
+        tick = newer.tick;
+    }
 }

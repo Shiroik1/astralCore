@@ -24,7 +24,9 @@ public class Projectile extends Entity{
         if(user.type == type_player){
             int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
             if(monsterIndex != 999){
-                ((Player) user).damageMonster(monsterIndex, attack);
+                if(((Player) user).canResolveWorldActions()){
+                    ((Player) user).damageMonster(monsterIndex, attack);
+                }
                 generateParticle(user.projectile, gp.monster[monsterIndex]);
                 alive = false;
             }
@@ -32,7 +34,9 @@ public class Projectile extends Entity{
         else {
             Player contactedPlayer = gp.collisionChecker.checkPlayer(this);
             if(contactedPlayer != null && !contactedPlayer.invincible){
-                damagePlayer(contactedPlayer, attack);
+                if(!gp.isNetworked || gp.isHost){
+                    damagePlayer(contactedPlayer, attack);
+                }
                 generateParticle(user.projectile, contactedPlayer);
                 alive = false;
             }

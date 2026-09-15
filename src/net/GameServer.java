@@ -18,6 +18,7 @@ public class GameServer {
     private ConcurrentLinkedQueue<Integer> pendingConnections = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<Integer> pendingDisconnections = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<Object[]> pendingInputs = new ConcurrentLinkedQueue<>();
+    private ConcurrentLinkedQueue<GameEvent> pendingClientEvents = new ConcurrentLinkedQueue<>();
 
     public GameServer(Gamepanel gp){
         this.gp = gp;
@@ -42,6 +43,9 @@ public class GameServer {
                     if(playerId != null){
                         pendingInputs.add(new Object[]{playerId, input});
                     }
+                }
+                if(object instanceof GameEvent event){
+                    pendingClientEvents.add(event);
                 }
             }
 
@@ -102,18 +106,42 @@ public class GameServer {
     }
 
     public void applyPendingInputs(){
+        java.util.Map<Integer, InputState> merged = new java.util.HashMap<>();
+
         Object[] item;
         while((item = pendingInputs.poll()) != null){
             int playerId = (int) item[0];
             InputState input = (InputState) item[1];
-            Player target = gp.players[playerId];
+
+            InputState existing = merged.get(playerId);
+            if(existing == null){
+                merged.put(playerId, input);
+            } else {
+                existing.mergeOneShotFlags(input); // preserves any click/press seen anywhere in this batch
+            }
+        }
+
+        for(var entry : merged.entrySet()){
+            Player target = gp.players[entry.getKey()];
             if(target != null){
-                target.applyInput(input);
+                target.applyInput(entry.getValue());
             }
         }
     }
 
     public void broadcastSnapshot(WorldSnapshot snapshot){
         server.sendToAllTCP(snapshot);
+    }
+
+    public void broadcastEvent(GameEvent event){
+        server.sendToAllTCP(event);
+    }
+
+    public void relayPendingClientEvents(){
+        GameEvent event;
+        while((event = pendingClientEvents.poll()) != null){
+            gp.applyGameEventLocally(event.playerId, event.type, event.message, event.personalText);
+            broadcastEvent(event); // pass it along to every other connected client
+        }
     }
 }
