@@ -36,6 +36,7 @@ public class UI {
     private UIButton[] endgameConfirmButtons = {new UIButton(), new UIButton()};
     private UIButton[] gameoverButtons = {new UIButton(), new UIButton()};
     private UIButton lastHoveredButton = null;
+    private UIButton respawnButton = new UIButton();
 
     public int subState = 0;
 
@@ -123,6 +124,17 @@ public class UI {
     }
 
     public void update(int mouseX, int mouseY, boolean clicked){
+        Player local = gp.localPlayer();
+        if(local != null && local.isDead){
+            int hovered = processButtonHover(new UIButton[]{respawnButton}, mouseX, mouseY);
+            if(hovered != -1 && clicked){
+                gp.broadcastPlayerEvent(local.playerId, "respawn_request",
+                        "Player " + (local.playerId + 1) + " has respawned.", null);
+            }
+            gp.mouseH.leftClicked = false;
+            return;
+        }
+
         if(gp.gameState == gp.titleState){
             if(gp.keyH.enteringNetworkAddress){
                 gp.mouseH.leftClicked = false;
@@ -233,6 +245,9 @@ public class UI {
             }
 
             Player local = gp.localPlayer();
+            if(local != null && local.isDead){
+                drawDeathScreen();
+            }
             if(local != null && local.inDialogue){
                 drawPersonalDialogue(local.dialogueText);
             }
@@ -862,13 +877,27 @@ public class UI {
         drawSubWindow(x, y, width, height);
 
         g2.setFont(jetbrainsMono.deriveFont(Font.PLAIN, 20F));
-        x += gp.tileSize;
-        y += gp.tileSize;
+        int textX = x + gp.tileSize;
+        int textY = y + gp.tileSize;
 
         for(String line : text.split("\n")){
-            g2.drawString(line, x, y);
-            y += 40;
+            g2.drawString(line, textX, textY);
+            textY += 40;
         }
+
+        drawContinueArrow(x + width - 50, y + height - 40);
+    }
+
+    private void drawContinueArrow(int baseX, int baseY){
+        double bounce = Math.abs(Math.sin(System.currentTimeMillis() / 200.0)) * 6;
+        int ax = baseX;
+        int ay = (int)(baseY + bounce);
+
+        int[] xs = { ax, ax + 14, ax + 7 };
+        int[] ys = { ay, ay, ay + 10 };
+
+        g2.setColor(Color.white);
+        g2.fillPolygon(xs, ys, 3);
     }
 
     public void drawSubWindow(int x, int y, int width, int height){
@@ -1227,5 +1256,22 @@ public class UI {
         joinStatusMessage = null;
     }
 
+    private void drawDeathScreen(){
+        g2.setColor(new Color(0, 0, 0, 180));
+        g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
 
+        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD, 60f));
+        g2.setColor(Color.red);
+        String text = "YOU DIED";
+        int x = getXforCenteredText(text);
+        int y = gp.screenHeight/2 - 60;
+        g2.drawString(text, x, y);
+
+        g2.setColor(Color.white);
+        g2.setFont(jetbrainsMono.deriveFont(Font.PLAIN, 26f));
+        text = "Return to Spawn";
+        x = getXforCenteredText(text);
+        y = gp.screenHeight/2 + 20;
+        drawMenuButton(respawnButton, text, x, y, false);
+    }
 }

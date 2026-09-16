@@ -493,6 +493,7 @@ public class Gamepanel extends JPanel implements Runnable{
             ps.animState = p.animState;
             ps.attacking = p.attacking;
             ps.ackTick = p.lastProcessedInputTick;
+            ps.isDead = p.isDead;
             playerStates.add(ps);
             String[] invTypeIds = new String[p.inventorySlots.length];
             int[] invStackCounts = new int[p.inventorySlots.length];
@@ -581,6 +582,15 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void applyGameEventLocally(int playerId, String type, String ambientMessage, String personalMessage){
+        if(type.equals("respawn_request")){
+            if(!isNetworked || isHost){ // only the authoritative machine actually performs the reset
+                Player target = players[playerId];
+                if(target != null){
+                    target.performRespawn();
+                }
+            }
+        }
+
         if(ambientMessage != null){
             ui.addMessage(ambientMessage, colorForEventType(type));
         }

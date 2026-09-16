@@ -11,14 +11,19 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import net.InputState;
 import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Player extends Entity{
     KeyHandler keyH;
 
     public int playerId;
     public boolean isLocal = true; // remote players (Step 3+) will explicitly set this false
+    public int dialogueNpcIndex = -1;
+    public int dialoguePage = 0;
     public boolean inDialogue = false;
     public String dialogueText = "";
+    public boolean isDead = false;
 
     public InputState currentInput;
     private ArrayDeque<InputState> inputHistory = new ArrayDeque<>();
@@ -294,6 +299,14 @@ public class Player extends Entity{
     public void update(){
         if(!isLocal && !gp.isHost){
             updateStatusEffects();
+            if(!isDead){
+                updateAnimation();
+            }
+            return;
+        }
+
+        if(isDead){
+            updateStatusEffects();
             return;
         }
 
@@ -302,9 +315,8 @@ public class Player extends Entity{
             return; // freezes only THIS player's movement/attack — never touches gp.gameState, so nobody else is affected
         }
 
-        if(!isLocal && gp.inventoryOpen){
+        if(isLocal && gp.inventoryOpen){
             updateStatusEffects();
-            updateAnimation();
             return;
         }
 
@@ -503,14 +515,15 @@ public class Player extends Entity{
             MP = maxMP;
         }
 
-        if(HP <= 0){
-            if(gp.isNetworked){
-                respawnSolo();
-            } else {
-                gp.gameState = gp.gameOverState;
-                gp.ui.commandNum = -1;
-                gp.stopMusic();
-                gp.playSE(11);
+        if(HP <= 0 && !isDead){
+            if(canResolveWorldActions()){
+                isDead = true;
+                HP = 0;
+                direction = "down";
+                animState = "idle";
+                spriteNum = 1;
+                attacking = false;
+                gp.broadcastPlayerEvent(playerId, "death", "Player " + (playerId + 1) + " has fallen!", null);
             }
         }
 
@@ -831,16 +844,36 @@ public class Player extends Entity{
 
     public void interactNPC(int index){
         if(inDialogue){
-            if(currentInput.ePressed){
-                closeDialogue();
+            if(currentInput.ePressed || currentInput.leftClicked){
+                advanceOrCloseDialogue();
+                if(isLocal){
+                    gp.mouseH.leftClicked = false;
+                }
+                currentInput.leftClicked = false;
             }
             return;
         }
-        if(currentInput.ePressed && index != 999){
-            if(!canResolveWorldActions()) return; // host-only — NPC dialogue index is shared world state
+
+        if((currentInput.ePressed || currentInput.leftClicked) && index != 999){
+            Entity npc = gp.npc[index];
             attackCanceled = true;
-            String line = gp.npc[index].speak(this);
-            gp.broadcastPlayerEvent(playerId, "dialogue", null, line);
+            startDialogueSession(index);
+
+            if(canResolveWorldActions()){
+                // Shared, networked side effect — only host-resolved to avoid two machines
+                // fighting over the same NPC's facing direction
+                switch (direction){
+                    case "up" -> npc.direction = "down";
+                    case "down" -> npc.direction = "up";
+                    case "left" -> npc.direction = "right";
+                    case "right" -> npc.direction = "left";
+                }
+            }
+
+            if(isLocal){
+                gp.mouseH.leftClicked = false;
+            }
+            currentInput.leftClicked = false;
         }
     }
 
@@ -1033,21 +1066,53 @@ public class Player extends Entity{
     }
 
     public void showPersonalNotification(String text){
+        dialogueNpcIndex = -1;
+        dialoguePage = 0;
         inDialogue = true;
         dialogueText = text;
+    }
+
+    private void startDialogueSession(int npcIndex){
+        dialogueNpcIndex = npcIndex;
+        dialoguePage = 0;
+        inDialogue = true;
+        dialogueText = currentDialogueLine();
+    }
+
+    private String currentDialogueLine(){
+        if(dialogueNpcIndex < 0 || gp.npc[dialogueNpcIndex] == null) return dialogueText;
+        java.util.List<String> lines = gp.npc[dialogueNpcIndex].dialogueLines;
+        if(lines.isEmpty()) return "...";
+        return lines.get(Math.min(dialoguePage, lines.size() - 1));
+    }
+
+    public boolean isLastDialogueLine(){
+        if(dialogueNpcIndex < 0) return true; // one-shot notifications (level-up, heal) always close on the next press
+        java.util.List<String> lines = gp.npc[dialogueNpcIndex].dialogueLines;
+        return lines.isEmpty() || dialoguePage >= lines.size() - 1;
+    }
+
+    public void advanceOrCloseDialogue(){
+        if(isLastDialogueLine()){
+            closeDialogue();
+        } else {
+            dialoguePage++;
+            dialogueText = currentDialogueLine();
+        }
     }
 
     private void closeDialogue(){
         inDialogue = false;
         dialogueText = "";
+        dialogueNpcIndex = -1;
+        dialoguePage = 0;
     }
 
-    private void respawnSolo(){
+    public void performRespawn(){
         setDefaultPosition();
         resetHPandMP();
+        isDead = false;
         gp.playSE(11);
-        gp.broadcastPlayerEvent(playerId, "death",
-                "Player " + (playerId + 1) + " was defeated and respawned.", null);
     }
 
     public boolean canResolveWorldActions(){
@@ -1087,18 +1152,17 @@ public class Player extends Entity{
     }
 
     public void reconcile(int authoritativeX, int authoritativeY, String authoritativeDirection,
-                          int hp, int maxHp, int mp, int maxMp, long ackTick){
+                          int hp, int maxHp, int mp, int maxMp, boolean deadState, long ackTick){
         HP = hp;
         maxHP = maxHp;
         MP = mp;
         maxMP = maxMp;
+        isDead = deadState;
 
-        // Drop every buffered input the host has confirmed it already processed
         while(!inputHistory.isEmpty() && inputHistory.peekFirst().tick <= ackTick){
             inputHistory.pollFirst();
         }
 
-        // Snap to the host's confirmed position, then fast-forward through everything since
         worldX = authoritativeX;
         worldY = authoritativeY;
         direction = authoritativeDirection;

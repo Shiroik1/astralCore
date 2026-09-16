@@ -104,6 +104,7 @@ public class GameClient {
             }
 
             if(p.isLocal){
+                p.reconcile(ps.worldX, ps.worldY, ps.direction, ps.HP, ps.maxHP, ps.MP, ps.maxMP, ps.isDead, ps.ackTick);
                 for(int i = 0; i < ps.inventoryTypeIds.length; i++){
                     String typeId = ps.inventoryTypeIds[i];
                     if(typeId == null){
@@ -138,6 +139,7 @@ public class GameClient {
                 p.maxMP = ps.maxMP;
                 p.animState = ps.animState;
                 p.attacking = ps.attacking;
+                p.isDead = ps.isDead;
             }
         }
 

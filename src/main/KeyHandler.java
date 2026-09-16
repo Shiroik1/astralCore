@@ -8,6 +8,7 @@ public class KeyHandler implements KeyListener {
     public boolean upPressed, downPressed, leftPressed, rightPressed;
     public boolean[] skillKeyPressed = new boolean[5];
     public boolean ePressed;
+    private boolean ePressedPrevCapture = false;
     public boolean showDebug;
     public boolean shotKeyPressed;
     public boolean enterPressed;
@@ -250,6 +251,9 @@ public class KeyHandler implements KeyListener {
         if(code == KeyEvent.VK_F){
             shotKeyPressed = false;
         }
+        if(code == KeyEvent.VK_E){
+            ePressed = false;
+        }
     }
 
     private void handleNetworkAddressKeyPress(int code){
@@ -276,6 +280,12 @@ public class KeyHandler implements KeyListener {
         System.out.println("[UI] beginEnteringNetworkAddress() called, opening text input");
         enteringNetworkAddress = true;
         networkAddressInput.setLength(0);
+    }
+
+    public boolean consumeEEdge(){
+        boolean edge = ePressed && !ePressedPrevCapture;
+        ePressedPrevCapture = ePressed;
+        return edge;
     }
 
 

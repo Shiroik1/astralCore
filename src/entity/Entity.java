@@ -35,6 +35,9 @@ public class Entity {
     public List<StatusEffect> statusEffects = new ArrayList<>();
     private Map<BufferedImage, BufferedImage> flashCache = new IdentityHashMap<>();
 
+    public String npcId = "";
+    public java.util.List<String> dialogueLines = new java.util.ArrayList<>();
+
     //SPRITES
     public Map<String, SpriteAnimation> sprites = new HashMap<>();
     public String animState = "idle";
@@ -45,13 +48,10 @@ public class Entity {
     public int solidAreaDefaultX, solidAreaDefaultY;
     public boolean collisionOn = false;
     public int actionLockCounter = 0;
-    public int dialogueIndex = 0;
     public int dyingCounter = 0;
     public int hpBarCounter = 0;
     public int shotAvailableCounter = 0;
     public boolean groundEffect = false;
-
-    String dialogues[] = new String[20];
 
     public BufferedImage image, image1, image2;
     public String name;
@@ -149,20 +149,8 @@ public class Entity {
         }
     }
 
-    public String speak(Player interactingPlayer){
-        if(dialogues[dialogueIndex] == null){
-            dialogueIndex = 0;
-        }
-        String line = dialogues[dialogueIndex];
-        dialogueIndex++;
-
-        switch (interactingPlayer.direction){
-            case "up" -> direction = "down";
-            case "down" -> direction = "up";
-            case "left" -> direction = "right";
-            case "right" -> direction = "left";
-        }
-        return line;
+    protected void loadDialogue(String jsonResourcePath){
+        dialogueLines = main.DialogueLoader.loadLines(jsonResourcePath);
     }
 
     public void update(){

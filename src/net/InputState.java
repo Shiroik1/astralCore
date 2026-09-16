@@ -18,7 +18,7 @@ public class InputState {
         state.down = keyH.downPressed;
         state.left = keyH.leftPressed;
         state.right = keyH.rightPressed;
-        state.ePressed = keyH.ePressed;
+        state.ePressed = keyH.consumeEEdge();
         state.leftClicked = mouseH.leftClicked;
         state.shotKeyPressed = keyH.shotKeyPressed;
         for(int i = 0; i < state.skillKeyPressed.length; i++){

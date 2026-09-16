@@ -12,4 +12,5 @@ public class PlayerState {
     public int[] inventoryStackCounts;
     public String weaponTypeId;
     public String shieldTypeId;
+    public boolean isDead;
 }

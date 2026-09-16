@@ -10,9 +10,10 @@ public class NPC_oldman extends Entity{
         super(gp);
         direction = "down";
         speed = 1;
+        npcId = "oldman";
 
         getImage();
-        setDialogue();
+        loadDialogue("/dialogue/oldman.json");
     }
 
     public void getImage(){
@@ -26,12 +27,6 @@ public class NPC_oldman extends Entity{
         right1 = setup("/npc/oldman_right_1", gp.tileSize, gp.tileSize);
         right2 = setup("/npc/oldman_right_2", gp.tileSize, gp.tileSize);
 
-    }
-
-    public void setDialogue(){
-        dialogues[0] = "Dude";
-        dialogues[1] = "That's La Peace..";
-        dialogues[2] = "So you've to this place to find the treasure \nknown to grant any wishes to those who \nobtained it...";
     }
 
     public void setAction(){
