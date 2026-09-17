@@ -158,7 +158,7 @@ public class CollisionChecker {
         Player contactedPlayer = null;
 
         for(Player p : gp.players){
-            if(p == null) continue;
+            if(p == null || p.isDead) continue;
 
             entity.solidArea.x += entity.worldX;
             entity.solidArea.y += entity.worldY;

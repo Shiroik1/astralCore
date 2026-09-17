@@ -21,7 +21,6 @@ public class UI {
     Font solomonKey;
     Font jetbrainsMono;
 
-    BufferedImage heart_full, heart_half, heart_blank, crystal_full, crystal_blank;
     public boolean messageOn = false;
     public boolean gameFinished = false;
     public String currentDialogue = "";
@@ -102,13 +101,7 @@ public class UI {
 
         //CREATE HUD OBJECTS
         Entity heart = new OBJ_heart(gp);
-        heart_full = heart.image;
-        heart_half = heart.image1;
-        heart_blank = heart.image2;
         Entity crystal = new OBJ_crystal(gp);
-        crystal_full = crystal.image;
-        crystal_blank = crystal.image2;
-
     }
 
     public void addMessage(String text){
@@ -237,6 +230,11 @@ public class UI {
             }
 
             drawPlayerHP();
+            Player local = gp.localPlayer();
+            if(local != null){
+                drawStatusEffects(local);
+                drawOtherPlayersHUD(local);
+            }
             drawCombatLog();
             drawSkillHotbar();
             if(gp.inventoryOpen){
@@ -244,12 +242,11 @@ public class UI {
                 drawInventory();
             }
 
-            Player local = gp.localPlayer();
             if(local != null && local.isDead){
                 drawDeathScreen();
             }
             if(local != null && local.inDialogue){
-                drawPersonalDialogue(local.dialogueText);
+                drawPersonalDialogue(local.getRevealedDialogueText(), local.isDialogueFullyRevealed());
             }
         }
 
@@ -728,53 +725,95 @@ public class UI {
     }
 
     private void drawPlayerHP() {
+        Player local = gp.localPlayer();
+        if(local == null) return;
 
-        int x = gp.tileSize/2;
-        int y = gp.tileSize/2;
-        int i = 0;
+        int barX = gp.tileSize / 2;
+        int barWidth = 200;
+        int barHeight = 22;
+        int barSpacing = 8;
 
-        //DISPLAY MAXHP
-        while(i < gp.localPlayer().maxHP/2){
-            g2.drawImage(heart_blank, x, y, null);
-            i++;
-            x += gp.tileSize;
+        int hpY = gp.tileSize / 2;
+        drawStatBar(barX, hpY, barWidth, barHeight, local.HP, local.maxHP,
+                new Color(60, 20, 20), new Color(200, 40, 40), "HP");
+
+        int mpY = hpY + barHeight + barSpacing;
+        drawStatBar(barX, mpY, barWidth, barHeight, local.MP, local.maxMP,
+                new Color(20, 30, 60), new Color(60, 130, 230), "MP");
+    }
+
+    private void drawOtherPlayersHUD(Player local){
+        int startX = gp.tileSize / 2;
+        int y = gp.tileSize / 2 + 22 + 8 + 22 + 10; // status effects row baseline
+        y += 32 + 14; // below the status icon row, plus a gap
+
+        for(Player p : gp.players){
+            if(p == null || p == local) continue;
+
+            int barWidth = 140;
+            int hpHeight = 14;
+            int mpHeight = 12;
+
+            g2.setFont(jetbrainsMono.deriveFont(Font.BOLD, 13f));
+            g2.setColor(Color.white);
+            String label = "P" + (p.playerId + 1) + (p.isDead ? " (Down)" : "");
+            g2.drawString(label, startX, y + hpHeight - 3);
+
+            int barX = startX + 60;
+            drawMiniStatBar(barX, y, barWidth, hpHeight, p.HP, p.maxHP, new Color(60, 20, 20), new Color(200, 40, 40));
+
+            int mpY = y + hpHeight + 3;
+            drawMiniStatBar(barX, mpY, barWidth, mpHeight, p.MP, p.maxMP, new Color(20, 30, 60), new Color(60, 130, 230));
+
+            y += hpHeight + 3 + mpHeight + 14; // advance to the next player's row
         }
+    }
 
-        //RESET
-        x = gp.tileSize/2;
-        y = gp.tileSize/2;
-        i = 0;
+    private void drawMiniStatBar(int x, int y, int width, int height, int current, int max, Color bgFill, Color barFill){
+        if(max <= 0) max = 1;
 
-        //DISPLAY CURRENT HP
-        while(i < gp.localPlayer().HP){
-            g2.drawImage(heart_half, x, y, null);
-            i++;
-            if(i < gp.localPlayer().HP){
-                g2.drawImage(heart_full, x, y, null);
-            }
-            i++;
-            x += gp.tileSize;
-        }
+        g2.setColor(new Color(0, 0, 0, 140));
+        g2.fillRoundRect(x - 1, y - 1, width + 2, height + 2, 5, 5);
 
-        //DRAW MAXMP
-        x = (gp.tileSize/2) - 5;
-        y = (int)(gp.tileSize*1.5);
-        i = 0;
-        while(i < gp.localPlayer().maxMP){
-            g2.drawImage(crystal_blank, x, y, null);
-            i++;
-            x += 35;
-        }
+        g2.setColor(bgFill);
+        g2.fillRoundRect(x, y, width, height, 4, 4);
 
-        //DRAW MP
-        x = (gp.tileSize/2) - 5;
-        y = (int)(gp.tileSize*1.5);
-        i = 0;
-        while(i < gp.localPlayer().MP){
-            g2.drawImage(crystal_full, x, y, null);
-            i++;
-            x += 35;
-        }
+        int filledWidth = (int)((double) width * Math.max(0, current) / max);
+        g2.setColor(barFill);
+        g2.fillRoundRect(x, y, filledWidth, height, 4, 4);
+
+        g2.setColor(Color.white);
+        g2.setStroke(new BasicStroke(1));
+        g2.drawRoundRect(x, y, width, height, 4, 4);
+    }
+
+    private void drawStatBar(int x, int y, int width, int height, int current, int max, Color bgFill, Color barFill, String label){
+        if(max <= 0) max = 1; // guard against a stray divide-by-zero if maxHP/maxMP are ever misconfigured
+
+        g2.setColor(new Color(0, 0, 0, 160));
+        g2.fillRoundRect(x - 2, y - 2, width + 4, height + 4, 8, 8);
+
+        g2.setColor(bgFill);
+        g2.fillRoundRect(x, y, width, height, 6, 6);
+
+        int filledWidth = (int)((double) width * Math.max(0, current) / max);
+        g2.setColor(barFill);
+        g2.fillRoundRect(x, y, filledWidth, height, 6, 6);
+
+        g2.setColor(Color.white);
+        g2.setStroke(new BasicStroke(2));
+        g2.drawRoundRect(x, y, width, height, 6, 6);
+
+        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD, 14f));
+        String text = label + "  " + current + " / " + max;
+        int textWidth = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
+        int textX = x + (width - textWidth) / 2;
+        int textY = y + height - 6;
+
+        g2.setColor(Color.black);
+        g2.drawString(text, textX + 1, textY + 1);
+        g2.setColor(Color.white);
+        g2.drawString(text, textX, textY);
     }
 
     private void drawTitleScreen() {
@@ -868,7 +907,7 @@ public class UI {
 
     }
 
-    private void drawPersonalDialogue(String text){
+    private void drawPersonalDialogue(String text, boolean showArrow){
         int x = gp.tileSize * 2;
         int y = gp.tileSize / 2;
         int width = gp.screenWidth - (gp.tileSize * 4);
@@ -885,7 +924,9 @@ public class UI {
             textY += 40;
         }
 
-        drawContinueArrow(x + width - 50, y + height - 40);
+        if(showArrow){
+            drawContinueArrow(x + width - 50, y + height - 40);
+        }
     }
 
     private void drawContinueArrow(int baseX, int baseY){
@@ -1114,6 +1155,41 @@ public class UI {
         }
     }
 
+    private void drawStatusEffects(Player local){
+        if(local.statusEffects.isEmpty()) return;
+
+        int iconSize = 32;
+        int spacing = 6;
+        int x = gp.tileSize / 2;
+        int y = gp.tileSize / 2 + 22 + 8 + 22 + 10; // below the HP bar + spacing + MP bar + gap
+
+        for(entity.StatusEffect effect : local.statusEffects){
+            BufferedImage icon = local.statusEffectIcons.get(effect.type);
+
+            g2.setColor(new Color(0, 0, 0, 150));
+            g2.fillRoundRect(x, y, iconSize, iconSize, 6, 6);
+
+            if(icon != null){
+                g2.drawImage(icon, x + 4, y + 4, iconSize - 8, iconSize - 8, null);
+            }
+
+            g2.setColor(Color.white);
+            g2.setStroke(new BasicStroke(1));
+            g2.drawRoundRect(x, y, iconSize, iconSize, 6, 6);
+
+            int secondsLeft = (int) Math.ceil(effect.duration / 60.0);
+            g2.setFont(jetbrainsMono.deriveFont(Font.BOLD, 11f));
+            String text = String.valueOf(secondsLeft);
+            int tw = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
+            g2.setColor(Color.black);
+            g2.drawString(text, x + iconSize - tw - 1, y + iconSize - 1);
+            g2.setColor(Color.white);
+            g2.drawString(text, x + iconSize - tw - 2, y + iconSize - 2);
+
+            x += iconSize + spacing;
+        }
+    }
+
     private void updateInventoryDrag(int mouseX, int mouseY){
         if(gp.mouseH.rightClicked){
             handleRightClick(mouseX, mouseY);
@@ -1159,22 +1235,36 @@ public class UI {
     private void handleRightClick(int mouseX, int mouseY){
         for(int i = 0; i < inventorySlotBounds.length; i++){
             if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY)){
-                gp.localPlayer().useInventoryItem(i);
+                net.InventoryAction action = new net.InventoryAction();
+                action.playerId = gp.localPlayer().playerId;
+                action.actionType = "use";
+                action.sourceIndex = i;
+                gp.requestInventoryAction(action);
                 return;
             }
         }
     }
 
     private void resolveDrop(int mouseX, int mouseY){
+        Player local = gp.localPlayer();
+        net.InventoryAction action = new net.InventoryAction();
+        action.playerId = local.playerId;
+
         if(weaponSlotBounds.contains(mouseX, mouseY)){
             if(dragSourceType == SLOT_BAG){
-                gp.localPlayer().tryEquipFromBag(dragSourceIndex, Player.EQUIP_WEAPON);
+                action.actionType = "equip";
+                action.sourceIndex = dragSourceIndex;
+                action.slotType = Player.EQUIP_WEAPON;
+                gp.requestInventoryAction(action);
             }
-            return; // equip-slot-onto-itself, or wrong-type drag — no-op either way
+            return;
         }
         if(shieldSlotBounds.contains(mouseX, mouseY)){
             if(dragSourceType == SLOT_BAG){
-                gp.localPlayer().tryEquipFromBag(dragSourceIndex, Player.EQUIP_SHIELD);
+                action.actionType = "equip";
+                action.sourceIndex = dragSourceIndex;
+                action.slotType = Player.EQUIP_SHIELD;
+                gp.requestInventoryAction(action);
             }
             return;
         }
@@ -1182,23 +1272,29 @@ public class UI {
         for(int i = 0; i < inventorySlotBounds.length; i++){
             if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY)){
                 if(dragSourceType == SLOT_BAG){
-                    gp.localPlayer().swapOrMergeBagSlots(dragSourceIndex, i);
+                    action.actionType = "swap";
+                    action.sourceIndex = dragSourceIndex;
+                    action.targetIndex = i;
                 } else {
-                    gp.localPlayer().unequipToBagIndex(dragSourceType, i);
+                    action.actionType = "unequip_to_bag";
+                    action.slotType = dragSourceType;
+                    action.targetIndex = i;
                 }
+                gp.requestInventoryAction(action);
                 return;
             }
         }
 
-        // released outside every slot
         if(!inventoryWindowBounds.contains(mouseX, mouseY)){
             if(dragSourceType == SLOT_BAG){
-                gp.localPlayer().dropBagItemToWorld(dragSourceIndex);
+                action.actionType = "drop";
+                action.sourceIndex = dragSourceIndex;
             } else {
-                gp.localPlayer().unequipToWorld(dragSourceType);
+                action.actionType = "unequip_to_world";
+                action.slotType = dragSourceType;
             }
+            gp.requestInventoryAction(action);
         }
-        // else: released in a gap inside the window — item was never removed from its source, so it just reverts
     }
 
     private Entity getItemAtPosition(int mouseX, int mouseY){

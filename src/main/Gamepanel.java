@@ -85,6 +85,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public ArrayList<Entity> entityList = new ArrayList<>();
     public ArrayList<Entity> projectileList = new ArrayList<>();
     public ArrayList<Entity> particleList = new ArrayList<>();
+    public java.util.List<entity.FloatingText> floatingTextList = new java.util.ArrayList<>();
 
     //GAME STATE
     public int gameState;
@@ -217,6 +218,7 @@ public class Gamepanel extends JPanel implements Runnable{
                     gameServer.processConnectionEvents();
                     gameServer.applyPendingInputs();
                     gameServer.relayPendingClientEvents();
+                    gameServer.applyPendingInventoryActions();
                 } else {
                     if(localInput != null){
                         gameClient.sendInput(localInput);
@@ -291,6 +293,13 @@ public class Gamepanel extends JPanel implements Runnable{
                     if(interactable[i] != null){
                         interactable[i].update();
                     }
+                }
+            }
+
+            //FLOATING TEXT
+            for(int i = floatingTextList.size() - 1; i >= 0; i--){
+                if(!floatingTextList.get(i).update()){
+                    floatingTextList.remove(i);
                 }
             }
 
@@ -400,6 +409,8 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+
+
             //SORT
             Collections.sort(entityList, new Comparator<Entity>() {
                 @Override
@@ -416,6 +427,10 @@ public class Gamepanel extends JPanel implements Runnable{
 
             //EMPTY ENTITY LIST
             entityList.clear();
+
+            for(entity.FloatingText ft : floatingTextList){
+                ft.draw(g2);
+            }
 
             g2.translate(-shakeX, -shakeY);
 
@@ -612,5 +627,31 @@ public class Gamepanel extends JPanel implements Runnable{
             case "heal" -> new Color(120, 200, 255);
             default -> Color.white;
         };
+    }
+
+    public void requestInventoryAction(net.InventoryAction action){
+        if(!isNetworked || isHost){
+            applyInventoryActionLocally(action);
+        } else if(gameClient != null){
+            gameClient.sendInventoryAction(action);
+        }
+    }
+
+    public void applyInventoryActionLocally(net.InventoryAction action){
+        Player target = players[action.playerId];
+        if(target == null) return;
+
+        switch(action.actionType){
+            case "equip" -> target.tryEquipFromBag(action.sourceIndex, action.slotType);
+            case "swap" -> target.swapOrMergeBagSlots(action.sourceIndex, action.targetIndex);
+            case "unequip_to_bag" -> target.unequipToBagIndex(action.slotType, action.targetIndex);
+            case "unequip_to_world" -> target.unequipToWorld(action.slotType);
+            case "drop" -> target.dropBagItemToWorld(action.sourceIndex);
+            case "use" -> target.useInventoryItem(action.sourceIndex);
+        }
+    }
+
+    public void spawnFloatingText(int worldX, int worldY, String text, Color color){
+        floatingTextList.add(new entity.FloatingText(this, worldX, worldY, text, color));
     }
 }

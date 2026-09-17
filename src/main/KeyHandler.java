@@ -1,5 +1,7 @@
 package main;
 
+import entity.Player;
+
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 
@@ -12,6 +14,9 @@ public class KeyHandler implements KeyListener {
     public boolean showDebug;
     public boolean shotKeyPressed;
     public boolean enterPressed;
+    public boolean escapePressed;
+    private boolean escapePressedPrevCapture = false;
+
 
     public boolean enteringNetworkAddress = false;
     public StringBuilder networkAddressInput = new StringBuilder();
@@ -152,7 +157,12 @@ public class KeyHandler implements KeyListener {
             shotKeyPressed = true;
         }
         if(code == KeyEvent.VK_ESCAPE){
-            gp.gameState = gp.optionState;
+            escapePressed = true;
+            Player local = gp.localPlayer();
+            boolean inDialogueNow = (local != null && local.inDialogue);
+            if(!inDialogueNow){
+                gp.gameState = gp.optionState;
+            }
         }
 
         //SKILL KEYS
@@ -254,6 +264,9 @@ public class KeyHandler implements KeyListener {
         if(code == KeyEvent.VK_E){
             ePressed = false;
         }
+        if(code == KeyEvent.VK_ESCAPE){
+            escapePressed = false;
+        }
     }
 
     private void handleNetworkAddressKeyPress(int code){
@@ -285,6 +298,12 @@ public class KeyHandler implements KeyListener {
     public boolean consumeEEdge(){
         boolean edge = ePressed && !ePressedPrevCapture;
         ePressedPrevCapture = ePressed;
+        return edge;
+    }
+
+    public boolean consumeEscapeEdge(){
+        boolean edge = escapePressed && !escapePressedPrevCapture;
+        escapePressedPrevCapture = escapePressed;
         return edge;
     }
 

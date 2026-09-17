@@ -8,6 +8,7 @@ import entity.Player;
 import main.Gamepanel;
 import monster.MON_GreenSlime;
 
+import java.awt.*;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -130,6 +131,7 @@ public class GameClient {
                     p.defense = p.getDefense();
                 }
             } else {
+                int previousHP = p.HP;
                 p.worldX = ps.worldX;
                 p.worldY = ps.worldY;
                 p.direction = ps.direction;
@@ -140,6 +142,12 @@ public class GameClient {
                 p.animState = ps.animState;
                 p.attacking = ps.attacking;
                 p.isDead = ps.isDead;
+
+                if(!p.isDead && ps.HP != previousHP){
+                    int delta = ps.HP - previousHP;
+                    Color color = delta > 0 ? new Color(120, 220, 120) : Color.red;
+                    gp.spawnFloatingText(p.worldX, p.worldY, (delta > 0 ? "+" : "") + delta, color);
+                }
             }
         }
 
@@ -162,6 +170,7 @@ public class GameClient {
                 m.hpBarOn = true;
                 m.hpBarCounter = 0;
                 m.spawnHitParticles();
+                gp.spawnFloatingText(m.worldX + gp.tileSize/2, m.worldY, String.valueOf(m.HP - ms.HP), new Color(255, 220, 80));
             }
 
             m.worldX = ms.worldX;
@@ -207,6 +216,12 @@ public class GameClient {
     public void sendEvent(GameEvent event){
         if(client != null && client.isConnected()){
             client.sendTCP(event);
+        }
+    }
+
+    public void sendInventoryAction(net.InventoryAction action){
+        if(client != null && client.isConnected()){
+            client.sendTCP(action);
         }
     }
 }

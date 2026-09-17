@@ -60,12 +60,16 @@ public class EventHandler {
     public void healingPool(int col, int row, Player player){
         if(player.currentInput != null && player.currentInput.ePressed && player.canResolveWorldActions()){
             player.attackCanceled = true;
+            int healedAmount = player.maxHP - player.HP;
             player.HP = player.maxHP;
             player.MP = player.maxMP;
             gp.playSE(2);
             gp.broadcastPlayerEvent(player.playerId, "heal",
                     "Player " + (player.playerId + 1) + " drank the aqua of life and was fully healed!",
                     "You drink the aqua of life.\nYour wounds have been fully healed!");
+            if(healedAmount > 0){
+                gp.spawnFloatingText(player.worldX + gp.tileSize/2, player.worldY, "+" + healedAmount, new Color(120, 220, 120));
+            }
             gp.assetSetter.setMonster();
             player.canTouchEvent = false;
         }

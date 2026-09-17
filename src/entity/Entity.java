@@ -30,13 +30,14 @@ public class Entity {
     public String knockbackDirection;
     public int knockbackRemaining = 0;
     public int knockbackSpeed = 10; // px per tick — lower = smoother/slower, higher = snappier
-    public int knockbackDistance = 50; // pixels — tunable per hit weight
+    public int knockbackDistance = 80; // pixels — tunable per hit weight
 
     public List<StatusEffect> statusEffects = new ArrayList<>();
     private Map<BufferedImage, BufferedImage> flashCache = new IdentityHashMap<>();
 
     public String npcId = "";
     public java.util.List<String> dialogueLines = new java.util.ArrayList<>();
+    public int activeConversationCount = 0;
 
     //SPRITES
     public Map<String, SpriteAnimation> sprites = new HashMap<>();
@@ -247,6 +248,7 @@ public class Entity {
     }
 
     public void damagePlayer(Player target, int attack){
+        if(target.isDead) return;
         if(!target.invincible){
             int damage = attack - target.defense;
             if(damage < 0){
@@ -257,9 +259,13 @@ public class Entity {
             target.flashing = true;
             target.flashCounter = 0;
             target.spawnHitParticles();
-//            target.startKnockback(this.direction, target.knockbackDistance);
-//            gp.startHitStop(8);
+            target.startKnockback(this.direction, target.knockbackDistance);
+            gp.startHitStop(8);
             gp.startScreenShake(8, 6);
+
+            if(damage > 0){
+                gp.spawnFloatingText(target.worldX + gp.tileSize/2, target.worldY, String.valueOf(damage), Color.red);
+            }
         }
     }
 
@@ -463,7 +469,7 @@ public class Entity {
         Player nearest = null;
         int nearestDist = Integer.MAX_VALUE;
         for(Player p : gp.players){
-            if(p == null) continue;
+            if(p == null || p.isDead) continue;
             int dist = Math.abs(worldX - p.worldX) + Math.abs(worldY - p.worldY);
             if(dist < nearestDist){
                 nearestDist = dist;

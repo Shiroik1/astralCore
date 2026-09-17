@@ -21,5 +21,6 @@ public class NetworkRegistration {
         kryo.register(int[].class);
         kryo.register(NpcState.class);
         kryo.register(NpcState[].class);
+        kryo.register(InventoryAction.class);
     }
 }

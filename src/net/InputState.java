@@ -7,6 +7,7 @@ public class InputState {
     public long tick;
     public boolean up, down, left, right;
     public boolean ePressed;
+    public boolean escapePressed;
     public boolean leftClicked;
     public boolean shotKeyPressed;
     public boolean[] skillKeyPressed = new boolean[5];
@@ -19,6 +20,7 @@ public class InputState {
         state.left = keyH.leftPressed;
         state.right = keyH.rightPressed;
         state.ePressed = keyH.consumeEEdge();
+        state.escapePressed = keyH.consumeEscapeEdge();
         state.leftClicked = mouseH.leftClicked;
         state.shotKeyPressed = keyH.shotKeyPressed;
         for(int i = 0; i < state.skillKeyPressed.length; i++){

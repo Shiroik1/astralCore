@@ -30,6 +30,11 @@ public class NPC_oldman extends Entity{
     }
 
     public void setAction(){
+
+        if(activeConversationCount > 0){
+            return;
+        }
+
         actionLockCounter++;
 
         if(actionLockCounter == 120){

@@ -19,6 +19,7 @@ public class GameServer {
     private ConcurrentLinkedQueue<Integer> pendingDisconnections = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<Object[]> pendingInputs = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<GameEvent> pendingClientEvents = new ConcurrentLinkedQueue<>();
+    private ConcurrentLinkedQueue<InventoryAction> pendingInventoryActions = new ConcurrentLinkedQueue<>();
 
     public GameServer(Gamepanel gp){
         this.gp = gp;
@@ -46,6 +47,9 @@ public class GameServer {
                 }
                 if(object instanceof GameEvent event){
                     pendingClientEvents.add(event);
+                }
+                if(object instanceof InventoryAction action){
+                    pendingInventoryActions.add(action);
                 }
             }
 
@@ -142,6 +146,13 @@ public class GameServer {
         while((event = pendingClientEvents.poll()) != null){
             gp.applyGameEventLocally(event.playerId, event.type, event.message, event.personalText);
             broadcastEvent(event); // pass it along to every other connected client
+        }
+    }
+
+    public void applyPendingInventoryActions(){
+        InventoryAction action;
+        while((action = pendingInventoryActions.poll()) != null){
+            gp.applyInventoryActionLocally(action);
         }
     }
 }

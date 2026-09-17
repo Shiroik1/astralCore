@@ -23,6 +23,8 @@ public class Player extends Entity{
     public int dialoguePage = 0;
     public boolean inDialogue = false;
     public String dialogueText = "";
+    private int dialogueRevealCounter = 0;
+    private final int dialogueRevealSpeed = 2; // ticks per revealed character — lower = faster typing
     public boolean isDead = false;
 
     public InputState currentInput;
@@ -66,6 +68,7 @@ public class Player extends Entity{
     private boolean powerStrikePending = false;
     private int powerStrikeBonus = 0;
     private boolean rendPending = false;
+    public Map<String, BufferedImage> statusEffectIcons = new HashMap<>();
 
     public Player(Gamepanel gp, KeyHandler keyH){
         super(gp);
@@ -311,7 +314,8 @@ public class Player extends Entity{
         }
 
         if(inDialogue){
-            interactNPC(999); // only checks for a close-via-E while talking — index 999 means "no NPC collision"
+            updateDialogueReveal();
+            interactNPC(999); // only checks for a close-via-E while talking — index 999 means "no NPC collision
             return; // freezes only THIS player's movement/attack — never touches gp.gameState, so nobody else is affected
         }
 
@@ -601,7 +605,6 @@ public class Player extends Entity{
                     damage = 0;
                 }
                 gp.monster[index].HP -= damage;
-                gp.broadcastPlayerEvent(playerId, "damage", "Player " + (playerId + 1) + " dealt " + damage + " damage!", null);
                 gp.monster[index].invincible = true;
                 gp.monster[index].flashing = true;
                 gp.monster[index].flashCounter = 0;
@@ -612,6 +615,11 @@ public class Player extends Entity{
                 gp.monster[index].spawnHitParticles();
                 gp.monster[index].damageReaction();
                 gp.startHitStop(hitStopOnHitMonster);
+
+                if(damage > 0){
+                    gp.spawnFloatingText(gp.monster[index].worldX + gp.tileSize/2, gp.monster[index].worldY,
+                            String.valueOf(damage), new Color(255, 220, 80));
+                }
 
                 if(gp.monster[index].HP <= 0){
                     gp.monster[index].dying = true;
@@ -844,8 +852,16 @@ public class Player extends Entity{
 
     public void interactNPC(int index){
         if(inDialogue){
+            if(currentInput.escapePressed){
+                forceCloseDialogue();
+                return;
+            }
             if(currentInput.ePressed || currentInput.leftClicked){
-                advanceOrCloseDialogue();
+                if(!isDialogueFullyRevealed()){
+                    dialogueRevealCounter = dialogueText.length() * dialogueRevealSpeed; // snap to fully shown
+                } else {
+                    advanceOrCloseDialogue();
+                }
                 if(isLocal){
                     gp.mouseH.leftClicked = false;
                 }
@@ -868,6 +884,7 @@ public class Player extends Entity{
                     case "left" -> npc.direction = "right";
                     case "right" -> npc.direction = "left";
                 }
+                npc.activeConversationCount++;
             }
 
             if(isLocal){
@@ -875,6 +892,12 @@ public class Player extends Entity{
             }
             currentInput.leftClicked = false;
         }
+    }
+
+    private void forceCloseDialogue(){
+        int npcIdx = dialogueNpcIndex;
+        closeDialogue();
+        decrementNpcConversation(npcIdx);
     }
 
     public void objectInteract(int index){
@@ -991,12 +1014,14 @@ public class Player extends Entity{
             spawnSkillParticles(new Color(255, 80, 80), 10);
             gp.ui.addMessage("War Cry!");
         },loadSkillIcon("/skill_icon/sword_warcry"));
+        statusEffectIcons.put("attackBoost", skills[1].icon);
 
         skills[2] = new Skill("Adrenaline Rush", 1, 600, () -> {
             addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
             spawnSkillParticles(new Color(255, 255, 0), 10);
             gp.ui.addMessage("Adrenaline Rush!");
         },loadSkillIcon("/skill_icon/sword_adrenaline"));
+        statusEffectIcons.put("attackSpeedBoost", skills[2].icon);
 
         skills[3] = new Skill("Rend", 1, 480, () -> {
             rendPending = true;
@@ -1009,6 +1034,7 @@ public class Player extends Entity{
             spawnSkillParticles(new Color(120, 180, 255), 10);
             gp.ui.addMessage("Fortify!");
         },loadSkillIcon("/skill_icon/fortify"));
+        statusEffectIcons.put("defenseBoost", skills[4].icon);
     }
 
     private BufferedImage loadSkillIcon(String path){
@@ -1058,9 +1084,12 @@ public class Player extends Entity{
         currentInput = input;
         lastProcessedInputTick = input.tick;
         if(isLocal){
-            inputHistory.addLast(input);
-            while(inputHistory.size() > inputHistoryCapacity){
-                inputHistory.removeFirst();
+            boolean movementSuppressedThisTick = inDialogue || isDead || gp.inventoryOpen;
+            if(!movementSuppressedThisTick){
+                inputHistory.addLast(input);
+                while(inputHistory.size() > inputHistoryCapacity){
+                    inputHistory.removeFirst();
+                }
             }
         }
     }
@@ -1070,6 +1099,7 @@ public class Player extends Entity{
         dialoguePage = 0;
         inDialogue = true;
         dialogueText = text;
+        dialogueRevealCounter = 0;
     }
 
     private void startDialogueSession(int npcIndex){
@@ -1077,6 +1107,7 @@ public class Player extends Entity{
         dialoguePage = 0;
         inDialogue = true;
         dialogueText = currentDialogueLine();
+        dialogueRevealCounter = 0;
     }
 
     private String currentDialogueLine(){
@@ -1092,12 +1123,21 @@ public class Player extends Entity{
         return lines.isEmpty() || dialoguePage >= lines.size() - 1;
     }
 
+    private void decrementNpcConversation(int npcIdx){
+        if(canResolveWorldActions() && npcIdx >= 0 && gp.npc[npcIdx] != null){
+            gp.npc[npcIdx].activeConversationCount = Math.max(0, gp.npc[npcIdx].activeConversationCount - 1);
+        }
+    }
+
     public void advanceOrCloseDialogue(){
         if(isLastDialogueLine()){
+            int npcIdx = dialogueNpcIndex;
             closeDialogue();
+            decrementNpcConversation(npcIdx);
         } else {
             dialoguePage++;
             dialogueText = currentDialogueLine();
+            dialogueRevealCounter = 0;
         }
     }
 
@@ -1153,11 +1193,19 @@ public class Player extends Entity{
 
     public void reconcile(int authoritativeX, int authoritativeY, String authoritativeDirection,
                           int hp, int maxHp, int mp, int maxMp, boolean deadState, long ackTick){
+        int previousHP = HP;
+
         HP = hp;
         maxHP = maxHp;
         MP = mp;
         maxMP = maxMp;
         isDead = deadState;
+
+        if(!isDead && hp != previousHP){
+            int delta = hp - previousHP;
+            Color color = delta > 0 ? new Color(120, 220, 120) : Color.red;
+            gp.spawnFloatingText(worldX, worldY, (delta > 0 ? "+" : "") + delta, color);
+        }
 
         while(!inputHistory.isEmpty() && inputHistory.peekFirst().tick <= ackTick){
             inputHistory.pollFirst();
@@ -1170,5 +1218,21 @@ public class Player extends Entity{
         for(InputState buffered : inputHistory){
             simulateMovement(buffered);
         }
+    }
+
+    public void updateDialogueReveal(){
+        if(!inDialogue) return;
+        if(dialogueRevealCounter < dialogueText.length() * dialogueRevealSpeed){
+            dialogueRevealCounter++;
+        }
+    }
+
+    public String getRevealedDialogueText(){
+        int visibleChars = Math.min(dialogueText.length(), dialogueRevealCounter / dialogueRevealSpeed);
+        return dialogueText.substring(0, visibleChars);
+    }
+
+    public boolean isDialogueFullyRevealed(){
+        return dialogueRevealCounter >= dialogueText.length() * dialogueRevealSpeed;
     }
 }
