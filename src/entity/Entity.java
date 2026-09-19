@@ -173,7 +173,9 @@ public class Entity {
         gp.collisionChecker.checkTile(this);
         gp.collisionChecker.checkObject(this, false);
         gp.collisionChecker.checkEntity(this, gp.npc);
-        gp.collisionChecker.checkEntity(this, gp.monster);
+        if(type != type_monster){
+            gp.collisionChecker.checkEntity(this, gp.monster);
+        }
         gp.collisionChecker.checkEntity(this, gp.interactable);
 
         Player contactedPlayer = gp.collisionChecker.checkPlayer(this);

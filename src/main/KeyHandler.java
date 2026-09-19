@@ -20,6 +20,12 @@ public class KeyHandler implements KeyListener {
 
     public boolean enteringNetworkAddress = false;
     public StringBuilder networkAddressInput = new StringBuilder();
+    public boolean enteringCharacterName = false;
+    public StringBuilder characterNameInput = new StringBuilder();
+
+    public int characterCreationStep = 0; // 0 = naming, 1 = class/gender select
+    public int selectedClassIndex = 0; // 0 = swordsman, 1 = mage
+    public int selectedGenderIndex = 0; // 0 = male, 1 = female
 
     public KeyHandler(Gamepanel gp){
         this.gp = gp;
@@ -27,17 +33,28 @@ public class KeyHandler implements KeyListener {
 
     @Override
     public void keyTyped(KeyEvent e) {
-        if(!enteringNetworkAddress) return;
-
         char c = e.getKeyChar();
-        if(c >= 32 && c < 127 && networkAddressInput.length() < 64){
+        if(enteringNetworkAddress && c >= 32 && c < 127 && networkAddressInput.length() < 64){
             networkAddressInput.append(c);
+        }
+        if(enteringCharacterName && c >= 32 && c < 127 && characterNameInput.length() < 16){
+            characterNameInput.append(c);
         }
     }
 
     @Override
     public void keyPressed(KeyEvent e) {
         int code = e.getKeyCode();
+
+        if(enteringCharacterName){
+            handleCharacterNameKeyPress(code);
+            return;
+        }
+
+        if(gp.gameState == gp.characterState && characterCreationStep == 1){
+            characterCreationStep(code);
+            return;
+        }
 
         if(enteringNetworkAddress){
             handleNetworkAddressKeyPress(code);
@@ -112,19 +129,7 @@ public class KeyHandler implements KeyListener {
             }
         }
         if(code == KeyEvent.VK_ENTER){
-            if(gp.ui.commandNum == 0){
-                gp.gameState = gp.playState;
-                gp.playMusic(0);
-            }
-            if(gp.ui.commandNum == 1){
-                gp.ui.startHostFlow();
-            }
-            if(gp.ui.commandNum == 2){
-                gp.ui.startJoinFlow();
-            }
-            if(gp.ui.commandNum == 3){
-                System.exit(0);
-            }
+            gp.ui.confirmTitleSelection(gp.ui.commandNum);
         }
     }
 
@@ -293,6 +298,42 @@ public class KeyHandler implements KeyListener {
         System.out.println("[UI] beginEnteringNetworkAddress() called, opening text input");
         enteringNetworkAddress = true;
         networkAddressInput.setLength(0);
+    }
+
+    private void handleCharacterNameKeyPress(int code){
+        if(code == KeyEvent.VK_ENTER){
+            String name = characterNameInput.toString().trim();
+            if(name.isEmpty()) name = "Adventurer";
+            gp.ui.pendingCharacterName = name;
+            enteringCharacterName = false;
+            characterCreationStep = 1;
+        }
+        else if(code == KeyEvent.VK_BACK_SPACE){
+            if(characterNameInput.length() > 0){
+                characterNameInput.deleteCharAt(characterNameInput.length() - 1);
+            }
+        }
+    }
+
+    private void characterCreationStep(int code){
+        if(code == KeyEvent.VK_A){
+            selectedClassIndex = 1 - selectedClassIndex;
+        }
+        if(code == KeyEvent.VK_D){
+            selectedClassIndex = 1 - selectedClassIndex;
+        }
+        if(code == KeyEvent.VK_W || code == KeyEvent.VK_S){
+            selectedGenderIndex = 1 - selectedGenderIndex;
+        }
+        if(code == KeyEvent.VK_ENTER){
+            characterCreationStep = 0;
+            gp.ui.confirmCharacterCreation(selectedClassIndex, selectedGenderIndex);
+        }
+    }
+
+    public void beginEnteringCharacterName(){
+        enteringCharacterName = true;
+        characterNameInput.setLength(0);
     }
 
     public boolean consumeEEdge(){

@@ -18,6 +18,10 @@ public class Player extends Entity{
     KeyHandler keyH;
 
     public int playerId;
+    public String playerName = "";
+    public String playerClass = "swordman";
+    public String gender = "male";
+
     public boolean isLocal = true; // remote players (Step 3+) will explicitly set this false
     public int dialogueNpcIndex = -1;
     public int dialoguePage = 0;
@@ -571,16 +575,19 @@ public class Player extends Entity{
                 solidArea.width = attackArea.width;
                 solidArea.height = attackArea.height;
 
-                int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
+                java.util.List<Integer> hitMonsters = gp.collisionChecker.checkEntityMultiple(this, gp.monster);
                 int bonusDamage = 0;
                 if(powerStrikePending){
                     bonusDamage = powerStrikeBonus;
                     powerStrikePending = false;
                 }
-                damageMonster(monsterIndex, getEffectiveAttack() + bonusDamage);
-
-                if(rendPending && monsterIndex != 999){
-                    gp.monster[monsterIndex].addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
+                for(int monsterIndex : hitMonsters){
+                    damageMonster(monsterIndex, getEffectiveAttack() + bonusDamage);
+                    if(rendPending){
+                        gp.monster[monsterIndex].addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
+                    }
+                }
+                if(rendPending && !hitMonsters.isEmpty()){
                     rendPending = false;
                 }
 
@@ -943,6 +950,7 @@ public class Player extends Entity{
         g2.translate(0, bounce);
         g2.drawImage(bodyImage, drawX, drawY, null);
         g2.setTransform(originalTransform);
+        drawNameLabel(g2, drawX + bodyWidth/2, drawY);
     }
 
 
@@ -1234,5 +1242,20 @@ public class Player extends Entity{
 
     public boolean isDialogueFullyRevealed(){
         return dialogueRevealCounter >= dialogueText.length() * dialogueRevealSpeed;
+    }
+
+    private void drawNameLabel(Graphics2D g2, int centerX, int topY){
+        if(playerName == null || playerName.isEmpty()) return;
+
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 14f));
+        FontMetrics fm = g2.getFontMetrics();
+        int textWidth = fm.stringWidth(playerName);
+        int textX = centerX - textWidth/2;
+        int textY = topY - 6;
+
+        g2.setColor(Color.black);
+        g2.drawString(playerName, textX + 1, textY + 1);
+        g2.setColor(isLocal ? new Color(255, 230, 120) : Color.white);
+        g2.drawString(playerName, textX, textY);
     }
 }

@@ -20,6 +20,7 @@ public class GameServer {
     private ConcurrentLinkedQueue<Object[]> pendingInputs = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<GameEvent> pendingClientEvents = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<InventoryAction> pendingInventoryActions = new ConcurrentLinkedQueue<>();
+    private ConcurrentHashMap<Integer, String> pendingPlayerNames = new ConcurrentHashMap<>();
 
     public GameServer(Gamepanel gp){
         this.gp = gp;
@@ -50,6 +51,17 @@ public class GameServer {
                 }
                 if(object instanceof InventoryAction action){
                     pendingInventoryActions.add(action);
+                }
+                if(object instanceof JoinRequest request){
+                    Integer existingId = connectionToPlayerId.get(connection.getID());
+                    if(existingId != null){
+                        Player p = gp.players[existingId];
+                        if(p != null && request.playerName != null && !request.playerName.isEmpty()){
+                            p.playerName = request.playerName;
+                        }
+                    } else {
+                        pendingPlayerNames.put(connection.getID(), request.playerName);
+                    }
                 }
             }
 
@@ -85,6 +97,8 @@ public class GameServer {
             connectionToPlayerId.put(connId, assignedId);
 
             Player p = new Player(gp, gp.keyH);
+            String pendingName = pendingPlayerNames.remove(connId);
+            p.playerName = (pendingName != null && !pendingName.isEmpty()) ? pendingName : ("Player " + (assignedId + 1));
             p.playerId = assignedId;
             p.isLocal = false;
             gp.players[assignedId] = p;

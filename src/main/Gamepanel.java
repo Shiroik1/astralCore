@@ -498,6 +498,7 @@ public class Gamepanel extends JPanel implements Runnable{
             if(p == null) continue;
             net.PlayerState ps = new net.PlayerState();
             ps.playerId = p.playerId;
+            ps.playerName = p.playerName;
             ps.worldX = p.worldX;
             ps.worldY = p.worldY;
             ps.direction = p.direction;

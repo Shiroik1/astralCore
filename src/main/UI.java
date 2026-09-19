@@ -24,6 +24,7 @@ public class UI {
     public boolean messageOn = false;
     public boolean gameFinished = false;
     public String currentDialogue = "";
+    public String pendingCharacterName = "";
     public int commandNum = 0;
 
     private Rectangle[] inventorySlotBounds = new Rectangle[20];
@@ -36,6 +37,7 @@ public class UI {
     private UIButton[] gameoverButtons = {new UIButton(), new UIButton()};
     private UIButton lastHoveredButton = null;
     private UIButton respawnButton = new UIButton();
+    private int pendingTitleAction = -1;
 
     public int subState = 0;
 
@@ -178,16 +180,11 @@ public class UI {
         };
     }
 
-    private void confirmTitleSelection(int index){
-        if(index == 0){
-            gp.gameState = gp.playState;
-            gp.playMusic(0);
-        }
-        if(index == 1){
-            startHostFlow();
-        }
-        if(index == 2){
-            startJoinFlow();
+    void confirmTitleSelection(int index){
+        if(index == 0 || index == 1 || index == 2){
+            pendingTitleAction = index;
+            gp.gameState = gp.characterState;
+            gp.keyH.beginEnteringCharacterName();
         }
         if(index == 3){
             System.exit(0);
@@ -217,6 +214,11 @@ public class UI {
         //TITLE STATE
         if(gp.gameState == gp.titleState){
             drawTitleScreen();
+        }
+
+        //CHARACTER StATE
+        if(gp.gameState == gp.characterState){
+            drawCharacterCreationScreen();
         }
 
         //PLAY STATE
@@ -627,7 +629,7 @@ public class UI {
         final int frameX = gp.tileSize * 2;
         final int frameY = gp.tileSize;
         final int frameWidth = gp.tileSize * 7;
-        final int frameHeight = gp.tileSize * 10;
+        final int frameHeight = gp.tileSize * 11;
         drawSubWindow(frameX, frameY, frameWidth, frameHeight);
 
         g2.setColor(Color.white);
@@ -638,11 +640,15 @@ public class UI {
         final int lineHeight = 30;
 
         //TITLES
+        g2.drawString("Class", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Gender", textX, textY);
+        textY += lineHeight;
         g2.drawString("Level", textX, textY);
         textY += lineHeight;
         g2.drawString("HP", textX, textY);
         textY += lineHeight;
-        g2.drawString("HP", textX, textY);
+        g2.drawString("MP", textX, textY);
         textY += lineHeight;
         g2.drawString("Strength", textX, textY);
         textY += lineHeight;
@@ -668,7 +674,18 @@ public class UI {
         textY = frameY + gp.tileSize;
         String value;
 
+        value = capitalize(gp.localPlayer().playerClass);
+        textX = getXforRightAlignText(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = capitalize(gp.localPlayer().gender);
+        textX = getXforRightAlignText(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
         value = String.valueOf(gp.localPlayer().level);
+
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
@@ -1369,5 +1386,109 @@ public class UI {
         x = getXforCenteredText(text);
         y = gp.screenHeight/2 + 20;
         drawMenuButton(respawnButton, text, x, y, false);
+    }
+
+    public void confirmCharacterCreation(int classIndex, int genderIndex){
+        Player local = gp.localPlayer();
+        local.playerName = pendingCharacterName;
+        local.playerClass = (classIndex == 1) ? "mage" : "swordsman";
+        local.gender = (genderIndex == 1) ? "female" : "male";
+
+        switch(pendingTitleAction){
+            case 0 -> {
+                gp.gameState = gp.playState;
+                gp.playMusic(0);
+            }
+            case 1 -> {
+                gp.gameState = gp.titleState;
+                startHostFlow();
+            }
+            case 2 -> {
+                gp.gameState = gp.titleState;
+                startJoinFlow();
+            }
+        }
+        pendingTitleAction = -1;
+    }
+
+    private void drawCharacterCreationScreen(){
+        g2.setColor(Color.black);
+        g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
+
+        if(gp.keyH.characterCreationStep == 0){
+            drawNameEntryStep();
+        } else {
+            drawClassGenderStep();
+        }
+    }
+
+    private void drawNameEntryStep(){
+        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD, 30f));
+        g2.setColor(Color.white);
+        String title = "Name your character";
+        int x = getXforCenteredText(title);
+        int y = gp.tileSize * 5;
+        g2.drawString(title, x, y);
+
+        int boxWidth = 340;
+        int boxHeight = 40;
+        int boxX = gp.screenWidth/2 - boxWidth/2;
+        int boxY = y + gp.tileSize;
+        drawSubWindow(boxX, boxY, boxWidth, boxHeight);
+
+        g2.setFont(jetbrainsMono.deriveFont(18f));
+        String display = gp.keyH.characterNameInput.toString();
+        if((System.currentTimeMillis() / 400) % 2 == 0){
+            display += "_";
+        }
+        g2.drawString(display, boxX + 12, boxY + 26);
+
+        g2.setFont(jetbrainsMono.deriveFont(14f));
+        String hint = "Press ENTER to confirm";
+        x = getXforCenteredText(hint);
+        g2.drawString(hint, x, boxY + boxHeight + 40);
+    }
+
+    private void drawClassGenderStep(){
+        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD, 30f));
+        g2.setColor(Color.white);
+        String title = "Choose your class";
+        int x = getXforCenteredText(title);
+        int y = gp.tileSize * 4;
+        g2.drawString(title, x, y);
+
+        g2.setFont(jetbrainsMono.deriveFont(22f));
+        String[] classNames = {"Swordsman", "Mage"};
+        y += gp.tileSize * 2;
+        for(int i = 0; i < classNames.length; i++){
+            boolean selected = gp.keyH.selectedClassIndex == i;
+            g2.setColor(selected ? new Color(255, 230, 120) : Color.gray);
+            String label = (selected ? "> " : "  ") + classNames[i];
+            x = getXforCenteredText(label);
+            g2.drawString(label, x, y);
+            y += 40;
+        }
+
+        y += gp.tileSize;
+        String[] genderNames = {"Male", "Female"};
+        for(int i = 0; i < genderNames.length; i++){
+            boolean selected = gp.keyH.selectedGenderIndex == i;
+            g2.setColor(selected ? new Color(255, 230, 120) : Color.gray);
+            String label = (selected ? "> " : "  ") + genderNames[i];
+            x = getXforCenteredText(label);
+            g2.drawString(label, x, y);
+            y += 40;
+        }
+
+        g2.setFont(jetbrainsMono.deriveFont(14f));
+        g2.setColor(Color.white);
+        String hint = "A/D: class   W/S: gender   ENTER: confirm";
+        x = getXforCenteredText(hint);
+        g2.drawString(hint, x, y + 40);
+    }
+
+    private String capitalize(String s){
+        if(s == null || s.isEmpty()) return s;
+        return s.substring(0, 1).toUpperCase() + s.substring(1);
     }
 }

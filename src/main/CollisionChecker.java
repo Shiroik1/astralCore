@@ -188,4 +188,38 @@ public class CollisionChecker {
         return contactedPlayer;
     }
 
+    public java.util.List<Integer> checkEntityMultiple(Entity entity, Entity[] target){
+        java.util.List<Integer> hits = new java.util.ArrayList<>();
+
+        for(int i = 0; i < target.length; i++){
+            if(target[i] != null){
+                entity.solidArea.x += entity.worldX;
+                entity.solidArea.y += entity.worldY;
+                target[i].solidArea.x += target[i].worldX;
+                target[i].solidArea.y += target[i].worldY;
+
+                switch (entity.direction){
+                    case "up" -> entity.solidArea.y -= entity.speed;
+                    case "down" -> entity.solidArea.y += entity.speed;
+                    case "left" -> entity.solidArea.x -= entity.speed;
+                    case "right" -> entity.solidArea.x += entity.speed;
+                }
+
+                if(entity.solidArea.intersects(target[i].solidArea)){
+                    if(target[i] != entity){
+                        entity.collisionOn = true;
+                        hits.add(i);
+                    }
+                }
+
+                entity.solidArea.x = entity.solidAreaDefaultX;
+                entity.solidArea.y = entity.solidAreaDefaultY;
+                target[i].solidArea.x = target[i].solidAreaDefaultX;
+                target[i].solidArea.y = target[i].solidAreaDefaultY;
+            }
+        }
+
+        return hits;
+    }
+
 }

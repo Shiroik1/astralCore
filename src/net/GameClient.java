@@ -57,7 +57,11 @@ public class GameClient {
 
         client.connect(5000, hostAddress, port);
         System.out.println("[CLIENT] client.connect() call itself returned (no exception thrown)");
-        client.sendTCP(new JoinRequest());
+
+        JoinRequest request = new JoinRequest();
+        request.playerName = gp.localPlayer().playerName;
+        client.sendTCP(request);
+
         System.out.println("[CLIENT] JoinRequest sent");
     }
 
@@ -132,6 +136,7 @@ public class GameClient {
                 }
             } else {
                 int previousHP = p.HP;
+                p.playerName = ps.playerName;
                 p.worldX = ps.worldX;
                 p.worldY = ps.worldY;
                 p.direction = ps.direction;
