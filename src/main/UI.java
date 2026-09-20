@@ -648,7 +648,7 @@ public class UI {
         textY += lineHeight;
         g2.drawString("HP", textX, textY);
         textY += lineHeight;
-        g2.drawString("MP", textX, textY);
+        g2.drawString(gp.localPlayer().playerClass.equals("mage") ? "MP" : "Rage", textX, textY);
         textY += lineHeight;
         g2.drawString("Strength", textX, textY);
         textY += lineHeight;
@@ -695,7 +695,11 @@ public class UI {
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        value = String.valueOf(gp.localPlayer().MP + "/" + gp.localPlayer().maxMP);
+        if(gp.localPlayer().playerClass.equals("mage")){
+            value = gp.localPlayer().MP + "/" + gp.localPlayer().maxMP;
+        } else {
+            value = gp.localPlayer().rage + "/" + gp.localPlayer().maxRage;
+        }
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
@@ -754,9 +758,14 @@ public class UI {
         drawStatBar(barX, hpY, barWidth, barHeight, local.HP, local.maxHP,
                 new Color(60, 20, 20), new Color(200, 40, 40), "HP");
 
-        int mpY = hpY + barHeight + barSpacing;
-        drawStatBar(barX, mpY, barWidth, barHeight, local.MP, local.maxMP,
-                new Color(20, 30, 60), new Color(60, 130, 230), "MP");
+        int secondaryY = hpY + barHeight + barSpacing;
+        if(local.playerClass.equals("mage")){
+            drawStatBar(barX, secondaryY, barWidth, barHeight, local.MP, local.maxMP,
+                    new Color(20, 30, 60), new Color(60, 130, 230), "MP");
+        } else {
+            drawStatBar(barX, secondaryY, barWidth, barHeight, local.rage, local.maxRage,
+                    new Color(50, 15, 15), new Color(220, 60, 30), "RAGE");
+        }
     }
 
     private void drawOtherPlayersHUD(Player local){
@@ -1155,8 +1164,11 @@ public class UI {
                 g2.drawString(text, x + (slotSize - textWidth) / 2, y + (slotSize / 2) + 6);
             }
 
-            //INSUFFICIENT MP TINT
-            if(gp.localPlayer().MP < skill.mpCost){
+            //INSUFFICIENT RESOURCE TINT
+            boolean insufficientResource = gp.localPlayer().playerClass.equals("mage")
+                    ? gp.localPlayer().MP < skill.resourceCost
+                    : gp.localPlayer().rage < skill.resourceCost;
+            if(insufficientResource){
                 g2.setColor(new Color(255, 0, 0, 80));
                 g2.fillRoundRect(x, y, slotSize, slotSize, 8, 8);
             }
@@ -1393,6 +1405,10 @@ public class UI {
         local.playerName = pendingCharacterName;
         local.playerClass = (classIndex == 1) ? "mage" : "swordsman";
         local.gender = (genderIndex == 1) ? "female" : "male";
+
+        local.setDefaultValues();
+        local.setItems();
+        local.getPlayerAttackImage();
 
         switch(pendingTitleAction){
             case 0 -> {

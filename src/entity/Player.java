@@ -72,6 +72,10 @@ public class Player extends Entity{
     private boolean powerStrikePending = false;
     private int powerStrikeBonus = 0;
     private boolean rendPending = false;
+    private int ticksSinceSkillUse = 0;
+    private final int mpRegenDelayTicks = 120;   // ticks after last skill use before MP starts regenerating
+    private final int mpRegenIntervalTicks = 90; // ticks between each +1 MP once regen is active
+    private int mpRegenCounter = 0;
     public Map<String, BufferedImage> statusEffectIcons = new HashMap<>();
 
     public Player(Gamepanel gp, KeyHandler keyH){
@@ -104,19 +108,39 @@ public class Player extends Entity{
         direction = "down";
 
         //PLAYER STATS
-        maxHP = 10;
-        HP = maxHP;
-        maxMP = 5;
-        MP = maxMP;
         level = 1;
-        strength = 1;
-        dexterity = 1;
         exp = 0;
         nextLevelExp = 5;
         coin = 0;
-        currentWeapon = new OBJ_sword_normal(gp);
-        rightHandItem = currentWeapon;
-        currentShield = new OBJ_shield_wood(gp);
+
+        if(playerClass.equals("mage")){
+            maxHP = 8;
+            HP = maxHP;
+            maxMP = 10;
+            MP = maxMP;
+            maxRage = 0;
+            rage = 0;
+            strength = 1;
+            dexterity = 1;
+            intelligence = 3;
+            currentWeapon = new OBJ_staff(gp);
+            rightHandItem = currentWeapon;
+            currentShield = new OBJ_no_shield(gp);
+        } else {
+            maxHP = 10;
+            HP = maxHP;
+            maxMP = 0;
+            MP = 0;
+            maxRage = 100;
+            rage = 0;
+            strength = 1;
+            dexterity = 1;
+            intelligence = 0;
+            currentWeapon = new OBJ_sword_normal(gp);
+            rightHandItem = currentWeapon;
+            currentShield = new OBJ_shield_wood(gp);
+        }
+
         projectile = new OBJ_fireball(gp);
         attack = getAttack();
         defense = getDefense();
@@ -147,7 +171,8 @@ public class Player extends Entity{
 
     public int getAttack() {
         attackArea = currentWeapon.attackArea;
-        return attack = strength * currentWeapon.attackValue;
+        int statValue = playerClass.equals("mage") ? intelligence : strength;
+        return attack = statValue * currentWeapon.attackValue;
     }
 
     public void getPlayerImage(){
@@ -367,8 +392,8 @@ public class Player extends Entity{
             if(skills[i] != null){
                 skills[i].update();
                 if(currentInput.skillKeyPressed[i]){
-                    if(skills[i].isReady() && MP >= skills[i].mpCost){
-                        MP -= skills[i].mpCost;
+                    if(skills[i].isReady() && hasEnoughResource(skills[i].resourceCost)){
+                        spendResource(skills[i].resourceCost);
                         skills[i].trigger();
                     }
                     if(isLocal){
@@ -516,6 +541,17 @@ public class Player extends Entity{
             shotAvailableCounter++;
         }
 
+        if(playerClass.equals("mage")){
+            ticksSinceSkillUse++;
+            if(ticksSinceSkillUse >= mpRegenDelayTicks && MP < maxMP){
+                mpRegenCounter++;
+                if(mpRegenCounter >= mpRegenIntervalTicks){
+                    MP++;
+                    mpRegenCounter = 0;
+                }
+            }
+        }
+
         if(HP > maxHP){
             HP = maxHP;
         }
@@ -628,6 +664,10 @@ public class Player extends Entity{
                             String.valueOf(damage), new Color(255, 220, 80));
                 }
 
+                if(!playerClass.equals("mage") && damage > 0){
+                    rage = Math.min(maxRage, rage + 10);
+                }
+
                 if(gp.monster[index].HP <= 0){
                     gp.monster[index].dying = true;
                     exp += gp.monster[index].exp;
@@ -643,9 +683,16 @@ public class Player extends Entity{
         if(exp >= nextLevelExp){
             level++;
             nextLevelExp = nextLevelExp * 2;
+
             maxHP += 2;
-            strength++;
-            dexterity++;
+            if(playerClass.equals("mage")){
+                intelligence++;
+                dexterity++;
+            } else {
+                strength++;
+                dexterity++;
+            }
+
             attack = getAttack();
             defense = getDefense();
 
@@ -666,8 +713,13 @@ public class Player extends Entity{
                 if(damage < 0){
                     damage = 0;
                 }
+
+                if(!playerClass.equals("mage") && damage > 0){
+                    rage = Math.min(maxRage, rage + 15);
+                }
                 HP -= damage;
                 invincible = true;
+
                 flashing = true;
                 flashCounter = 0;
                 startKnockback(gp.monster[index].direction, knockbackDistance);
@@ -731,7 +783,7 @@ public class Player extends Entity{
         Entity item = inventorySlots[bagIndex];
         if(item == null) return;
 
-        boolean validForSlot = (slotType == EQUIP_WEAPON && (item.type == type_sword || item.type == type_axe))
+        boolean validForSlot = (slotType == EQUIP_WEAPON && (item.type == type_sword || item.type == type_axe || item.type == type_staff))
                 || (slotType == EQUIP_SHIELD && item.type == type_shield);
         if(!validForSlot) return; // wrong item for this slot — leave it in the bag
 
@@ -779,7 +831,7 @@ public class Player extends Entity{
 
         Entity bagItem = inventorySlots[bagIndex];
         boolean bagItemIsValidReplacement = bagItem != null &&
-                ((slotType == EQUIP_WEAPON && (bagItem.type == type_sword || bagItem.type == type_axe)) ||
+                ((slotType == EQUIP_WEAPON && (bagItem.type == type_sword || bagItem.type == type_axe || bagItem.type == type_staff)) ||
                         (slotType == EQUIP_SHIELD && bagItem.type == type_shield));
 
         if(bagItemIsValidReplacement){
@@ -1010,38 +1062,82 @@ public class Player extends Entity{
     }
 
     private void setupSkills(){
-        skills[0] = new Skill("Power Strike", 2, 300, () -> {
+        if(playerClass.equals("mage")){
+            setupMageSkills();
+        } else {
+            setupWarriorSkills();
+        }
+    }
+
+    private void setupWarriorSkills(){
+        skills[0] = new Skill("Power Strike", 30, 300, () -> {
             powerStrikePending = true;
-            powerStrikeBonus = attack; // roughly doubles next hit - tune to taste
+            powerStrikeBonus = attack;
             spawnSkillParticles(new Color(255, 200, 0), 8);
             gp.ui.addMessage("Power Strike!");
         }, loadSkillIcon("/skill_icon/sword_powerstrike"));
 
-        skills[1] = new Skill("War Cry", 1, 600, () -> {
+        skills[1] = new Skill("War Cry", 20, 600, () -> {
             addStatusEffect(new StatusEffect("attackBoost", 300, 3, 0));
             spawnSkillParticles(new Color(255, 80, 80), 10);
             gp.ui.addMessage("War Cry!");
-        },loadSkillIcon("/skill_icon/sword_warcry"));
+        }, loadSkillIcon("/skill_icon/sword_warcry"));
         statusEffectIcons.put("attackBoost", skills[1].icon);
 
-        skills[2] = new Skill("Adrenaline Rush", 1, 600, () -> {
+        skills[2] = new Skill("Adrenaline Rush", 20, 600, () -> {
             addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
             spawnSkillParticles(new Color(255, 255, 0), 10);
             gp.ui.addMessage("Adrenaline Rush!");
-        },loadSkillIcon("/skill_icon/sword_adrenaline"));
+        }, loadSkillIcon("/skill_icon/sword_adrenaline"));
         statusEffectIcons.put("attackSpeedBoost", skills[2].icon);
 
-        skills[3] = new Skill("Rend", 1, 480, () -> {
+        skills[3] = new Skill("Rend", 25, 480, () -> {
             rendPending = true;
             spawnSkillParticles(new Color(150, 0, 0), 8);
             gp.ui.addMessage("Rend!");
-        },loadSkillIcon("/skill_icon/sword_rend"));
+        }, loadSkillIcon("/skill_icon/sword_rend"));
 
-        skills[4] = new Skill("Fortify", 1, 600, () -> {
+        skills[4] = new Skill("Fortify", 20, 600, () -> {
             addStatusEffect(new StatusEffect("defenseBoost", 300, 3, 0));
             spawnSkillParticles(new Color(120, 180, 255), 10);
             gp.ui.addMessage("Fortify!");
-        },loadSkillIcon("/skill_icon/fortify"));
+        }, loadSkillIcon("/skill_icon/fortify"));
+        statusEffectIcons.put("defenseBoost", skills[4].icon);
+    }
+
+    private void setupMageSkills(){
+        skills[0] = new Skill("Arcane Surge", 4, 300, () -> {
+            powerStrikePending = true;
+            powerStrikeBonus = attack;
+            spawnSkillParticles(new Color(150, 100, 255), 8);
+            gp.ui.addMessage("Arcane Surge!");
+        }, loadSkillIcon("/skill_icon/mage_arcanesurge"));
+
+        skills[1] = new Skill("Arcane Power", 3, 600, () -> {
+            addStatusEffect(new StatusEffect("attackBoost", 300, 3, 0));
+            spawnSkillParticles(new Color(180, 80, 255), 10);
+            gp.ui.addMessage("Arcane Power!");
+        }, loadSkillIcon("/skill_icon/mage_arcanepower"));
+        statusEffectIcons.put("attackBoost", skills[1].icon);
+
+        skills[2] = new Skill("Haste", 3, 600, () -> {
+            addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
+            spawnSkillParticles(new Color(255, 255, 120), 10);
+            gp.ui.addMessage("Haste!");
+        }, loadSkillIcon("/skill_icon/mage_haste"));
+        statusEffectIcons.put("attackSpeedBoost", skills[2].icon);
+
+        skills[3] = new Skill("Ignite", 4, 480, () -> {
+            rendPending = true;
+            spawnSkillParticles(new Color(255, 120, 0), 8);
+            gp.ui.addMessage("Ignite!");
+        }, loadSkillIcon("/skill_icon/mage_ignite"));
+
+        skills[4] = new Skill("Mana Shield", 3, 600, () -> {
+            addStatusEffect(new StatusEffect("defenseBoost", 300, 3, 0));
+            spawnSkillParticles(new Color(120, 200, 255), 10);
+            gp.ui.addMessage("Mana Shield!");
+        }, loadSkillIcon("/skill_icon/mage_manashield"));
         statusEffectIcons.put("defenseBoost", skills[4].icon);
     }
 
@@ -1071,6 +1167,19 @@ public class Player extends Entity{
 
     public int getEffectiveDefense(){
         return defense + getStatusEffectValue("defenseBoost");
+    }
+
+    private boolean hasEnoughResource(int cost){
+        return playerClass.equals("mage") ? MP >= cost : rage >= cost;
+    }
+
+    private void spendResource(int cost){
+        if(playerClass.equals("mage")){
+            MP -= cost;
+            ticksSinceSkillUse = 0;
+        } else {
+            rage -= cost;
+        }
     }
 
     private int getAttackFrameDelay(int frameNumber){

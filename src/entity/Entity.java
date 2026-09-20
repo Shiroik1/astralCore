@@ -73,15 +73,19 @@ public class Entity {
     public final int type_shield = 5;
     public final int type_consumable = 6;
     public final int type_pickuponly = 7;
+    public final int type_staff = 8;
 
     //CHARACTER STATUS
     public int maxHP;
     public int HP;
     public int maxMP;
     public int MP;
+    public int maxRage;
+    public int rage;
     public int level;
     public int strength;
     public int dexterity;
+    public int intelligence;
     public int attack;
     public int defense;
     public int exp;
@@ -543,7 +547,6 @@ public class Entity {
             gp.collisionChecker.checkEntity(this, gp.monster);
             gp.collisionChecker.checkEntity(this, gp.npc);
         } else {
-            gp.collisionChecker.checkEntity(this, gp.monster);
             gp.collisionChecker.checkEntity(this, gp.npc);
             gp.collisionChecker.checkPlayer(this);
         }
