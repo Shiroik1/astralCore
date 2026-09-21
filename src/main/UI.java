@@ -1407,8 +1407,13 @@ public class UI {
         local.gender = (genderIndex == 1) ? "female" : "male";
 
         local.setDefaultValues();
+        if(local.playerClass.equals("mage")){
+            local.getMagePlayerImage();
+        } else {
+            local.getPlayerImage();
+        }
         local.setItems();
-        local.getPlayerAttackImage();
+        local.refreshWeaponAnimation();
 
         switch(pendingTitleAction){
             case 0 -> {

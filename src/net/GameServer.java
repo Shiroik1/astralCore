@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class GameServer {
     private Gamepanel gp;
     private Server server;
+    private ConcurrentHashMap<Integer, JoinRequest> pendingJoinRequests = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Integer, Integer> connectionToPlayerId = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Integer, Connection> pendingConnectionObjects = new ConcurrentHashMap<>();
     private ConcurrentLinkedQueue<Integer> pendingConnections = new ConcurrentLinkedQueue<>();
@@ -56,11 +57,11 @@ public class GameServer {
                     Integer existingId = connectionToPlayerId.get(connection.getID());
                     if(existingId != null){
                         Player p = gp.players[existingId];
-                        if(p != null && request.playerName != null && !request.playerName.isEmpty()){
-                            p.playerName = request.playerName;
+                        if(p != null){
+                            applyJoinRequestToPlayer(p, request);
                         }
                     } else {
-                        pendingPlayerNames.put(connection.getID(), request.playerName);
+                        pendingJoinRequests.put(connection.getID(), request);
                     }
                 }
             }
@@ -97,12 +98,20 @@ public class GameServer {
             connectionToPlayerId.put(connId, assignedId);
 
             Player p = new Player(gp, gp.keyH);
-            String pendingName = pendingPlayerNames.remove(connId);
-            p.playerName = (pendingName != null && !pendingName.isEmpty()) ? pendingName : ("Player " + (assignedId + 1));
             p.playerId = assignedId;
             p.isLocal = false;
             gp.players[assignedId] = p;
+
+            JoinRequest pendingRequest = pendingJoinRequests.remove(connId);
+            if(pendingRequest != null){
+                applyJoinRequestToPlayer(p, pendingRequest);
+            }
+            if(p.playerName == null || p.playerName.isEmpty()){
+                p.playerName = "Player " + (assignedId + 1);
+            }
             gp.ui.addMessage("Player " + assignedId + " connected.", java.awt.Color.green);
+            String pendingName = pendingPlayerNames.remove(connId);
+            p.playerName = (pendingName != null && !pendingName.isEmpty()) ? pendingName : ("Player " + (assignedId + 1));
 
             JoinAccepted accepted = new JoinAccepted();
             accepted.assignedPlayerId = assignedId;
@@ -167,6 +176,23 @@ public class GameServer {
         InventoryAction action;
         while((action = pendingInventoryActions.poll()) != null){
             gp.applyInventoryActionLocally(action);
+        }
+    }
+
+    private void applyJoinRequestToPlayer(Player p, JoinRequest request){
+        if(request.playerName != null && !request.playerName.isEmpty()){
+            p.playerName = request.playerName;
+        }
+        if(request.playerClass != null && !request.playerClass.isEmpty() && !request.playerClass.equals(p.playerClass)){
+            p.playerClass = request.playerClass;
+            if(p.playerClass.equals("mage")){
+                p.getMagePlayerImage();
+            } else {
+                p.getPlayerImage();
+            }
+        }
+        if(request.gender != null && !request.gender.isEmpty()){
+            p.gender = request.gender;
         }
     }
 }

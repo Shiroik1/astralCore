@@ -27,6 +27,8 @@ public class MouseHandler implements MouseListener, MouseMotionListener, MouseWh
 
     @Override
     public void mousePressed(MouseEvent e) {
+        gp.requestFocusInWindow();
+
         if(e.getButton() == MouseEvent.BUTTON1){
             leftPressed = true;
             leftClicked = true;

@@ -5,17 +5,23 @@ import main.Gamepanel;
 public class Projectile extends Entity{
 
     Entity user;
+    public Entity target;
 
     public Projectile(Gamepanel gp) {
         super(gp);
     }
 
     public void set(int worldX, int worldY, String direction, boolean alive, Entity user){
+        set(worldX, worldY, direction, alive, user, null);
+    }
+
+    public void set(int worldX, int worldY, String direction, boolean alive, Entity user, Entity target){
         this.worldX = worldX;
         this.worldY = worldY;
         this.direction = direction;
         this.alive = alive;
         this.user = user;
+        this.target = target;
         this.HP = this.maxHP;
     }
 
@@ -42,11 +48,15 @@ public class Projectile extends Entity{
             }
         }
 
-        switch (direction){
-            case "up" -> worldY -= speed;
-            case "down" -> worldY += speed;
-            case "left" -> worldX -= speed;
-            case "right" -> worldX += speed;
+        if(target != null && target.alive && !target.dying){
+            moveToward(target.worldX + gp.tileSize/2, target.worldY + gp.tileSize/2);
+        } else {
+            switch (direction){
+                case "up" -> worldY -= speed;
+                case "down" -> worldY += speed;
+                case "left" -> worldX -= speed;
+                case "right" -> worldX += speed;
+            }
         }
 
         HP--;
@@ -64,6 +74,27 @@ public class Projectile extends Entity{
             }
             spriteCounter = 0;
         }
+    }
+
+    private void moveToward(int targetX, int targetY){
+        int centerX = worldX + gp.tileSize/2;
+        int centerY = worldY + gp.tileSize/2;
+        double dx = targetX - centerX;
+        double dy = targetY - centerY;
+        double distance = Math.sqrt(dx*dx + dy*dy);
+
+        if(distance < speed){
+            worldX = targetX - gp.tileSize/2;
+            worldY = targetY - gp.tileSize/2;
+            return;
+        }
+
+        worldX += (int) Math.round((dx / distance) * speed);
+        worldY += (int) Math.round((dy / distance) * speed);
+
+        direction = Math.abs(dx) > Math.abs(dy)
+                ? (dx > 0 ? "right" : "left")
+                : (dy > 0 ? "down" : "up");
     }
 
     public boolean hasResource(Entity user){

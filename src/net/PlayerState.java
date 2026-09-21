@@ -14,4 +14,5 @@ public class PlayerState {
     public String weaponTypeId;
     public String shieldTypeId;
     public boolean isDead;
+    public String playerClass;
 }

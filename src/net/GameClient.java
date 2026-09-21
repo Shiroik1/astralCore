@@ -60,6 +60,8 @@ public class GameClient {
 
         JoinRequest request = new JoinRequest();
         request.playerName = gp.localPlayer().playerName;
+        request.playerClass = gp.localPlayer().playerClass;
+        request.gender = gp.localPlayer().gender;
         client.sendTCP(request);
 
         System.out.println("[CLIENT] JoinRequest sent");
@@ -147,6 +149,15 @@ public class GameClient {
                 p.animState = ps.animState;
                 p.attacking = ps.attacking;
                 p.isDead = ps.isDead;
+
+                if(ps.playerClass != null && !ps.playerClass.equals(p.playerClass)){
+                    p.playerClass = ps.playerClass;
+                    if(p.playerClass.equals("mage")){
+                        p.getMagePlayerImage();
+                    } else {
+                        p.getPlayerImage();
+                    }
+                }
 
                 if(!p.isDead && ps.HP != previousHP){
                     int delta = ps.HP - previousHP;

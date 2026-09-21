@@ -409,6 +409,12 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            for(int i = 0; i < projectileList.size(); i++){
+                if(projectileList.get(i) != null){
+                    entityList.add(projectileList.get(i));
+                }
+            }
+
 
 
             //SORT
@@ -499,6 +505,7 @@ public class Gamepanel extends JPanel implements Runnable{
             net.PlayerState ps = new net.PlayerState();
             ps.playerId = p.playerId;
             ps.playerName = p.playerName;
+            ps.playerClass = p.playerClass;
             ps.worldX = p.worldX;
             ps.worldY = p.worldY;
             ps.direction = p.direction;

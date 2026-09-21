@@ -62,6 +62,7 @@ public class Entity {
     public boolean alive = true;
     public boolean dying = false;
     public boolean hpBarOn = false;
+    public boolean outlined = false;
 
     //TYPES
     public int type;
@@ -297,6 +298,12 @@ public class Entity {
                 g2.fillRect(screenX - 1, screenY - 16, gp.tileSize + 2, 7);
                 g2.setColor(Color.red);
                 g2.fillRect(screenX, screenY - 15, (int) hpBarValue , 5);
+            }
+
+            if(outlined && type == type_monster){
+                g2.setColor(Color.white);
+                g2.setStroke(new BasicStroke(2));
+                g2.drawRect(screenX + solidArea.x, screenY + solidArea.y, solidArea.width, solidArea.height);
             }
 
             if(dying){

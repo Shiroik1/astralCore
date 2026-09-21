@@ -60,6 +60,8 @@ public class Player extends Entity{
     private final int hitStopOnTakingDamage = 8; // slightly longer than dealing a hit — getting hit should read heavier
     private final int trailInterval = 8; // ticks between trail particles — lower = denser trail
     private int bodySize; // canvas size shared by every player body animation (idle/run/attack)
+    public Entity hoveredTarget = null;
+    private boolean mageProjectileFired = false;
 
     public Entity[] inventorySlots = new Entity[20];
     public final int inventorySize = 20;
@@ -76,6 +78,10 @@ public class Player extends Entity{
     private final int mpRegenDelayTicks = 120;   // ticks after last skill use before MP starts regenerating
     private final int mpRegenIntervalTicks = 90; // ticks between each +1 MP once regen is active
     private int mpRegenCounter = 0;
+    private int ticksSinceRageGain = 0;
+    private final int rageDecayDelayTicks = 180;   // ~3s of no hits/damage before rage starts dropping
+    private final int rageDecayIntervalTicks = 60; // ticks between each -1 rage once decaying
+    private int rageDecayCounter = 0;
     public Map<String, BufferedImage> statusEffectIcons = new HashMap<>();
 
     public Player(Gamepanel gp, KeyHandler keyH){
@@ -95,7 +101,13 @@ public class Player extends Entity{
         solidArea.height = 32;
 
         setDefaultValues();
-        getPlayerImage();
+        if(playerClass.equals("mage")){
+            getMagePlayerImage();
+        } else {
+            getPlayerImage();
+        }
+        refreshWeaponAnimation();
+        setItems();
         getPlayerAttackImage();
         setItems();
     }
@@ -328,6 +340,82 @@ public class Player extends Entity{
         sprites.put("attack_right", new SpriteAnimation(attackRight, bodySize, bodySize));
     }
 
+    public void getMagePlayerImage(){
+        int size = bodySize > 0 ? bodySize : (int)(gp.tileSize * 3);
+        bodySize = size;
+
+        BufferedImage[] idleDown = {
+                setup("/player/mage_idle/00_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/01_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/02_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/03_Vampires1_Idle_without_shadow", size, size)};
+        BufferedImage[] idleUp = {
+                setup("/player/mage_idle/04_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/05_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/06_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/07_Vampires1_Idle_without_shadow", size, size)};
+        BufferedImage[] idleLeft = {
+                setup("/player/mage_idle/08_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/09_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/10_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/11_Vampires1_Idle_without_shadow", size, size)};
+        BufferedImage[] idleRight = {
+                setup("/player/mage_idle/12_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/13_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/14_Vampires1_Idle_without_shadow", size, size),
+                setup("/player/mage_idle/15_Vampires1_Idle_without_shadow", size, size)};
+
+        sprites.put("idle_down", new SpriteAnimation(idleDown, size, size));
+        sprites.put("idle_up", new SpriteAnimation(idleUp, size, size));
+        sprites.put("idle_left", new SpriteAnimation(idleLeft, size, size));
+        sprites.put("idle_right", new SpriteAnimation(idleRight, size, size));
+
+        BufferedImage[] runDown = {
+                setup("/player/mage_run/00_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/01_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/02_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/03_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/04_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/05_Vampires1_Walk_without_shadow", size, size)};
+        BufferedImage[] runUp = {
+                setup("/player/mage_run/06_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/07_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/08_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/09_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/10_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/11_Vampires1_Walk_without_shadow", size, size)};
+        BufferedImage[] runLeft = {
+                setup("/player/mage_run/12_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/13_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/14_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/15_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/16_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/17_Vampires1_Walk_without_shadow", size, size)};
+        BufferedImage[] runRight = {
+                setup("/player/mage_run/18_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/19_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/20_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/21_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/22_Vampires1_Walk_without_shadow", size, size),
+                setup("/player/mage_run/23_Vampires1_Walk_without_shadow", size, size)};
+
+        SpriteAnimation runDownAnim = new SpriteAnimation(runDown, size, size);
+        runDownAnim.frameDelay = 5;
+        SpriteAnimation runUpAnim = new SpriteAnimation(runUp, size, size);
+        runUpAnim.frameDelay = 5;
+        SpriteAnimation runLeftAnim = new SpriteAnimation(runLeft, size, size);
+        runLeftAnim.frameDelay = 5;
+        SpriteAnimation runRightAnim = new SpriteAnimation(runRight, size, size);
+        runRightAnim.frameDelay = 5;
+
+        sprites.put("run_down", runDownAnim);
+        sprites.put("run_up", runUpAnim);
+        sprites.put("run_left", runLeftAnim);
+        sprites.put("run_right", runRightAnim);
+
+        down1 = idleDown[0];
+    }
+
     public void update(){
         if(!isLocal && !gp.isHost){
             updateStatusEffects();
@@ -340,6 +428,10 @@ public class Player extends Entity{
         if(isDead){
             updateStatusEffects();
             return;
+        }
+
+        if(isLocal){
+            updateHoveredTarget();
         }
 
         if(inDialogue){
@@ -551,6 +643,16 @@ public class Player extends Entity{
                 }
             }
         }
+        else {
+            ticksSinceRageGain++;
+            if(ticksSinceRageGain >= rageDecayDelayTicks && rage > 0){
+                rageDecayCounter++;
+                if(rageDecayCounter >= rageDecayIntervalTicks){
+                    rage--;
+                    rageDecayCounter = 0;
+                }
+            }
+        }
 
         if(HP > maxHP){
             HP = maxHP;
@@ -575,6 +677,11 @@ public class Player extends Entity{
 
     public void attacking() {
         if(gp.hitStopCounter > 0) return;
+
+        if(playerClass.equals("mage")){
+            mageAttacking();
+            return;
+        }
 
         SpriteAnimation anim = getCurrentAnimation();
         int totalFrames = (anim != null) ? anim.frames.length : 1;
@@ -666,6 +773,7 @@ public class Player extends Entity{
 
                 if(!playerClass.equals("mage") && damage > 0){
                     rage = Math.min(maxRage, rage + 10);
+                    ticksSinceRageGain = 0;
                 }
 
                 if(gp.monster[index].HP <= 0){
@@ -716,6 +824,7 @@ public class Player extends Entity{
 
                 if(!playerClass.equals("mage") && damage > 0){
                     rage = Math.min(maxRage, rage + 15);
+                    ticksSinceRageGain = 0;
                 }
                 HP -= damage;
                 invincible = true;
@@ -998,10 +1107,24 @@ public class Player extends Entity{
             bounce = Math.abs(Math.sin(bounceCounter * 0.2)) * -4;
         }
 
+        double castScale = 1.0;
+        if(attacking && playerClass.equals("mage") && spriteNum == attackHitStartFrame){
+            double progress = Math.min(1.0, (double) attackFrameHoldCounter / getEffectiveAttackFrameDelay());
+            castScale = 1.0 + Math.sin(progress * Math.PI) * 0.18;
+        }
+
         AffineTransform originalTransform = g2.getTransform();
         g2.translate(0, bounce);
+        if(castScale != 1.0){
+            int pivotX = drawX + bodyWidth/2;
+            int pivotY = drawY + bodyHeight/2;
+            g2.translate(pivotX, pivotY);
+            g2.scale(castScale, castScale);
+            g2.translate(-pivotX, -pivotY);
+        }
         g2.drawImage(bodyImage, drawX, drawY, null);
         g2.setTransform(originalTransform);
+
         drawNameLabel(g2, drawX + bodyWidth/2, drawY);
     }
 
@@ -1366,5 +1489,77 @@ public class Player extends Entity{
         g2.drawString(playerName, textX + 1, textY + 1);
         g2.setColor(isLocal ? new Color(255, 230, 120) : Color.white);
         g2.drawString(playerName, textX, textY);
+    }
+
+    private void updateHoveredTarget(){
+        if(hoveredTarget != null){
+            hoveredTarget.outlined = false;
+            hoveredTarget = null;
+        }
+
+        int mouseX = gp.mouseH.getScaledX();
+        int mouseY = gp.mouseH.getScaledY();
+
+        for(Entity m : gp.monster){
+            if(m == null || m.dying) continue;
+
+            int mScreenX = m.worldX - worldX + screenX + m.solidArea.x;
+            int mScreenY = m.worldY - worldY + screenY + m.solidArea.y;
+
+            if(mouseX >= mScreenX && mouseX <= mScreenX + m.solidArea.width &&
+                    mouseY >= mScreenY && mouseY <= mScreenY + m.solidArea.height){
+                hoveredTarget = m;
+                m.outlined = true;
+                break;
+            }
+        }
+    }
+
+    private void mageAttacking(){
+        SpriteAnimation anim = getCurrentAnimation();
+        int totalFrames = (anim != null) ? anim.frames.length : 1;
+
+        int delayForCurrentFrame = getAttackFrameDelay(spriteNum);
+
+        attackFrameHoldCounter++;
+        if(attackFrameHoldCounter >= delayForCurrentFrame){
+            attackFrameHoldCounter = 0;
+            spriteNum++;
+
+            if(spriteNum > totalFrames){
+                spriteNum = 1;
+                attacking = false;
+                mageProjectileFired = false;
+                return;
+            }
+        }
+
+        if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame && !mageProjectileFired){
+            if(canResolveWorldActions() && hoveredTarget != null && hoveredTarget.alive && !hoveredTarget.dying){
+                Projectile shot = new OBJ_fireball(gp);
+                shot.set(worldX, worldY, direction, true, this, hoveredTarget);
+                gp.projectileList.add(shot);
+                gp.playSE(9);
+                spawnCastParticles();
+            }
+            mageProjectileFired = true;
+        }
+    }
+
+    public void refreshWeaponAnimation(){
+        if(!playerClass.equals("mage")){
+            getPlayerAttackImage();
+        }
+    }
+
+    private void spawnCastParticles(){
+        Color color = new Color(150, 100, 255);
+        for(int i = 0; i < 6; i++){
+            double angle = (2 * Math.PI / 6) * i;
+            int xd = (int) Math.round(Math.cos(angle) * 2);
+            int yd = (int) Math.round(Math.sin(angle) * 2);
+            Particle p = new Particle(gp, this, color, 5, 2, 15, xd, yd);
+            gp.particleList.add(p);
+        }
     }
 }
