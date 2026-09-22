@@ -21,7 +21,6 @@ public class GameServer {
     private ConcurrentLinkedQueue<Object[]> pendingInputs = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<GameEvent> pendingClientEvents = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<InventoryAction> pendingInventoryActions = new ConcurrentLinkedQueue<>();
-    private ConcurrentHashMap<Integer, String> pendingPlayerNames = new ConcurrentHashMap<>();
 
     public GameServer(Gamepanel gp){
         this.gp = gp;
@@ -92,7 +91,7 @@ public class GameServer {
 
             int assignedId = assignNextFreePlayerId();
             if(assignedId == -1){
-                conn.close(); // session full
+                conn.close();
                 continue;
             }
             connectionToPlayerId.put(connId, assignedId);
@@ -110,8 +109,6 @@ public class GameServer {
                 p.playerName = "Player " + (assignedId + 1);
             }
             gp.ui.addMessage("Player " + assignedId + " connected.", java.awt.Color.green);
-            String pendingName = pendingPlayerNames.remove(connId);
-            p.playerName = (pendingName != null && !pendingName.isEmpty()) ? pendingName : ("Player " + (assignedId + 1));
 
             JoinAccepted accepted = new JoinAccepted();
             accepted.assignedPlayerId = assignedId;
@@ -121,6 +118,24 @@ public class GameServer {
         Integer playerId;
         while((playerId = pendingDisconnections.poll()) != null){
             gp.players[playerId] = null;
+        }
+    }
+
+    private void applyJoinRequestToPlayer(Player p, JoinRequest request){
+        if(request.playerName != null && !request.playerName.isEmpty()){
+            p.playerName = request.playerName;
+        }
+        if(request.playerClass != null && !request.playerClass.isEmpty() && !request.playerClass.equals(p.playerClass)){
+            p.playerClass = request.playerClass;
+            if(p.playerClass.equals("mage")){
+                p.getMagePlayerImage();
+            } else {
+                p.getPlayerImage();
+            }
+            p.refreshWeaponAnimation();
+        }
+        if(request.gender != null && !request.gender.isEmpty()){
+            p.gender = request.gender;
         }
     }
 
@@ -176,23 +191,6 @@ public class GameServer {
         InventoryAction action;
         while((action = pendingInventoryActions.poll()) != null){
             gp.applyInventoryActionLocally(action);
-        }
-    }
-
-    private void applyJoinRequestToPlayer(Player p, JoinRequest request){
-        if(request.playerName != null && !request.playerName.isEmpty()){
-            p.playerName = request.playerName;
-        }
-        if(request.playerClass != null && !request.playerClass.isEmpty() && !request.playerClass.equals(p.playerClass)){
-            p.playerClass = request.playerClass;
-            if(p.playerClass.equals("mage")){
-                p.getMagePlayerImage();
-            } else {
-                p.getPlayerImage();
-            }
-        }
-        if(request.gender != null && !request.gender.isEmpty()){
-            p.gender = request.gender;
         }
     }
 }

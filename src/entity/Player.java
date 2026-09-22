@@ -63,6 +63,9 @@ public class Player extends Entity{
     public Entity hoveredTarget = null;
     private boolean mageProjectileFired = false;
 
+    public int arcaneCharge = 0;
+    public final int maxArcaneCharge = 4;
+
     public Entity[] inventorySlots = new Entity[20];
     public final int inventorySize = 20;
 
@@ -419,6 +422,7 @@ public class Player extends Entity{
     public void update(){
         if(!isLocal && !gp.isHost){
             updateStatusEffects();
+            updateAura();
             if(!isDead){
                 updateAnimation();
             }
@@ -432,6 +436,9 @@ public class Player extends Entity{
 
         if(isLocal){
             updateHoveredTarget();
+        } else if(gp.isHost && currentInput != null){
+            int idx = currentInput.targetedMonsterIndex;
+            hoveredTarget = (idx >= 0 && idx < gp.monster.length) ? gp.monster[idx] : null;
         }
 
         if(inDialogue){
@@ -478,6 +485,7 @@ public class Player extends Entity{
         animState = attacking ? "attack" : (moving ? "run" : "idle");
 
         updateStatusEffects();
+        updateAura();
         updateDroppedItemPickupBlocks();
 
         for(int i = 0; i < skills.length; i++){
@@ -747,40 +755,68 @@ public class Player extends Entity{
 
 
     public void damageMonster(int index, int attack) {
+        damageMonster(index, attack, false);
+    }
+
+    public void damageMonster(int index, int attack, boolean forcedBigHit) {
         if(index != 999){
-            if(!gp.monster[index].invincible){
+            Entity target = gp.monster[index];
+            if(!target.invincible){
                 gp.playSE(5);
-                int damage = attack - gp.monster[index].defense;
+                int damage = attack - target.defense;
                 if(damage < 0){
                     damage = 0;
                 }
-                gp.monster[index].HP -= damage;
-                gp.monster[index].invincible = true;
-                gp.monster[index].flashing = true;
-                gp.monster[index].flashCounter = 0;
-                gp.monster[index].hpBarOn = true;
-                gp.monster[index].hpBarCounter = 0;
-                gp.monster[index].startKnockback(direction, gp.monster[index].knockbackDistance);
-                gp.startScreenShake(hitStopOnHitMonster, 4);
-                gp.monster[index].spawnHitParticles();
-                gp.monster[index].damageReaction();
-                gp.startHitStop(hitStopOnHitMonster);
 
-                if(damage > 0){
-                    gp.spawnFloatingText(gp.monster[index].worldX + gp.tileSize/2, gp.monster[index].worldY,
-                            String.valueOf(damage), new Color(255, 220, 80));
-                }
-
+                boolean isBigHit = forcedBigHit;
                 if(!playerClass.equals("mage") && damage > 0){
                     rage = Math.min(maxRage, rage + 10);
                     ticksSinceRageGain = 0;
+
+                    target.comboStacks++;
+                    if(target.comboStacks >= target.maxComboStacks){
+                        isBigHit = true;
+                        target.comboStacks = 0;
+                        damage = damage * 2;
+                    }
                 }
 
-                if(gp.monster[index].HP <= 0){
-                    gp.monster[index].dying = true;
-                    exp += gp.monster[index].exp;
+                target.HP -= damage;
+                target.invincible = true;
+                target.flashing = true;
+                target.flashCounter = 0;
+                target.hpBarOn = true;
+                target.hpBarCounter = 0;
+
+                int knockbackDist = isBigHit ? target.knockbackDistance * 2 : target.knockbackDistance;
+                target.startKnockback(direction, knockbackDist);
+
+                int shakeDuration = isBigHit ? hitStopOnHitMonster * 2 : hitStopOnHitMonster;
+                int shakeIntensity = isBigHit ? 8 : 4;
+                gp.startScreenShake(shakeDuration, shakeIntensity);
+                target.spawnHitParticles();
+                target.damageReaction();
+                gp.startHitStop(isBigHit ? hitStopOnHitMonster * 2 : hitStopOnHitMonster);
+
+                if(isBigHit){
+                    gp.playSE(7);
+                    Color burstColor = playerClass.equals("mage") ? new Color(190, 120, 255) : new Color(255, 60, 60);
+                    spawnFinisherBurst(target, burstColor);
+                }
+
+                if(damage > 0){
+                    String label = isBigHit ? (playerClass.equals("mage") ? "NOVA! " : "CRUSH! ") : "";
+                    Color textColor = isBigHit
+                            ? (playerClass.equals("mage") ? new Color(190, 120, 255) : new Color(255, 70, 70))
+                            : new Color(255, 220, 80);
+                    gp.spawnFloatingText(target.worldX + gp.tileSize/2, target.worldY, label + damage, textColor);
+                }
+
+                if(target.HP <= 0){
+                    target.dying = true;
+                    exp += target.exp;
                     gp.broadcastPlayerEvent(playerId, "kill",
-                            "Player " + (playerId + 1) + " killed the " + gp.monster[index].name + "! (+" + gp.monster[index].exp + " EXP)", null);
+                            "Player " + (playerId + 1) + " killed the " + target.name + "! (+" + target.exp + " EXP)", null);
                     checkLevelUp();
                 }
             }
@@ -1202,6 +1238,7 @@ public class Player extends Entity{
 
         skills[1] = new Skill("War Cry", 20, 600, () -> {
             addStatusEffect(new StatusEffect("attackBoost", 300, 3, 0));
+            startAura(new Color(255, 80, 80), 300);
             spawnSkillParticles(new Color(255, 80, 80), 10);
             gp.ui.addMessage("War Cry!");
         }, loadSkillIcon("/skill_icon/sword_warcry"));
@@ -1209,6 +1246,7 @@ public class Player extends Entity{
 
         skills[2] = new Skill("Adrenaline Rush", 20, 600, () -> {
             addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
+            startAura(new Color(255, 255, 0), 300);
             spawnSkillParticles(new Color(255, 255, 0), 10);
             gp.ui.addMessage("Adrenaline Rush!");
         }, loadSkillIcon("/skill_icon/sword_adrenaline"));
@@ -1222,6 +1260,7 @@ public class Player extends Entity{
 
         skills[4] = new Skill("Fortify", 20, 600, () -> {
             addStatusEffect(new StatusEffect("defenseBoost", 300, 3, 0));
+            startAura(new Color(120, 180, 255), 300);
             spawnSkillParticles(new Color(120, 180, 255), 10);
             gp.ui.addMessage("Fortify!");
         }, loadSkillIcon("/skill_icon/fortify"));
@@ -1229,28 +1268,28 @@ public class Player extends Entity{
     }
 
     private void setupMageSkills(){
-        skills[0] = new Skill("Arcane Surge", 4, 300, () -> {
-            powerStrikePending = true;
-            powerStrikeBonus = attack;
-            spawnSkillParticles(new Color(150, 100, 255), 8);
-            gp.ui.addMessage("Arcane Surge!");
-        }, loadSkillIcon("/skill_icon/mage_arcanesurge"));
+        skills[0] = new Skill("Mana Infusion", 2, 240, () -> {
+            arcaneCharge = Math.min(maxArcaneCharge, arcaneCharge + 2);
+            if(arcaneCharge >= maxArcaneCharge){
+                startAura(new Color(190, 120, 255), 999999);
+            }
+            spawnSkillParticles(new Color(190, 120, 255), 8);
+            gp.ui.addMessage("Mana Infusion!");
+        }, loadSkillIcon("/skill_icon/mage_manainfusion"));
 
-        skills[1] = new Skill("Arcane Power", 3, 600, () -> {
-            addStatusEffect(new StatusEffect("attackBoost", 300, 3, 0));
-            spawnSkillParticles(new Color(180, 80, 255), 10);
-            gp.ui.addMessage("Arcane Power!");
-        }, loadSkillIcon("/skill_icon/mage_arcanepower"));
-        statusEffectIcons.put("attackBoost", skills[1].icon);
+        skills[1] = new Skill("Arcane Detonation", 4, 480, () -> {
+            triggerArcaneDetonation();
+        }, loadSkillIcon("/skill_icon/mage_detonation"));
 
         skills[2] = new Skill("Haste", 3, 600, () -> {
             addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
+            startAura(new Color(255, 255, 120), 300);
             spawnSkillParticles(new Color(255, 255, 120), 10);
             gp.ui.addMessage("Haste!");
         }, loadSkillIcon("/skill_icon/mage_haste"));
         statusEffectIcons.put("attackSpeedBoost", skills[2].icon);
 
-        skills[3] = new Skill("Ignite", 4, 480, () -> {
+        skills[3] = new Skill("Ignite", 3, 420, () -> {
             rendPending = true;
             spawnSkillParticles(new Color(255, 120, 0), 8);
             gp.ui.addMessage("Ignite!");
@@ -1258,6 +1297,7 @@ public class Player extends Entity{
 
         skills[4] = new Skill("Mana Shield", 3, 600, () -> {
             addStatusEffect(new StatusEffect("defenseBoost", 300, 3, 0));
+            startAura(new Color(120, 200, 255), 300);
             spawnSkillParticles(new Color(120, 200, 255), 10);
             gp.ui.addMessage("Mana Shield!");
         }, loadSkillIcon("/skill_icon/mage_manashield"));
@@ -1535,12 +1575,33 @@ public class Player extends Entity{
         }
 
         if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame && !mageProjectileFired){
-            if(canResolveWorldActions() && hoveredTarget != null && hoveredTarget.alive && !hoveredTarget.dying){
+            if(hoveredTarget != null && hoveredTarget.alive && !hoveredTarget.dying){
+                boolean unleashed = arcaneCharge >= maxArcaneCharge;
+
                 Projectile shot = new OBJ_fireball(gp);
+                shot.attack = unleashed ? getEffectiveAttack() * 3 : getEffectiveAttack();
+                shot.empowered = unleashed;
                 shot.set(worldX, worldY, direction, true, this, hoveredTarget);
                 gp.projectileList.add(shot);
                 gp.playSE(9);
-                spawnCastParticles();
+
+                if(rendPending){
+                    hoveredTarget.addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
+                    rendPending = false;
+                }
+
+                if(unleashed){
+                    arcaneCharge = 0;
+                    auraActive = false;
+                    spawnNovaCastParticles();
+                    gp.startScreenShake(10, 8);
+                } else {
+                    arcaneCharge = Math.min(maxArcaneCharge, arcaneCharge + 1);
+                    if(arcaneCharge >= maxArcaneCharge){
+                        startAura(new Color(190, 120, 255), 999999);
+                    }
+                    spawnCastParticles();
+                }
             }
             mageProjectileFired = true;
         }
@@ -1549,6 +1610,11 @@ public class Player extends Entity{
     public void refreshWeaponAnimation(){
         if(!playerClass.equals("mage")){
             getPlayerAttackImage();
+        } else {
+            sprites.remove("attack_down");
+            sprites.remove("attack_up");
+            sprites.remove("attack_left");
+            sprites.remove("attack_right");
         }
     }
 
@@ -1561,5 +1627,60 @@ public class Player extends Entity{
             Particle p = new Particle(gp, this, color, 5, 2, 15, xd, yd);
             gp.particleList.add(p);
         }
+    }
+
+    public void spawnLevelUpBurst(){
+        startAura(new Color(255, 215, 0), 90);
+        for(int i = 0; i < 16; i++){
+            double angle = (2 * Math.PI / 16) * i;
+            int xd = (int) Math.round(Math.cos(angle) * 3);
+            int yd = (int) Math.round(Math.sin(angle) * 3);
+            Particle p = new Particle(gp, this, new Color(255, 215, 0), 6, 2, 25, xd, yd);
+            gp.particleList.add(p);
+        }
+    }
+
+    private void spawnFinisherBurst(Entity target, Color color){
+        for(int i = 0; i < 12; i++){
+            double angle = (2 * Math.PI / 12) * i;
+            int xd = (int) Math.round(Math.cos(angle) * 3);
+            int yd = (int) Math.round(Math.sin(angle) * 3);
+            Particle p = new Particle(gp, target, color, 7, 3, 20, xd, yd);
+            gp.particleList.add(p);
+        }
+    }
+
+    private void spawnNovaCastParticles(){
+        for(int i = 0; i < 20; i++){
+            double angle = (2 * Math.PI / 20) * i;
+            int xd = (int) Math.round(Math.cos(angle) * 4);
+            int yd = (int) Math.round(Math.sin(angle) * 4);
+            Particle p = new Particle(gp, this, new Color(190, 120, 255), 7, 3, 22, xd, yd);
+            gp.particleList.add(p);
+        }
+    }
+
+    private void triggerArcaneDetonation(){
+        int chargeSpent = Math.max(1, arcaneCharge);
+        int damagePerHit = getEffectiveAttack() * chargeSpent;
+        int radius = gp.tileSize * 3;
+
+        for(int i = 0; i < gp.monster.length; i++){
+            Entity m = gp.monster[i];
+            if(m == null || m.dying) continue;
+
+            int dx = m.worldX - worldX;
+            int dy = m.worldY - worldY;
+            double distance = Math.sqrt(dx*dx + dy*dy);
+            if(distance <= radius){
+                damageMonster(i, damagePerHit, true);
+            }
+        }
+
+        arcaneCharge = 0;
+        auraActive = false;
+        spawnNovaCastParticles();
+        gp.startScreenShake(10, 8);
+        gp.ui.addMessage("Arcane Detonation!");
     }
 }

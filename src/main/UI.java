@@ -239,6 +239,7 @@ public class UI {
             }
             drawCombatLog();
             drawSkillHotbar();
+
             if(gp.inventoryOpen){
                 drawCharacterScreen();
                 drawInventory();
@@ -762,6 +763,7 @@ public class UI {
         if(local.playerClass.equals("mage")){
             drawStatBar(barX, secondaryY, barWidth, barHeight, local.MP, local.maxMP,
                     new Color(20, 30, 60), new Color(60, 130, 230), "MP");
+            drawArcaneCharge(local, barX + barWidth + 16, secondaryY, barHeight);
         } else {
             drawStatBar(barX, secondaryY, barWidth, barHeight, local.rage, local.maxRage,
                     new Color(50, 15, 15), new Color(220, 60, 30), "RAGE");
@@ -1511,5 +1513,28 @@ public class UI {
     private String capitalize(String s){
         if(s == null || s.isEmpty()) return s;
         return s.substring(0, 1).toUpperCase() + s.substring(1);
+    }
+
+    private void drawArcaneCharge(Player local, int x, int barTopY, int barHeight){
+        int pipSize = 14;
+        int spacing = 4;
+        int y = barTopY + (barHeight - pipSize) / 2;
+
+        for(int i = 0; i < local.maxArcaneCharge; i++){
+            int px = x + i * (pipSize + spacing);
+            boolean filled = i < local.arcaneCharge;
+            g2.setColor(filled ? new Color(190, 120, 255) : new Color(0, 0, 0, 140));
+            g2.fillOval(px, y, pipSize, pipSize);
+            g2.setColor(Color.white);
+            g2.setStroke(new BasicStroke(1));
+            g2.drawOval(px, y, pipSize, pipSize);
+        }
+
+        if(local.arcaneCharge >= local.maxArcaneCharge){
+            g2.setFont(jetbrainsMono.deriveFont(Font.BOLD, 12f));
+            g2.setColor(new Color(190, 120, 255));
+            int textX = x + local.maxArcaneCharge * (pipSize + spacing) + 6;
+            g2.drawString("READY", textX, barTopY + barHeight - 6);
+        }
     }
 }

@@ -54,4 +54,15 @@ public class SpriteAnimation {
         op.filter(src, flashed);
         return flashed;
     }
+
+    public static BufferedImage applyTint(BufferedImage src, Color tint){
+        BufferedImage tinted = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = tinted.createGraphics();
+        g2.drawImage(src, 0, 0, null);
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP));
+        g2.setColor(tint);
+        g2.fillRect(0, 0, src.getWidth(), src.getHeight());
+        g2.dispose();
+        return tinted;
+    }
 }

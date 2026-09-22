@@ -6,6 +6,7 @@ public class Projectile extends Entity{
 
     Entity user;
     public Entity target;
+    public boolean empowered = false;
 
     public Projectile(Gamepanel gp) {
         super(gp);
@@ -31,7 +32,7 @@ public class Projectile extends Entity{
             int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
             if(monsterIndex != 999){
                 if(((Player) user).canResolveWorldActions()){
-                    ((Player) user).damageMonster(monsterIndex, attack);
+                    ((Player) user).damageMonster(monsterIndex, attack, empowered);
                 }
                 generateParticle(user.projectile, gp.monster[monsterIndex]);
                 alive = false;

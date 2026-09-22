@@ -157,6 +157,7 @@ public class GameClient {
                     } else {
                         p.getPlayerImage();
                     }
+                    p.refreshWeaponAnimation();
                 }
 
                 if(!p.isDead && ps.HP != previousHP){

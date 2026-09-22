@@ -209,7 +209,16 @@ public class Gamepanel extends JPanel implements Runnable{
             Player local = localPlayer();
             InputState localInput = null;
             if(local != null){
-                localInput = InputState.captureFrom(keyH, mouseH, currentTick);
+                int hoveredIndex = -1;
+                if(local.hoveredTarget != null){
+                    for(int i = 0; i < monster.length; i++){
+                        if(monster[i] == local.hoveredTarget){
+                            hoveredIndex = i;
+                            break;
+                        }
+                    }
+                }
+                localInput = InputState.captureFrom(keyH, mouseH, currentTick, hoveredIndex);
                 local.applyInput(localInput);
             }
 
@@ -606,7 +615,7 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void applyGameEventLocally(int playerId, String type, String ambientMessage, String personalMessage){
         if(type.equals("respawn_request")){
-            if(!isNetworked || isHost){ // only the authoritative machine actually performs the reset
+            if(!isNetworked || isHost){
                 Player target = players[playerId];
                 if(target != null){
                     target.performRespawn();
@@ -614,10 +623,17 @@ public class Gamepanel extends JPanel implements Runnable{
             }
         }
 
+        if(type.equals("levelup")){
+            Player leveledPlayer = players[playerId];
+            if(leveledPlayer != null){
+                leveledPlayer.spawnLevelUpBurst();
+            }
+        }
+
         if(ambientMessage != null){
             ui.addMessage(ambientMessage, colorForEventType(type));
         }
-        if(playerId == localPlayerIndex && personalMessage != null){
+        if(playerId == localPlayerIndex && personalMessage != null && !type.equals("levelup")){
             Player p = localPlayer();
             if(p != null){
                 p.showPersonalNotification(personalMessage);

@@ -18,7 +18,7 @@ public class MON_GreenSlime extends Entity {
         type = type_monster;
         name = "Green Slime";
         speed = 2;
-        maxHP = 5;
+        maxHP = 10;
         HP = maxHP;
         attack = 5;
         defense = 0;

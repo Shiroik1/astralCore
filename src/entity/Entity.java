@@ -34,6 +34,13 @@ public class Entity {
 
     public List<StatusEffect> statusEffects = new ArrayList<>();
     private Map<BufferedImage, BufferedImage> flashCache = new IdentityHashMap<>();
+    private Map<Long, BufferedImage> tintCache = new HashMap<>();
+
+    public boolean auraActive = false;
+    public Color auraColor = null;
+    public int auraDurationRemaining = 0;
+    private int auraParticleCounter = 0;
+    private final int auraParticleInterval = 8;
 
     public String npcId = "";
     public java.util.List<String> dialogueLines = new java.util.ArrayList<>();
@@ -63,6 +70,9 @@ public class Entity {
     public boolean dying = false;
     public boolean hpBarOn = false;
     public boolean outlined = false;
+
+    public int comboStacks = 0;
+    public final int maxComboStacks = 4;
 
     //TYPES
     public int type;
@@ -217,6 +227,7 @@ public class Entity {
         }
 
         updateStatusEffects();
+        updateAura();
     }
 
     public void updateAnimation(){
@@ -298,6 +309,19 @@ public class Entity {
                 g2.fillRect(screenX - 1, screenY - 16, gp.tileSize + 2, 7);
                 g2.setColor(Color.red);
                 g2.fillRect(screenX, screenY - 15, (int) hpBarValue , 5);
+            }
+
+            //COMBO STACK PIPS
+            if(type == type_monster && comboStacks > 0){
+                int pipSize = 6;
+                int pipSpacing = 3;
+                int totalWidth = maxComboStacks * pipSize + (maxComboStacks - 1) * pipSpacing;
+                int pipStartX = screenX + (gp.tileSize - totalWidth) / 2;
+                int pipY = screenY - 26;
+                for(int i = 0; i < maxComboStacks; i++){
+                    g2.setColor(i < comboStacks ? new Color(255, 80, 80) : new Color(0, 0, 0, 150));
+                    g2.fillOval(pipStartX + i * (pipSize + pipSpacing), pipY, pipSize, pipSize);
+                }
             }
 
             if(outlined && type == type_monster){
@@ -392,7 +416,17 @@ public class Entity {
     protected BufferedImage getCurrentFrame(){
         SpriteAnimation anim = getCurrentAnimation();
         BufferedImage frame = (anim == null) ? getLegacyFrame() : anim.frames[Math.min(spriteNum - 1, anim.frames.length - 1)];
-        return flashing ? getFlashVersion(frame) : frame;
+
+        if(flashing){
+            return getFlashVersion(frame);
+        }
+
+        Color tint = getActiveTintColor();
+        if(tint != null){
+            return getTintVersion(frame, tint);
+        }
+
+        return frame;
     }
 
     protected BufferedImage getLegacyFrame(){
@@ -476,6 +510,38 @@ public class Entity {
             Particle p = new Particle(gp, this, color, size, speed, maxHP, xd, yd);
             gp.particleList.add(p);
         }
+    }
+
+    public void startAura(Color color, int durationTicks){
+        auraActive = true;
+        auraColor = color;
+        auraDurationRemaining = durationTicks;
+    }
+
+    public void updateAura(){
+        if(!auraActive) return;
+
+        auraDurationRemaining--;
+        if(auraDurationRemaining <= 0){
+            auraActive = false;
+            return;
+        }
+
+        auraParticleCounter++;
+        if(auraParticleCounter >= auraParticleInterval){
+            spawnAuraParticle();
+            auraParticleCounter = 0;
+        }
+    }
+
+    private void spawnAuraParticle(){
+        double angle = Math.random() * 2 * Math.PI;
+        int radius = gp.tileSize / 3;
+        int offsetX = (int) Math.round(Math.cos(angle) * radius);
+        int offsetY = (int) Math.round(Math.sin(angle) * radius);
+        Color particleColor = new Color(auraColor.getRed(), auraColor.getGreen(), auraColor.getBlue());
+        Particle p = new Particle(gp, this, particleColor, 4, 1, 25, 0, -1, offsetX, offsetY);
+        gp.particleList.add(p);
     }
 
     protected Player findNearestPlayer(){
@@ -583,5 +649,21 @@ public class Entity {
         return stackable && other != null && other.stackable && this.getClass() == other.getClass();
     }
 
+    protected Color getActiveTintColor(){
+        for(StatusEffect e : statusEffects){
+            if(e.tintColor != null) return e.tintColor;
+        }
+        return null;
+    }
+
+    protected BufferedImage getTintVersion(BufferedImage src, Color tint){
+        if(src == null) return null;
+        long key = ((long) System.identityHashCode(src) << 32) | (tint.getRGB() & 0xffffffffL);
+        BufferedImage cached = tintCache.get(key);
+        if(cached != null) return cached;
+        BufferedImage tinted = SpriteAnimation.applyTint(src, tint);
+        tintCache.put(key, tinted);
+        return tinted;
+    }
 
 }
