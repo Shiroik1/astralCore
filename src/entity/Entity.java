@@ -82,6 +82,8 @@ public class Entity {
     protected int deathDuration = 65;
     private int deathAnimFrameCounter = 0;
     private boolean attackDamageAppliedThisCycle = false;
+    protected int monsterAttackCooldown = 40; // ticks of rest between attack cycles
+    private int attackCooldownCounter = 0;
 
     //TYPES
     public int type;
@@ -195,9 +197,13 @@ public class Entity {
         }
 
         if(type == type_monster && !attackState){
-            Player nearbyPlayer = gp.collisionChecker.checkPlayer(this);
-            if(nearbyPlayer != null){
-                startMonsterAttack();
+            if(attackCooldownCounter > 0){
+                attackCooldownCounter--;
+            } else {
+                Player nearbyPlayer = gp.collisionChecker.checkPlayer(this);
+                if(nearbyPlayer != null){
+                    startMonsterAttack();
+                }
             }
         }
 
@@ -284,13 +290,14 @@ public class Entity {
 
         spriteCounter++;
         if(spriteCounter >= monsterAttackFrameDelay){
-//            spriteCounter = 0;
+            spriteCounter = 0;
             spriteNum++;
             if(spriteNum > totalFrames){
                 attackState = false;
                 attacking = false;
                 spriteNum = 1;
                 spriteCounter = 0;
+                attackCooldownCounter = monsterAttackCooldown;
                 animState = moving ? "walk" : "idle";
                 return;
             }
@@ -391,6 +398,10 @@ public class Entity {
 
             SpriteAnimation anim = getCurrentAnimation();
             image = getCurrentFrame();
+
+            if(!dying){
+                drawShadow(g2, screenX, screenY);
+            }
 
             //HP Bar
             if(type == type_monster && hpBarOn){
@@ -737,6 +748,16 @@ public class Entity {
         BufferedImage tinted = SpriteAnimation.applyTint(src, tint);
         tintCache.put(key, tinted);
         return tinted;
+    }
+
+    public void drawShadow(Graphics2D g2, int screenX, int screenY){
+        int shadowWidth = solidArea.width;
+        int shadowHeight = shadowWidth / 2;
+        int shadowX = screenX + solidArea.x;
+        int shadowY = screenY + solidArea.y + solidArea.height - shadowHeight / 2;
+
+        g2.setColor(new Color(0, 0, 0, 90));
+        g2.fillOval(shadowX, shadowY, shadowWidth, shadowHeight);
     }
 
 }

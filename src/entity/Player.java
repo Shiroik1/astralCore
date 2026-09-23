@@ -1149,6 +1149,16 @@ public class Player extends Entity{
             castScale = 1.0 + Math.sin(progress * Math.PI) * 0.18;
         }
 
+        if(!isDead){
+            int shadowScreenX = worldX - gp.localPlayer().worldX + gp.localPlayer().screenX;
+            int shadowScreenY = worldY - gp.localPlayer().worldY + gp.localPlayer().screenY;
+            if(!isLocal){
+                Player camera = gp.localPlayer();
+                shadowScreenX = worldX - camera.worldX + camera.screenX;
+                shadowScreenY = worldY - camera.worldY + camera.screenY;
+            }
+            drawShadow(g2, shadowScreenX, shadowScreenY);
+        }
         AffineTransform originalTransform = g2.getTransform();
         g2.translate(0, bounce);
         if(castScale != 1.0){

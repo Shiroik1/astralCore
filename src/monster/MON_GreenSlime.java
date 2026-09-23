@@ -17,7 +17,10 @@ public class MON_GreenSlime extends Entity {
     public MON_GreenSlime(Gamepanel gp) {
         super(gp);
 
-        monsterAttackFrameDelay = 6;
+        monsterAttackFrameDelay = 10;
+        attackDamageStartFrame = 6;   // frame the hit window opens (out of 10 total frames)
+        attackDamageEndFrame = 8;     // frame the hit window closes
+        monsterAttackCooldown = 40;
         type = type_monster;
         name = "Green Slime";
         speed = 2;
@@ -40,7 +43,7 @@ public class MON_GreenSlime extends Entity {
     }
 
     public void getImage(){
-        int size = gp.tileSize * 2;
+        int size = gp.tileSize * 3;
 
         BufferedImage[] idleDown = {
                 setup("/monster/green_slime/00_Slime1_Idle_without_shadow", size, size),
