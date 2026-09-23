@@ -74,6 +74,15 @@ public class Entity {
     public int comboStacks = 0;
     public final int maxComboStacks = 4;
 
+    public boolean attackState = false;
+    protected int monsterAttackFrameDelay = 8;
+    protected int attackDamageStartFrame = 5;
+    protected int attackDamageEndFrame = 7;
+    protected int deathAnimFrameDelay = 6;
+    protected int deathDuration = 65;
+    private int deathAnimFrameCounter = 0;
+    private boolean attackDamageAppliedThisCycle = false;
+
     //TYPES
     public int type;
     public final int type_player = 0;
@@ -171,10 +180,45 @@ public class Entity {
 
     public void update(){
         if(dying){
-            updateAnimation();
-            if(dyingCounter > 40){
+            if(dyingCounter == 0){
+                animState = "death";
+                spriteNum = 1;
+                attackState = false;
+                attacking = false;
+                flashing = false;
+            }
+            updateDeathAnimation();
+            if(dyingCounter > deathDuration){
                 alive = false;
             }
+            return;
+        }
+
+        if(type == type_monster && !attackState){
+            Player nearbyPlayer = gp.collisionChecker.checkPlayer(this);
+            if(nearbyPlayer != null){
+                startMonsterAttack();
+            }
+        }
+
+        if(type == type_monster && attackState){
+            if(knockbackActive){
+                updateKnockback();
+            }
+            Player nearbyPlayer = gp.collisionChecker.checkPlayer(this);
+            updateMonsterAttack(nearbyPlayer);
+            updateAnimation();
+
+            if(invincible){
+                invincibleCounter++;
+                if(invincibleCounter > 40){
+                    invincible = false;
+                    invincibleCounter = 0;
+                }
+            }
+
+            updateStatusEffects();
+            updateAura();
             return;
         }
 
@@ -193,16 +237,11 @@ public class Entity {
         }
         gp.collisionChecker.checkEntity(this, gp.interactable);
 
-        Player contactedPlayer = gp.collisionChecker.checkPlayer(this);
-
-        if(this.type == type_monster && contactedPlayer != null){
-            damagePlayer(contactedPlayer, attack);
-        }
+        gp.collisionChecker.checkPlayer(this);
 
         moving = !collisionOn;
         animState = moving ? "walk" : "idle";
 
-        //IF COLLISION IS FALSE, ENTITY CAN MOVE
         if(!collisionOn && !knockbackActive){
             switch (direction){
                 case "up" -> worldY -= speed;
@@ -230,18 +269,71 @@ public class Entity {
         updateAura();
     }
 
+    private void startMonsterAttack(){
+        attackState = true;
+        attacking = true;
+        animState = "attack";
+        spriteNum = 1;
+        spriteCounter = 0;
+        attackDamageAppliedThisCycle = false;
+    }
+
+    private void updateMonsterAttack(Player contactedPlayer){
+        SpriteAnimation anim = getCurrentAnimation();
+        int totalFrames = (anim != null) ? anim.frames.length : attackDamageEndFrame;
+
+        spriteCounter++;
+        if(spriteCounter >= monsterAttackFrameDelay){
+//            spriteCounter = 0;
+            spriteNum++;
+            if(spriteNum > totalFrames){
+                attackState = false;
+                attacking = false;
+                spriteNum = 1;
+                spriteCounter = 0;
+                animState = moving ? "walk" : "idle";
+                return;
+            }
+        }
+
+        if(spriteNum >= attackDamageStartFrame && spriteNum <= attackDamageEndFrame && !attackDamageAppliedThisCycle){
+            if(contactedPlayer != null && !contactedPlayer.isDead){
+                damagePlayer(contactedPlayer, attack);
+            }
+            attackDamageAppliedThisCycle = true;
+        }
+    }
+
+    private void updateDeathAnimation(){
+        dyingCounter++;
+
+        SpriteAnimation anim = sprites.get("death_" + direction);
+        if(anim != null){
+            deathAnimFrameCounter++;
+            if(deathAnimFrameCounter >= deathAnimFrameDelay){
+                deathAnimFrameCounter = 0;
+                if(spriteNum < anim.frames.length){
+                    spriteNum++;
+                }
+            }
+        }
+    }
+
     public void updateAnimation(){
         if(gp.hitStopCounter > 0) return;
 
-        spriteCounter++;
-        if(spriteCounter > 12){
+        if(!attackState) {
+            spriteCounter++;
             SpriteAnimation anim = getCurrentAnimation();
-            int frameCount = (anim != null) ? anim.frames.length : 2;
-            spriteNum++;
-            if(spriteNum > frameCount){
-                spriteNum = 1;
+            int frameDelay = (anim != null) ? anim.frameDelay : 12;
+            if (spriteCounter > frameDelay) {
+                int frameCount = (anim != null) ? anim.frames.length : 2;
+                spriteNum++;
+                if (spriteNum > frameCount) {
+                    spriteNum = 1;
+                }
+                spriteCounter = 0;
             }
-            spriteCounter = 0;
         }
 
         if(flashing){
@@ -330,10 +422,6 @@ public class Entity {
                 g2.drawRect(screenX + solidArea.x, screenY + solidArea.y, solidArea.width, solidArea.height);
             }
 
-            if(dying){
-                drawDyingAlpha(g2);
-            }
-
             int drawX = screenX;
             int drawY = screenY;
             if(anim != null){
@@ -347,21 +435,6 @@ public class Entity {
         if(gp.keyH.showDebug){
             drawHitbox(g2);
         }
-    }
-
-    public void drawDyingAlpha(Graphics2D g2) {
-        int i = 5;
-        int c = dyingCounter;
-
-        if(c <= i)            changeAlpha(g2, 0f);
-        else if(c <= i*2)     changeAlpha(g2, 1f);
-        else if(c <= i*3)     changeAlpha(g2, 0f);
-        else if(c <= i*4)     changeAlpha(g2, 1f);
-        else if(c <= i*5)     changeAlpha(g2, 0f);
-        else if(c <= i*6)     changeAlpha(g2, 1f);
-        else if(c <= i*7)     changeAlpha(g2, 0f);
-        else if(c <= i*8)     changeAlpha(g2, 1f);
-        else                  changeAlpha(g2, 0f);
     }
 
     public void changeAlpha(Graphics2D g2, float alphaValue){
@@ -417,7 +490,7 @@ public class Entity {
         SpriteAnimation anim = getCurrentAnimation();
         BufferedImage frame = (anim == null) ? getLegacyFrame() : anim.frames[Math.min(spriteNum - 1, anim.frames.length - 1)];
 
-        if(flashing){
+        if(flashing && !dying){
             return getFlashVersion(frame);
         }
 

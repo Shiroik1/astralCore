@@ -1598,7 +1598,7 @@ public class Player extends Entity{
                 } else {
                     arcaneCharge = Math.min(maxArcaneCharge, arcaneCharge + 1);
                     if(arcaneCharge >= maxArcaneCharge){
-                        startAura(new Color(190, 120, 255), 999999);
+                        startAura(new Color(120, 152, 255), 999999);
                     }
                     spawnCastParticles();
                 }
