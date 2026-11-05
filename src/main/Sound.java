@@ -8,8 +8,10 @@ import java.net.URL;
 
 public class Sound {
     Clip clip;
-    URL soundURL[] = new URL[30];
     FloatControl fc;
+    URL soundURL[] = new URL[30];
+    Clip[] clips = new Clip[30];
+    FloatControl[] gainControls = new FloatControl[30];
     int volumeScale = 3;
     float volume;
 
@@ -28,29 +30,50 @@ public class Sound {
         soundURL[11] = getClass().getResource("/sound/gameover.wav");
     }
 
-    public void setFile(int i){
-        try{
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(soundURL[i]);
-            clip = AudioSystem.getClip();
-            clip.open(audioInputStream);
-            fc = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-            checkVolume();
+    private void load(int i){
+        if(clips[i] != null || soundURL[i] == null) return;
+        try(AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(soundURL[i])){
+            Clip newClip = AudioSystem.getClip();
+            newClip.open(audioInputStream);
+            clips[i] = newClip;
+            if(newClip.isControlSupported(FloatControl.Type.MASTER_GAIN)){
+                gainControls[i] = (FloatControl) newClip.getControl(FloatControl.Type.MASTER_GAIN);
+            }
         }
         catch(Exception e){
             e.printStackTrace();
         }
     }
 
+    public void preloadFrom(int firstIndex){
+        for(int i = firstIndex; i < soundURL.length; i++){
+            load(i);
+        }
+    }
+
+    public void setFile(int i){
+        load(i);
+        clip = clips[i];
+        fc = gainControls[i];
+        checkVolume();
+    }
+
     public void play(){
+        if(clip == null) return;
+        clip.stop();
+        clip.setFramePosition(0);
         clip.start();
     }
 
     public void loop(){
+        if(clip == null) return;
         clip.loop(Clip.LOOP_CONTINUOUSLY);
     }
 
     public void stop(){
-        clip.stop();
+        if(clip != null){
+            clip.stop();
+        }
     }
 
     public void checkVolume(){
@@ -63,6 +86,8 @@ public class Sound {
             case 5 -> volume = 6f;
         }
 
-        fc.setValue(volume);
+        if(fc != null){
+            fc.setValue(Math.max(fc.getMinimum(), Math.min(fc.getMaximum(), volume)));
+        }
     }
 }

@@ -46,4 +46,18 @@ public class InputState {
         }
         tick = newer.tick;
     }
+
+    public void suppressGameplay(){
+        up = false;
+        down = false;
+        left = false;
+        right = false;
+        ePressed = false;
+        leftClicked = false;
+        shotKeyPressed = false;
+        for(int i = 0; i < skillKeyPressed.length; i++){
+            skillKeyPressed[i] = false;
+        }
+        targetedMonsterIndex = -1;
+    }
 }

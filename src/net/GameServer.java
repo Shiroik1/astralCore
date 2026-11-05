@@ -132,6 +132,8 @@ public class GameServer {
             } else {
                 p.getPlayerImage();
             }
+            p.setDefaultValues();
+            p.setItems();
             p.refreshWeaponAnimation();
         }
         if(request.gender != null && !request.gender.isEmpty()){
@@ -191,6 +193,12 @@ public class GameServer {
         InventoryAction action;
         while((action = pendingInventoryActions.poll()) != null){
             gp.applyInventoryActionLocally(action);
+        }
+    }
+
+    public void stop(){
+        if(server != null){
+            server.stop();
         }
     }
 }

@@ -15,4 +15,9 @@ public class PlayerState {
     public String shieldTypeId;
     public boolean isDead;
     public String playerClass;
+    public int level, exp, nextLevelExp;
+    public int strength, dexterity, intelligence;
+    public int coin;
+    public int rage, maxRage;
+    public int arcaneCharge;
 }

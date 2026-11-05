@@ -14,7 +14,9 @@ public class OBJ_bronzecoin extends Entity {
 
     public void use(Entity entity){
         gp.playSE(1);
-        gp.ui.addMessage("+" + value + " coin!");
-        gp.localPlayer().coin += value;
+        entity.coin += value;
+        if(entity == gp.localPlayer()){
+            gp.ui.addMessage("+" + value + " coin!");
+        }
     }
 }

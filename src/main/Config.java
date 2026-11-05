@@ -35,28 +35,39 @@ public class Config {
         bw.close();
     }
 
+    public void saveConfigSafe(){
+        try{
+            saveConfig();
+        } catch(IOException e){
+            e.printStackTrace();
+        }
+    }
+
     public void loadConfig() throws IOException {
-
-        BufferedReader br = new BufferedReader(new FileReader("config.txt"));
-
-        String s = br.readLine();
-
-        //Fullscreen
-        if(s.equals("On")){
-            gp.fullScreenOn = true;
-        }
-        if(s.equals("Off")){
-            gp.fullScreenOn = false;
+        File file = new File("config.txt");
+        if(!file.exists()){
+            saveConfig(); // first launch: write the defaults and carry on
+            return;
         }
 
-        //Music Volume
-        s = br.readLine();
-        gp.music.volumeScale = Integer.parseInt(s);
+        try(BufferedReader br = new BufferedReader(new FileReader(file))){
+            String s = br.readLine();
+            gp.fullScreenOn = "On".equals(s);
 
-        //SE Volume
-        s = br.readLine();
-        gp.soundEffect.volumeScale = Integer.parseInt(s);
+            gp.music.volumeScale = readVolume(br.readLine(), gp.music.volumeScale);
+            gp.soundEffect.volumeScale = readVolume(br.readLine(), gp.soundEffect.volumeScale);
+        } catch(IOException | RuntimeException e){
+            e.printStackTrace(); // unreadable or corrupt file: keep the defaults
+        }
+    }
 
-        br.close();
+    private int readVolume(String line, int fallback){
+        if(line == null) return fallback;
+        try{
+            int value = Integer.parseInt(line.trim());
+            return Math.max(0, Math.min(5, value)); // Sound.checkVolume only handles 0 to 5
+        } catch(NumberFormatException e){
+            return fallback;
+        }
     }
 }

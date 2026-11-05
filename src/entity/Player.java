@@ -294,6 +294,7 @@ public class Player extends Entity{
     }
 
     public void getPlayerAttackImage(){
+        if(playerClass.equals("mage")) return;
         String weaponFolder = getWeaponFolder();
 
         BufferedImage[] attackDown = {
@@ -434,9 +435,7 @@ public class Player extends Entity{
             return;
         }
 
-        if(isLocal){
-            updateHoveredTarget();
-        } else if(gp.isHost && currentInput != null){
+        if(gp.isHost && currentInput != null){
             int idx = currentInput.targetedMonsterIndex;
             hoveredTarget = (idx >= 0 && idx < gp.monster.length) ? gp.monster[idx] : null;
         }
@@ -1314,10 +1313,16 @@ public class Player extends Entity{
         statusEffectIcons.put("defenseBoost", skills[4].icon);
     }
 
+    private static final Map<String, BufferedImage> skillIconCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     private BufferedImage loadSkillIcon(String path){
+        BufferedImage cached = skillIconCache.get(path);
+        if(cached != null) return cached;
+
         BufferedImage img = null;
         try{
             img = ImageIO.read(getClass().getResourceAsStream(path + ".png"));
+            skillIconCache.put(path, img);
         } catch(Exception e){
             e.printStackTrace();
         }
@@ -1541,29 +1546,7 @@ public class Player extends Entity{
         g2.drawString(playerName, textX, textY);
     }
 
-    private void updateHoveredTarget(){
-        if(hoveredTarget != null){
-            hoveredTarget.outlined = false;
-            hoveredTarget = null;
-        }
 
-        int mouseX = gp.mouseH.getScaledX();
-        int mouseY = gp.mouseH.getScaledY();
-
-        for(Entity m : gp.monster){
-            if(m == null || m.dying) continue;
-
-            int mScreenX = m.worldX - worldX + screenX + m.solidArea.x;
-            int mScreenY = m.worldY - worldY + screenY + m.solidArea.y;
-
-            if(mouseX >= mScreenX && mouseX <= mScreenX + m.solidArea.width &&
-                    mouseY >= mScreenY && mouseY <= mScreenY + m.solidArea.height){
-                hoveredTarget = m;
-                m.outlined = true;
-                break;
-            }
-        }
-    }
 
     private void mageAttacking(){
         SpriteAnimation anim = getCurrentAnimation();

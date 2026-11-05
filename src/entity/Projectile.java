@@ -5,6 +5,8 @@ import main.Gamepanel;
 public class Projectile extends Entity{
 
     Entity user;
+    private float vx, vy;
+    private boolean useAngledMovement = false;
     public Entity target;
     public boolean empowered = false;
 
@@ -24,6 +26,28 @@ public class Projectile extends Entity{
         this.user = user;
         this.target = target;
         this.HP = this.maxHP;
+        this.useAngledMovement = false;
+    }
+
+    public void setAngled(int worldX, int worldY, double angleRadians, boolean alive, Entity user){
+        this.worldX = worldX;
+        this.worldY = worldY;
+        this.vx = (float)(Math.cos(angleRadians) * speed);
+        this.vy = (float)(Math.sin(angleRadians) * speed);
+        this.direction = angleToDirection(angleRadians);
+        this.alive = alive;
+        this.user = user;
+        this.HP = this.maxHP;
+        this.useAngledMovement = true;
+    }
+
+    private String angleToDirection(double angleRadians){
+        double deg = Math.toDegrees(angleRadians);
+        deg = ((deg % 360) + 360) % 360;
+        if(deg >= 45 && deg < 135) return "down";
+        if(deg >= 135 && deg < 225) return "left";
+        if(deg >= 225 && deg < 315) return "up";
+        return "right";
     }
 
     public void update(){
@@ -52,11 +76,16 @@ public class Projectile extends Entity{
         if(target != null && target.alive && !target.dying){
             moveToward(target.worldX + gp.tileSize/2, target.worldY + gp.tileSize/2);
         } else {
-            switch (direction){
-                case "up" -> worldY -= speed;
-                case "down" -> worldY += speed;
-                case "left" -> worldX -= speed;
-                case "right" -> worldX += speed;
+            if(useAngledMovement){
+                worldX += vx;
+                worldY += vy;
+            } else {
+                switch (direction) {
+                    case "up" -> worldY -= speed;
+                    case "down" -> worldY += speed;
+                    case "left" -> worldX -= speed;
+                    case "right" -> worldX += speed;
+                }
             }
         }
 

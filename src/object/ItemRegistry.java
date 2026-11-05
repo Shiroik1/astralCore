@@ -21,7 +21,8 @@ public class ItemRegistry {
             Map.entry("OBJ_crystal", OBJ_crystal::new),
             Map.entry("OBJ_bronzecoin", OBJ_bronzecoin::new),
             Map.entry("OBJ_fists", OBJ_fists::new),
-            Map.entry("OBJ_no_shield", OBJ_no_shield::new)
+            Map.entry("OBJ_no_shield", OBJ_no_shield::new),
+            Map.entry("OBJ_staff", OBJ_staff::new)
     );
 
     public static Entity create(String typeId, Gamepanel gp){

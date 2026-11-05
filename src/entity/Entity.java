@@ -33,7 +33,7 @@ public class Entity {
     public int knockbackDistance = 80; // pixels — tunable per hit weight
 
     public List<StatusEffect> statusEffects = new ArrayList<>();
-    private Map<BufferedImage, BufferedImage> flashCache = new IdentityHashMap<>();
+    private static final Map<BufferedImage, BufferedImage> flashCache = Collections.synchronizedMap(new IdentityHashMap<>());
     private Map<Long, BufferedImage> tintCache = new HashMap<>();
 
     public boolean auraActive = false;
@@ -69,7 +69,7 @@ public class Entity {
     public boolean alive = true;
     public boolean dying = false;
     public boolean hpBarOn = false;
-    public boolean outlined = false;
+    public boolean highlighted = false;
 
     public int comboStacks = 0;
     public final int maxComboStacks = 4;
@@ -135,13 +135,22 @@ public class Entity {
         this.gp = gp;
     }
 
+    private static final java.util.Map<String, BufferedImage> spriteCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     public BufferedImage setup(String imagePath, int width, int height){
+        String key = imagePath + "@" + width + "x" + height;
+        BufferedImage cached = spriteCache.get(key);
+        if(cached != null){
+            return cached;
+        }
+
         UtilityTool utilityTool = new UtilityTool();
         BufferedImage image = null;
 
         try{
             image = ImageIO.read(getClass().getResourceAsStream(imagePath + ".png"));
             image = utilityTool.scaleImage(image, width, height);
+            spriteCache.put(key, image);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -427,18 +436,13 @@ public class Entity {
                 }
             }
 
-            if(outlined && type == type_monster){
-                g2.setColor(Color.white);
-                g2.setStroke(new BasicStroke(2));
-                g2.drawRect(screenX + solidArea.x, screenY + solidArea.y, solidArea.width, solidArea.height);
-            }
-
             int drawX = screenX;
             int drawY = screenY;
             if(anim != null){
                 drawX = screenX + (gp.tileSize - anim.width) / 2;
                 drawY = screenY + (gp.tileSize - anim.height) / 2;
             }
+            if(highlighted) drawOutline(g2, getFlashVersion(image), drawX, drawY);
             g2.drawImage(image, drawX, drawY, null);
             changeAlpha(g2, 1f);
         }
@@ -758,6 +762,15 @@ public class Entity {
 
         g2.setColor(new Color(0, 0, 0, 90));
         g2.fillOval(shadowX, shadowY, shadowWidth, shadowHeight);
+    }
+
+    public static void drawOutline(Graphics2D g2, BufferedImage silhouette, int drawX, int drawY){
+        if(silhouette == null) return;
+        int o = 2;
+        int[][] offsets = {{-o,0},{o,0},{0,-o},{0,o},{-o,-o},{o,-o},{-o,o},{o,o}};
+        for(int[] off : offsets){
+            g2.drawImage(silhouette, drawX + off[0], drawY + off[1], null);
+        }
     }
 
 }

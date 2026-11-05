@@ -181,6 +181,7 @@ public class UI {
     }
 
     void confirmTitleSelection(int index){
+        joinStatusMessage = null;
         if(index == 0 || index == 1 || index == 2){
             pendingTitleAction = index;
             gp.gameState = gp.characterState;
@@ -347,6 +348,8 @@ public class UI {
             if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
                 subState = 0;
                 gp.stopMusic();
+                gp.shutdownNetwork();
+                gp.resetAfterNetworkSession();
                 gp.gameState = gp.titleState;
             }
         }
@@ -387,6 +390,7 @@ public class UI {
                     gp.fullScreenOn = false;
                 }
                 subState = 1;
+                gp.config.saveConfigSafe();
             }
         }
 
@@ -448,8 +452,6 @@ public class UI {
         g2.drawRect(textX, textY, 120, 20);
         volumeWidth = 24 * gp.soundEffect.volumeScale;
         g2.fillRect(textX, textY, volumeWidth, 20);
-
-        gp.config.saveConfig();
     }
 
     private void drawInventory() {
@@ -1353,8 +1355,7 @@ public class UI {
         } catch(Exception e){ // widen from IOException — catch anything that goes wrong here
             e.printStackTrace();
             joinStatusMessage = "Failed to host: " + e;
-            gp.isNetworked = false;
-            gp.isHost = false;
+            gp.shutdownNetwork();
         }
     }
 
@@ -1375,6 +1376,7 @@ public class UI {
             gp.playMusic(0);
         } catch(Exception e){
             e.printStackTrace();
+            gp.shutdownNetwork();
             joinStatusMessage = "Failed to connect: " + e;
         }
     }
@@ -1536,5 +1538,9 @@ public class UI {
             int textX = x + local.maxArcaneCharge * (pipSize + spacing) + 6;
             g2.drawString("READY", textX, barTopY + barHeight - 6);
         }
+    }
+
+    public void showTitleMessage(String message){
+        joinStatusMessage = message;
     }
 }

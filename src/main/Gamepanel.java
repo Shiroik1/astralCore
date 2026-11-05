@@ -25,6 +25,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public net.GameServer gameServer;
     public net.GameClient gameClient;
     public static final int NETWORK_PORT = 5001;
+    public static final int SNAPSHOT_INTERNAL_TICKS = 2;
 
     //GAME SETTINGS
     final int originalTileSize = 24; //16x16 tile
@@ -97,6 +98,9 @@ public class Gamepanel extends JPanel implements Runnable{
     public final int optionState = 5;
     public final int gameOverState = 6;
 
+    public int slimesKilled = 0;
+    public boolean bossSpawned = false;
+
     //FPS
     int FPS = 60;
     int fpsCounter = 0;
@@ -119,10 +123,15 @@ public class Gamepanel extends JPanel implements Runnable{
         assetSetter.setNPC();
         assetSetter.setMonster();
         assetSetter.setInteractiveTile();
+        soundEffect.preloadFrom(1);
         gameState = titleState;
 
         tempScreen = new BufferedImage(screenWidth, screenHeight, BufferedImage.TYPE_INT_ARGB);
         g2 = (Graphics2D) tempScreen.getGraphics();
+
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         if(fullScreenOn){
             setFullScreen();
@@ -177,6 +186,18 @@ public class Gamepanel extends JPanel implements Runnable{
                 delta--;
                 drawCount++;
             }
+            else {
+                long remaining = (long)((1 - delta) * drawInterval); // ns until the next tick is due
+                if(remaining > 2_000_000){
+                    try{
+                        Thread.sleep(1);
+                    } catch(InterruptedException e){
+                        break;
+                    }
+                } else {
+                    Thread.onSpinWait(); // spin the last 2 ms so frame timing stays accurate
+                }
+            }
 
             if(timer >= 1000000000){
                 fpsCounter = drawCount;
@@ -200,6 +221,14 @@ public class Gamepanel extends JPanel implements Runnable{
 
             // 1. Reconcile FIRST, using only inputs already buffered from previous ticks
             if(isNetworked && !isHost){
+                if(gameClient.pollHostLost()){
+                    shutdownNetwork();
+                    resetAfterNetworkSession();
+                    stopMusic();
+                    gameState = titleState;
+                    ui.showTitleMessage("Disconnected from host.");
+                    return;
+                }
                 gameClient.processPendingJoinAccepted();
                 gameClient.applyPendingSnapshots();
                 gameClient.applyPendingEvents();
@@ -219,6 +248,11 @@ public class Gamepanel extends JPanel implements Runnable{
                     }
                 }
                 localInput = InputState.captureFrom(keyH, mouseH, currentTick, hoveredIndex);
+                if(inventoryOpen){
+                    localInput.suppressGameplay();   // the host never sees movement, clicks or skills while the bag is open
+                    mouseH.leftClicked = false;      // inventory clicks are never attacks
+                    java.util.Arrays.fill(keyH.skillKeyPressed, false);
+                }
                 local.applyInput(localInput);
             }
 
@@ -242,6 +276,8 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            updateHighlights();
+
             boolean simulateWorld = !isNetworked || isHost;
 
             //NPC
@@ -263,6 +299,12 @@ public class Gamepanel extends JPanel implements Runnable{
                             monster[i].update();
                         }
                         if(!monster[i].alive){
+                            if(monster[i] instanceof monster.MON_GreenSlime){
+                                slimesKilled++;
+                                if(slimesKilled >= 5 && !bossSpawned){
+                                    spawnSlimeBoss();
+                                }
+                            }
                             monster[i].checkDrop();
                             monster[i] = null;
                         }
@@ -312,7 +354,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
-            if(isNetworked && isHost){
+            if(isNetworked && isHost && SNAPSHOT_INTERNAL_TICKS == 0){
                 broadcastWorldSnapshot();
             }
         }
@@ -461,17 +503,17 @@ public class Gamepanel extends JPanel implements Runnable{
         Toolkit.getDefaultToolkit().sync();
     }
 
-    public void playMusic(int i){
+    public synchronized void playMusic(int i){
         music.setFile(i);
         music.play();
         music.loop();
     }
 
-    public void stopMusic(){
+    public synchronized void stopMusic(){
         music.stop();
     }
 
-    public void playSE(int i){
+    public synchronized void playSE(int i){
         soundEffect.setFile(i);
         soundEffect.play();
     }
@@ -507,6 +549,46 @@ public class Gamepanel extends JPanel implements Runnable{
         System.out.println("[CLIENT] gameClient.connect() returned successfully");
     }
 
+    public void shutdownNetwork(){
+        if(gameServer != null){
+            gameServer.stop();
+            gameServer = null;
+        }
+        if(gameClient != null){
+            gameClient.disconnect();
+            gameClient = null;
+        }
+        isNetworked = false;
+        isHost = false;
+    }
+
+    public void resetAfterNetworkSession(){
+        Player local = localPlayer();
+
+        for(int i = 0; i < players.length; i++){
+            players[i] = null;
+        }
+        localPlayerIndex = 0;
+        local.playerId = 0;
+        local.isLocal = true;
+        local.isDead = false;
+        local.inDialogue = false;
+        inventoryOpen = false;
+        players[0] = local;
+
+        java.util.Arrays.fill(monster, null);
+        java.util.Arrays.fill(obj, null);
+        java.util.Arrays.fill(npc, null);
+        projectileList.clear();
+        particleList.clear();
+        floatingTextList.clear();
+
+        local.setDefaultPosition();
+        local.resetHPandMP();
+        assetSetter.setNPC();
+        assetSetter.setMonster();
+    }
+
     private void broadcastWorldSnapshot(){
         java.util.List<net.PlayerState> playerStates = new java.util.ArrayList<>();
         for(Player p : players){
@@ -526,6 +608,16 @@ public class Gamepanel extends JPanel implements Runnable{
             ps.attacking = p.attacking;
             ps.ackTick = p.lastProcessedInputTick;
             ps.isDead = p.isDead;
+            ps.level = p.level;
+            ps.exp = p.exp;
+            ps.nextLevelExp = p.nextLevelExp;
+            ps.strength = p.strength;
+            ps.dexterity = p.dexterity;
+            ps.intelligence = p.intelligence;
+            ps.coin = p.coin;
+            ps.rage = p.rage;
+            ps.maxRage = p.maxRage;
+            ps.arcaneCharge = p.arcaneCharge;
             playerStates.add(ps);
             String[] invTypeIds = new String[p.inventorySlots.length];
             int[] invStackCounts = new int[p.inventorySlots.length];
@@ -553,6 +645,11 @@ public class Gamepanel extends JPanel implements Runnable{
             ms.maxHP = monster[i].maxHP;
             ms.dying = monster[i].dying;
             ms.alive = monster[i].alive;
+            if(monster[i] instanceof monster.MON_SlimeBoss boss){
+                ms.isBoss = true;
+                ms.bossState = boss.bossState;
+                ms.bossStateTimer = boss.bossStateTimer;
+            }
             monsterStates[i] = ms;
         }
 
@@ -678,4 +775,50 @@ public class Gamepanel extends JPanel implements Runnable{
     public void spawnFloatingText(int worldX, int worldY, String text, Color color){
         floatingTextList.add(new entity.FloatingText(this, worldX, worldY, text, color));
     }
+
+    public void updateHighlights(){
+        Player local = localPlayer();
+        if(local == null) return;
+
+        int mouseWorldX = mouseH.getScaledX() - local.screenX + local.worldX;
+        int mouseWorldY = mouseH.getScaledY() - local.screenY + local.worldY;
+
+        applyHoverHighlight(obj, mouseWorldX, mouseWorldY);
+        applyHoverHighlight(npc, mouseWorldX, mouseWorldY);
+        applyHoverHighlight(monster, mouseWorldX, mouseWorldY);
+        applyHoverHighlight(interactable, mouseWorldX, mouseWorldY);
+
+        for(Entity n : npc){
+            if(n != null && collisionChecker.isInInteractRange(local, n)){
+                n.highlighted = true;
+            }
+        }
+    }
+
+    private void applyHoverHighlight(Entity[] arr, int mouseWorldX, int mouseWorldY){
+        for(Entity e : arr){
+            if(e == null) continue;
+            e.highlighted = false;
+            Rectangle bounds = new Rectangle(e.worldX + e.solidArea.x, e.worldY + e.solidArea.y,
+                    e.solidArea.width, e.solidArea.height);
+            if(bounds.contains(mouseWorldX, mouseWorldY)){
+                e.highlighted = true;
+            }
+        }
+    }
+
+    private void spawnSlimeBoss(){
+        bossSpawned = true;
+        for(int i = 0; i < monster.length; i++){
+            if(monster[i] == null){
+                monster.MON_SlimeBoss boss = new monster.MON_SlimeBoss(this);
+                boss.worldX = tileSize * 24; // placeholder spawn point — move as needed
+                boss.worldY = tileSize * 30;
+                monster[i] = boss;
+                ui.addMessage("The Slime King has awoken!", new Color(200, 60, 220));
+                break;
+            }
+        }
+    }
+
 }

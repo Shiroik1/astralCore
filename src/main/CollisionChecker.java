@@ -3,11 +3,20 @@ package main;
 import entity.Entity;
 import entity.Player;
 
+import java.awt.*;
+
 public class CollisionChecker {
     Gamepanel gp;
 
     public CollisionChecker(Gamepanel gp){
         this.gp = gp;
+    }
+
+    private boolean isSolidTile(int col, int row){
+        if(col < 0 || row < 0 || col >= gp.maxWorldCol || row >= gp.maxWorldRow){
+            return true; // outside the map counts as a wall
+        }
+        return gp.tileM.tiles[gp.tileM.mapTileNum[col][row]].collision;
     }
 
     public void checkTile(Entity entity){
@@ -16,43 +25,33 @@ public class CollisionChecker {
         int entityTopWorldY = entity.worldY + entity.solidArea.y;
         int entityBotWorldY = entity.worldY + entity.solidArea.y + entity.solidArea.height;
 
-        int entityLeftCol = entityLeftWorldX/gp.tileSize;
-        int entityRightCol = entityRightWorldX/gp.tileSize;
-        int entityTopRow = entityTopWorldY/gp.tileSize;
-        int entityBotRow = entityBotWorldY/gp.tileSize;
-
-        int tileNum1, tileNum2;
+        int entityLeftCol = Math.floorDiv(entityLeftWorldX, gp.tileSize);
+        int entityRightCol = Math.floorDiv(entityRightWorldX, gp.tileSize);
+        int entityTopRow = Math.floorDiv(entityTopWorldY, gp.tileSize);
+        int entityBotRow = Math.floorDiv(entityBotWorldY, gp.tileSize);
 
         switch (entity.direction){
             case "up" -> {
-                entityTopRow = (entityTopWorldY - entity.speed)/gp.tileSize;
-                tileNum1 = gp.tileM.mapTileNum[entityLeftCol][entityTopRow];
-                tileNum2 = gp.tileM.mapTileNum[entityRightCol][entityTopRow];
-                if(gp.tileM.tiles[tileNum1].collision || gp.tileM.tiles[tileNum2].collision){
+                entityTopRow = Math.floorDiv(entityTopWorldY - entity.speed, gp.tileSize);
+                if(isSolidTile(entityLeftCol, entityTopRow) || isSolidTile(entityRightCol, entityTopRow)){
                     entity.collisionOn = true;
                 }
             }
             case "down" -> {
-                entityBotRow = (entityBotWorldY + entity.speed)/gp.tileSize;
-                tileNum1 = gp.tileM.mapTileNum[entityLeftCol][entityBotRow];
-                tileNum2 = gp.tileM.mapTileNum[entityRightCol][entityBotRow];
-                if(gp.tileM.tiles[tileNum1].collision || gp.tileM.tiles[tileNum2].collision){
+                entityBotRow = Math.floorDiv(entityBotWorldY + entity.speed, gp.tileSize);
+                if(isSolidTile(entityLeftCol, entityBotRow) || isSolidTile(entityRightCol, entityBotRow)){
                     entity.collisionOn = true;
                 }
             }
             case "left" -> {
-                entityLeftCol = (entityLeftWorldX - entity.speed)/gp.tileSize;
-                tileNum1 = gp.tileM.mapTileNum[entityLeftCol][entityTopRow];
-                tileNum2 = gp.tileM.mapTileNum[entityLeftCol][entityBotRow];
-                if(gp.tileM.tiles[tileNum1].collision || gp.tileM.tiles[tileNum2].collision){
+                entityLeftCol = Math.floorDiv(entityLeftWorldX - entity.speed, gp.tileSize);
+                if(isSolidTile(entityLeftCol, entityTopRow) || isSolidTile(entityLeftCol, entityBotRow)){
                     entity.collisionOn = true;
                 }
             }
             case "right" -> {
-                entityRightCol = (entityRightWorldX + entity.speed)/gp.tileSize;
-                tileNum1 = gp.tileM.mapTileNum[entityRightCol][entityTopRow];
-                tileNum2 = gp.tileM.mapTileNum[entityRightCol][entityBotRow];
-                if(gp.tileM.tiles[tileNum1].collision || gp.tileM.tiles[tileNum2].collision){
+                entityRightCol = Math.floorDiv(entityRightWorldX + entity.speed, gp.tileSize);
+                if(isSolidTile(entityRightCol, entityTopRow) || isSolidTile(entityRightCol, entityBotRow)){
                     entity.collisionOn = true;
                 }
             }
@@ -186,6 +185,14 @@ public class CollisionChecker {
         }
 
         return contactedPlayer;
+    }
+
+    public boolean isInInteractRange(Entity source, Entity target){
+        Rectangle sourceBounds = new Rectangle(source.worldX + source.solidArea.x, source.worldY + source.solidArea.y,
+                source.solidArea.width, source.solidArea.height);
+        Rectangle targetBounds = new Rectangle(target.worldX + target.solidArea.x, target.worldY + target.solidArea.y,
+                target.solidArea.width, target.solidArea.height);
+        return sourceBounds.intersects(targetBounds);
     }
 
     public java.util.List<Integer> checkEntityMultiple(Entity entity, Entity[] target){

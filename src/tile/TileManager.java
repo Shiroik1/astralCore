@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import entity.Player;
 
 public class TileManager {
     Gamepanel gp;
@@ -120,30 +121,22 @@ public class TileManager {
     }
 
     public void draw(Graphics2D g2){
-        int worldCol = 0;
-        int worldRow = 0;
+        Player camera = gp.localPlayer();
+        int viewLeft = camera.worldX - camera.screenX;
+        int viewTop = camera.worldY - camera.screenY;
 
-        while(worldCol < gp.maxWorldCol && worldRow < gp.maxWorldRow){
+        // one extra tile of margin on each side so screen shake never exposes a gap
+        int firstCol = Math.max(0, Math.floorDiv(viewLeft, gp.tileSize) - 1);
+        int lastCol = Math.min(gp.maxWorldCol - 1, Math.floorDiv(viewLeft + gp.screenWidth, gp.tileSize) + 1);
+        int firstRow = Math.max(0, Math.floorDiv(viewTop, gp.tileSize) - 1);
+        int lastRow = Math.min(gp.maxWorldRow - 1, Math.floorDiv(viewTop + gp.screenHeight, gp.tileSize) + 1);
 
-            int tileNum = mapTileNum[worldCol][worldRow];
-
-            int worldX = worldCol * gp.tileSize;
-            int worldY = worldRow * gp.tileSize;
-            int screenX = worldX - gp.localPlayer().worldX + gp.localPlayer().screenX;
-            int screenY = worldY - gp.localPlayer().worldY + gp.localPlayer().screenY;
-
-            if(worldX + gp.tileSize > gp.localPlayer().worldX - gp.localPlayer().screenX &&
-            worldX - gp.tileSize < gp.localPlayer().worldX + gp.localPlayer().screenX &&
-            worldY + gp.tileSize > gp.localPlayer().worldY - gp.localPlayer().screenY &&
-            worldY - gp.tileSize < gp.localPlayer().worldY + gp.localPlayer().screenY){
+        for(int row = firstRow; row <= lastRow; row++){
+            for(int col = firstCol; col <= lastCol; col++){
+                int tileNum = mapTileNum[col][row];
+                int screenX = col * gp.tileSize - camera.worldX + camera.screenX;
+                int screenY = row * gp.tileSize - camera.worldY + camera.screenY;
                 g2.drawImage(tiles[tileNum].image, screenX, screenY, null);
-            }
-
-            worldCol++;
-
-            if(worldCol == gp.maxWorldCol){
-                worldCol = 0;
-                worldRow++;
             }
         }
     }

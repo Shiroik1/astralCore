@@ -7,6 +7,7 @@ import entity.Entity;
 import entity.Player;
 import main.Gamepanel;
 import monster.MON_GreenSlime;
+import monster.MON_SlimeBoss;
 
 import java.awt.*;
 import java.io.IOException;
@@ -18,6 +19,8 @@ public class GameClient {
     private ConcurrentLinkedQueue<WorldSnapshot> pendingSnapshots = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<JoinAccepted> pendingJoinAccepted = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<GameEvent> pendingEvents = new ConcurrentLinkedQueue<>();
+
+    private volatile boolean hostLost = false;
 
     public GameClient(Gamepanel gp){
         this.gp = gp;
@@ -38,11 +41,11 @@ public class GameClient {
             @Override
             public void disconnected(Connection connection){
                 System.out.println("[CLIENT] disconnected() fired");
+                hostLost = true;
             }
 
             @Override
             public void received(Connection connection, Object object){
-                System.out.println("[CLIENT] received object: " + object.getClass().getSimpleName());
                 if(object instanceof JoinAccepted accepted){
                     pendingJoinAccepted.add(accepted);
                 }
@@ -136,6 +139,18 @@ public class GameClient {
                     p.currentShield = object.ItemRegistry.create(ps.shieldTypeId, gp);
                     p.defense = p.getDefense();
                 }
+                p.level = ps.level;
+                p.exp = ps.exp;
+                p.nextLevelExp = ps.nextLevelExp;
+                p.strength = ps.strength;
+                p.dexterity = ps.dexterity;
+                p.intelligence = ps.intelligence;
+                p.coin = ps.coin;
+                p.rage = ps.rage;
+                p.maxRage = ps.maxRage;
+                p.arcaneCharge = ps.arcaneCharge;
+                p.attack = p.getAttack();
+                p.defense = p.getDefense();
             } else {
                 int previousHP = p.HP;
                 p.playerName = ps.playerName;
@@ -175,7 +190,7 @@ public class GameClient {
                 continue;
             }
             if(gp.monster[i] == null){
-                gp.monster[i] = new MON_GreenSlime(gp);
+                gp.monster[i] = ms.isBoss ? new MON_SlimeBoss(gp) : new MON_GreenSlime(gp);
                 gp.monster[i].HP = ms.HP; // avoid a false "just got hit" trigger on first creation
             }
 
@@ -196,6 +211,11 @@ public class GameClient {
             m.HP = ms.HP;
             m.maxHP = ms.maxHP;
             m.dying = ms.dying;
+
+            if(ms.isBoss && m instanceof MON_SlimeBoss boss){
+                boss.bossState = ms.bossState;
+                boss.bossStateTimer = ms.bossStateTimer;
+            }
         }
 
         for(int i = 0; i < snapshot.objects.length; i++){
@@ -239,6 +259,16 @@ public class GameClient {
     public void sendInventoryAction(net.InventoryAction action){
         if(client != null && client.isConnected()){
             client.sendTCP(action);
+        }
+    }
+
+    public boolean pollHostLost(){
+        return hostLost;
+    }
+
+    public void disconnect(){
+        if(client != null){
+            client.stop();
         }
     }
 }

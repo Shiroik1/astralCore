@@ -219,10 +219,12 @@ public class KeyHandler implements KeyListener {
                     gp.music.volumeScale--;
                     gp.music.checkVolume();
                     gp.playSE(8);
+                    gp.config.saveConfigSafe();
                 }
                 if(gp.ui.commandNum == 2 && gp.soundEffect.volumeScale > 0){
                     gp.soundEffect.volumeScale--;
                     gp.playSE(8);
+                    gp.config.saveConfigSafe();
                 }
             }
         }
@@ -232,10 +234,12 @@ public class KeyHandler implements KeyListener {
                     gp.music.volumeScale++;
                     gp.music.checkVolume();
                     gp.playSE(8);
+                    gp.config.saveConfigSafe();
                 }
                 if(gp.ui.commandNum == 2 && gp.soundEffect.volumeScale < 5){
                     gp.soundEffect.volumeScale++;
                     gp.playSE(8);
+                    gp.config.saveConfigSafe();
                 }
             }
         }
