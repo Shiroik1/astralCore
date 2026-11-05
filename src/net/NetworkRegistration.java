@@ -22,5 +22,9 @@ public class NetworkRegistration {
         kryo.register(NpcState.class);
         kryo.register(NpcState[].class);
         kryo.register(InventoryAction.class);
+        kryo.register(GameEventType.class);
+        kryo.register(InventoryActionType.class);
+        kryo.register(object.ItemType.class);
+        kryo.register(object.ItemType[].class);
     }
 }

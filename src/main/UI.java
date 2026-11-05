@@ -1,6 +1,8 @@
 package main;
 
 import entity.Entity;
+import net.GameEventType;
+import net.InventoryActionType;
 import object.OBJ_crystal;
 import object.OBJ_heart;
 import entity.Player;
@@ -23,7 +25,6 @@ public class UI {
 
     public boolean messageOn = false;
     public boolean gameFinished = false;
-    public String currentDialogue = "";
     public String pendingCharacterName = "";
     public int commandNum = 0;
 
@@ -34,7 +35,6 @@ public class UI {
     private UIButton[] fullscreenNotiButtons = {new UIButton()};
     private UIButton[] controlButtons = {new UIButton()};
     private UIButton[] endgameConfirmButtons = {new UIButton(), new UIButton()};
-    private UIButton[] gameoverButtons = {new UIButton(), new UIButton()};
     private UIButton lastHoveredButton = null;
     private UIButton respawnButton = new UIButton();
     private int pendingTitleAction = -1;
@@ -75,6 +75,7 @@ public class UI {
     private ArrayList<ChatMessage> chatHistory = new ArrayList<>();
     private int chatScrollOffset = 0;       // 0 = live view; >0 = scrolled back into history
     private Rectangle combatLogBounds = new Rectangle();
+    private boolean combatLogHovered = false;
 
     private final int chatLogWidth = 420;
     private final int chatLogHeight = 160;
@@ -119,11 +120,16 @@ public class UI {
     }
 
     public void update(int mouseX, int mouseY, boolean clicked){
+        if(gp.gameState == gp.playState){
+            playTime += 1.0 / 60;
+            updateCombatLog(mouseX, mouseY);
+        }
+
         Player local = gp.localPlayer();
-        if(local != null && local.isDead){
+        if(local != null && local.isDead && gp.gameState == gp.playState && !gp.optionsOpen){
             int hovered = processButtonHover(new UIButton[]{respawnButton}, mouseX, mouseY);
             if(hovered != -1 && clicked){
-                gp.broadcastPlayerEvent(local.playerId, "respawn_request",
+                gp.broadcastPlayerEvent(local.playerId, GameEventType.RESPAWN_REQUEST,
                         "Player " + (local.playerId + 1) + " has respawned.", null);
             }
             gp.mouseH.leftClicked = false;
@@ -144,26 +150,15 @@ public class UI {
             }
             gp.mouseH.leftClicked = false;
         }
-        else if(gp.gameState == gp.optionState){
-            UIButton[] buttons = currentOptionButtons();
-            int hovered = processButtonHover(buttons, mouseX, mouseY);
+        else if(gp.gameState == gp.playState && gp.optionsOpen){
+            int hovered = processButtonHover(currentOptionButtons(), mouseX, mouseY);
             if(hovered != -1){
                 commandNum = hovered;
                 if(clicked){
-                    gp.keyH.enterPressed = true;
+                    activateOptionItem(hovered);
                 }
             }
-            gp.mouseH.leftClicked = false;
-        }
-        else if(gp.gameState == gp.gameOverState){
-            int hovered = processButtonHover(gameoverButtons, mouseX, mouseY);
-            if(hovered != -1){
-                commandNum = hovered;
-                if(clicked){
-                    confirmGameoverSelection(hovered);
-                }
-            }
-            gp.mouseH.leftClicked = false;
+            gp.mouseH.leftClicked = false; // the options overlay swallows every click
         }
         else if(gp.inventoryOpen){
             updateInventoryDrag(mouseX, mouseY);
@@ -192,19 +187,6 @@ public class UI {
         }
     }
 
-    private void confirmGameoverSelection(int index){
-        if(index == 0){
-            gp.gameState = gp.playState;
-            gp.localPlayer().setDefaultPosition();
-            gp.localPlayer().resetHPandMP();
-            gp.playMusic(0);
-        }
-        if(index == 1){
-            gp.gameState = gp.titleState;
-            gp.stopMusic();
-        }
-    }
-
     public void draw(Graphics2D g2) throws IOException {
 
         this.g2 = g2;
@@ -224,8 +206,6 @@ public class UI {
 
         //PLAY STATE
         if(gp.gameState == gp.playState){
-            //PLAYTIME
-            playTime += (double) 1/60;
 
             //Toggle debug menu with [ T ] key
             if(gp.keyH.showDebug){
@@ -254,204 +234,15 @@ public class UI {
             }
         }
 
-        //PAUSE STATE
-        if(gp.gameState == gp.pauseState){
-            drawPauseScreen();
-            drawPlayerHP();
-        }
-
-        //DIALOGUE STATE
-        if(gp.gameState == gp.dialogueState){
-            drawDialogueScreen();
-        }
-
-        //OPTION STATE
-        if(gp.gameState == gp.optionState){
-            drawOptionScreen();
-        }
-
-        //GAMEOVER STATE
-        if(gp.gameState == gp.gameOverState){
-            drawGameOverScreen();
-        }
-
-    }
-
-    private void drawGameOverScreen() {
-        g2.setColor(new Color(0, 0, 0, 150));
-        g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
-
-        int x;
-        int y;
-        String text;
-        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 80));
-        text = "GAME OVER";
-        g2.setColor(Color.black);
-        x = getXforCenteredText(text);
-        y = gp.tileSize * 5;
-        g2.drawString(text, x, y);
-
-        g2.setColor(Color.white);
-        g2.drawString(text, x-4, y-4);
-
-        //RETRY
-        g2.setFont(g2.getFont().deriveFont(30f));
-        text = "RETRY";
-        x = getXforCenteredText(text);
-        y = gp.tileSize * 10;
-        drawMenuButton(gameoverButtons[0],text,x,y,commandNum == 0 );
-
-        text = "QUIT";
-        x = getXforCenteredText(text);
-        y += 50;
-        drawMenuButton(gameoverButtons[1],text,x,y,commandNum == 1 );
-
-    }
-
-    private void drawOptionScreen() throws IOException {
-        g2.setColor(Color.white);
-        g2.setFont(g2.getFont().deriveFont(15f));
-
-        int frameX = gp.tileSize * 9;
-        int frameY = gp.tileSize;
-        int frameWidth = gp.tileSize * 8;
-        int frameHeight = gp.tileSize * 10;
-        drawSubWindow(frameX, frameY, frameWidth, frameHeight);
-
-        switch (subState){
-            case 0 -> option_top(frameX, frameY);
-            case 1 -> option_fullScreenNotification(frameX, frameY);
-            case 2 -> option_control(frameX, frameY);
-            case 3 -> option_endgameConfirm(frameX, frameY);
-        }
-
-        gp.keyH.enterPressed = false;
-    }
-
-    private void option_endgameConfirm(int frameX, int frameY) {
-        int textX = frameX + gp.tileSize;
-        int textY = frameY + gp.tileSize*3;
-
-        currentDialogue = "Quit the game and\nreturn to the title\nscreen?";
-
-        for(String line: currentDialogue.split("\n")){
-            g2.drawString(line, textX, textY);
-            textY += 40;
-        }
-
-        //YES
-        String text = "Yes";
-        textX = getXforCenteredText(text);
-        textY += gp.tileSize * 3;
-        drawMenuButton(endgameConfirmButtons[0], text, textX, textY,  commandNum == 0 );
-        if(commandNum == 0){
-            if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
-                subState = 0;
-                gp.stopMusic();
-                gp.shutdownNetwork();
-                gp.resetAfterNetworkSession();
-                gp.gameState = gp.titleState;
+        if(gp.gameState == gp.playState){
+            if(gp.paused){
+                drawPauseScreen();
+            }
+            if(gp.optionsOpen){
+                drawOptionScreen();
             }
         }
 
-        //NO
-        text = "No";
-        textX = getXforCenteredText(text);
-        textY += gp.tileSize;
-        drawMenuButton(endgameConfirmButtons[1],text,textX, textY,  commandNum == 1 );
-        if(commandNum == 1){
-            if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
-                subState = 0;
-                commandNum = 4;
-            }
-        }
-    }
-
-    private void option_top(int frameX, int frameY) throws IOException {
-        int textX;
-        int textY;
-        String text = "OPTIONS";
-
-        //TITLE
-        textX = getXforCenteredText(text);
-        textY =frameY + gp.tileSize;
-        g2.drawString(text, textX, textY);
-
-        //FULLSCREEN ON/OFF
-        textX = frameX + gp.tileSize;
-        textY += gp.tileSize * 2;
-        drawMenuButton(optionTopButtons[0],"Full Screen", textX, textY,  commandNum == 0 );
-        if(commandNum == 0){
-            if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
-                if(!gp.fullScreenOn){
-                    gp.fullScreenOn = true;
-                }
-                else if(gp.fullScreenOn){
-                    gp.fullScreenOn = false;
-                }
-                subState = 1;
-                gp.config.saveConfigSafe();
-            }
-        }
-
-        //MUSIC
-        textY += gp.tileSize;
-        drawMenuButton(optionTopButtons[1],"Music", textX, textY,  commandNum == 1 );
-
-        //SE
-        textY += gp.tileSize;
-        drawMenuButton(optionTopButtons[2],"SE", textX, textY,  commandNum == 2 );
-
-        //CONTROL
-        textY += gp.tileSize;
-        drawMenuButton(optionTopButtons[3],"Control", textX, textY,  commandNum == 3 );
-        if(commandNum == 3){
-            if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
-                subState = 2;
-                commandNum = 0;
-            }
-        }
-
-        //ENDGAME
-        textY += gp.tileSize * 2;
-        drawMenuButton(optionTopButtons[4],"END GAME", textX, textY,  commandNum == 4 );
-        if(commandNum == 4){
-            if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
-                subState = 3;
-                commandNum = 0;
-            }
-        }
-
-        //BACK
-        textY += gp.tileSize;
-        drawMenuButton(optionTopButtons[5],"BACK", textX, textY,  commandNum == 5 );
-        if(commandNum == 5){
-            if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
-                gp.gameState = gp.playState;
-                commandNum = 0;
-            }
-        }
-
-        //FULLSCREEN CHECKBOX
-        textX = frameX + gp.tileSize*5;
-        textY = frameY + gp.tileSize*2 + 24;
-        g2.setStroke(new BasicStroke(3));
-        g2.drawRect(textX, textY, 20, 20);
-        if(gp.fullScreenOn){
-            g2.fillRect(textX, textY, 20, 20);
-        }
-
-        //MUSIC VOLUMN
-        textY += gp.tileSize;
-        g2.drawRect(textX, textY, 120, 20);
-        int volumeWidth = 24 * gp.music.volumeScale;
-        g2.fillRect(textX, textY, volumeWidth, 20);
-
-        //SOUND EFFECT VOLUMN
-        textY += gp.tileSize;
-        g2.drawRect(textX, textY, 120, 20);
-        volumeWidth = 24 * gp.soundEffect.volumeScale;
-        g2.fillRect(textX, textY, volumeWidth, 20);
     }
 
     private void drawInventory() {
@@ -578,22 +369,11 @@ public class UI {
     }
 
     private void drawCombatLog(){
-        int boxX = chatLogMargin;
-        int boxY = gp.screenHeight - chatLogHeight - chatLogMargin;
-        combatLogBounds.setBounds(boxX, boxY, chatLogWidth, chatLogHeight);
+        int boxX = combatLogBounds.x;
+        int boxY = combatLogBounds.y;
+        boolean hovering = combatLogHovered;
 
-        int mx = gp.mouseH.getScaledX();
-        int my = gp.mouseH.getScaledY();
-        boolean hovering = combatLogBounds.contains(mx, my);
-
-        if(hovering && gp.mouseH.wheelRotation != 0){
-            chatScrollOffset -= gp.mouseH.wheelRotation; // scroll up = view older history
-            int maxOffset = Math.max(0, chatHistory.size() - chatVisibleLines);
-            chatScrollOffset = Math.max(0, Math.min(chatScrollOffset, maxOffset));
-            gp.mouseH.wheelRotation = 0;
-        }
-
-        //Background only shows while actively interacting — otherwise messages float transparently over gameplay
+        //Background only shows while actively interacting
         boolean boxVisible = hovering || chatScrollOffset > 0;
         if(boxVisible){
             g2.setColor(new Color(0, 0, 0, 80));
@@ -624,7 +404,6 @@ public class UI {
             }
 
             textY -= lineHeight;
-            msg.ageTicks++; // only ages while it's one of the visible latest lines — history you scroll back to stays fully readable, never fades
         }
     }
 
@@ -917,26 +696,6 @@ public class UI {
         g2.drawString(display, boxX + 12, y + 24);
     }
 
-    private void drawDialogueScreen() {
-        //WINDOW
-        int x = gp.tileSize * 2;
-        int y = gp.tileSize / 2;
-        int width = gp.screenWidth - (gp.tileSize * 4);
-        int height = gp.tileSize * 5;
-
-        drawSubWindow(x, y, width, height);
-
-        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 20F));
-        x += gp.tileSize;
-        y += gp.tileSize;
-
-        for(String line: currentDialogue.split("\n")){
-            g2.drawString(line, x, y);
-            y += 40;
-        }
-
-    }
-
     private void drawPersonalDialogue(String text, boolean showArrow){
         int x = gp.tileSize * 2;
         int y = gp.tileSize / 2;
@@ -991,25 +750,109 @@ public class UI {
         g2.drawString(text, x, y);
     }
 
+    private void drawOptionScreen(){
+        g2.setColor(Color.white);
+        g2.setFont(g2.getFont().deriveFont(15f));
+
+        int frameX = gp.tileSize * 9;
+        int frameY = gp.tileSize;
+        int frameWidth = gp.tileSize * 8;
+        int frameHeight = gp.tileSize * 10;
+        drawSubWindow(frameX, frameY, frameWidth, frameHeight);
+
+        switch (subState){
+            case 0 -> option_top(frameX, frameY);
+            case 1 -> option_fullScreenNotification(frameX, frameY);
+            case 2 -> option_control(frameX, frameY);
+            case 3 -> option_endgameConfirm(frameX, frameY);
+        }
+    }
+
+    private void option_top(int frameX, int frameY){
+        int textX;
+        int textY;
+        String text = "OPTIONS";
+
+        //TITLE
+        textX = getXforCenteredText(text);
+        textY = frameY + gp.tileSize;
+        g2.drawString(text, textX, textY);
+
+        textX = frameX + gp.tileSize;
+        textY += gp.tileSize * 2;
+        drawMenuButton(optionTopButtons[0], "Full Screen", textX, textY, commandNum == 0);
+
+        textY += gp.tileSize;
+        drawMenuButton(optionTopButtons[1], "Music", textX, textY, commandNum == 1);
+
+        textY += gp.tileSize;
+        drawMenuButton(optionTopButtons[2], "SE", textX, textY, commandNum == 2);
+
+        textY += gp.tileSize;
+        drawMenuButton(optionTopButtons[3], "Control", textX, textY, commandNum == 3);
+
+        textY += gp.tileSize * 2;
+        drawMenuButton(optionTopButtons[4], "END GAME", textX, textY, commandNum == 4);
+
+        textY += gp.tileSize;
+        drawMenuButton(optionTopButtons[5], "BACK", textX, textY, commandNum == 5);
+
+        //FULLSCREEN CHECKBOX
+        textX = frameX + gp.tileSize*5;
+        textY = frameY + gp.tileSize*2 + 24;
+        g2.setStroke(new BasicStroke(3));
+        g2.drawRect(textX, textY, 20, 20);
+        if(gp.fullScreenOn){
+            g2.fillRect(textX, textY, 20, 20);
+        }
+
+        //MUSIC VOLUME
+        textY += gp.tileSize;
+        g2.drawRect(textX, textY, 120, 20);
+        int volumeWidth = 24 * gp.music.volumeScale;
+        g2.fillRect(textX, textY, volumeWidth, 20);
+
+        //SOUND EFFECT VOLUME
+        textY += gp.tileSize;
+        g2.drawRect(textX, textY, 120, 20);
+        volumeWidth = 24 * gp.soundEffect.volumeScale;
+        g2.fillRect(textX, textY, volumeWidth, 20);
+    }
+
     public void option_fullScreenNotification(int frameX, int frameY){
         int textX = frameX + gp.tileSize;
         int textY = frameY + gp.tileSize * 3;
 
-        currentDialogue = "The changes will take\neffect after\nrestarting the game!";
-
-        for(String line: currentDialogue.split("\n")){
+        String message = "The changes will take\neffect after\nrestarting the game!";
+        for(String line: message.split("\n")){
             g2.drawString(line, textX, textY);
             textY += 40;
         }
 
         //BACK
         textY = frameY + gp.tileSize * 9;
-        drawMenuButton(fullscreenNotiButtons[0], "BACK", textX, textY,  commandNum == 0 );
-        if(commandNum == 0){
-            if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
-                subState = 0;
-            }
+        drawMenuButton(fullscreenNotiButtons[0], "BACK", textX, textY, commandNum == 0);
+    }
+
+    private void option_endgameConfirm(int frameX, int frameY){
+        int textX = frameX + gp.tileSize;
+        int textY = frameY + gp.tileSize*3;
+
+        String message = "Quit the game and\nreturn to the title\nscreen?";
+        for(String line: message.split("\n")){
+            g2.drawString(line, textX, textY);
+            textY += 40;
         }
+
+        String text = "Yes";
+        textX = getXforCenteredText(text);
+        textY += gp.tileSize * 3;
+        drawMenuButton(endgameConfirmButtons[0], text, textX, textY, commandNum == 0);
+
+        text = "No";
+        textX = getXforCenteredText(text);
+        textY += gp.tileSize;
+        drawMenuButton(endgameConfirmButtons[1], text, textX, textY, commandNum == 1);
     }
 
     public void option_control(int frameX, int frameY){
@@ -1044,7 +887,7 @@ public class UI {
         textY += gp.tileSize;
         g2.drawString("E", textX, textY);
         textY += gp.tileSize;
-        g2.drawString("F", textX, textY);
+        g2.drawString("1-5", textX, textY);
         textY += gp.tileSize;
         g2.drawString("C", textX, textY);
         textY += gp.tileSize;
@@ -1054,12 +897,6 @@ public class UI {
         textX = frameX + gp.tileSize;
         textY = frameY + gp.tileSize*9;
         drawMenuButton(controlButtons[0], "BACK", textX, textY,  commandNum == 0);
-        if(commandNum == 0){
-            if(gp.keyH.enterPressed || gp.mouseH.leftClicked){
-                subState = 0;
-                commandNum = 3;
-            }
-        }
     }
 
     public int getXforCenteredText(String text){
@@ -1270,7 +1107,7 @@ public class UI {
             if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY)){
                 net.InventoryAction action = new net.InventoryAction();
                 action.playerId = gp.localPlayer().playerId;
-                action.actionType = "use";
+                action.actionType = InventoryActionType.USE;
                 action.sourceIndex = i;
                 gp.requestInventoryAction(action);
                 return;
@@ -1285,7 +1122,7 @@ public class UI {
 
         if(weaponSlotBounds.contains(mouseX, mouseY)){
             if(dragSourceType == SLOT_BAG){
-                action.actionType = "equip";
+                action.actionType = InventoryActionType.EQUIP;
                 action.sourceIndex = dragSourceIndex;
                 action.slotType = Player.EQUIP_WEAPON;
                 gp.requestInventoryAction(action);
@@ -1294,7 +1131,7 @@ public class UI {
         }
         if(shieldSlotBounds.contains(mouseX, mouseY)){
             if(dragSourceType == SLOT_BAG){
-                action.actionType = "equip";
+                action.actionType = InventoryActionType.EQUIP;
                 action.sourceIndex = dragSourceIndex;
                 action.slotType = Player.EQUIP_SHIELD;
                 gp.requestInventoryAction(action);
@@ -1305,11 +1142,11 @@ public class UI {
         for(int i = 0; i < inventorySlotBounds.length; i++){
             if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY)){
                 if(dragSourceType == SLOT_BAG){
-                    action.actionType = "swap";
+                    action.actionType = InventoryActionType.SWAP;
                     action.sourceIndex = dragSourceIndex;
                     action.targetIndex = i;
                 } else {
-                    action.actionType = "unequip_to_bag";
+                    action.actionType = InventoryActionType.UNEQUIP_TO_BAG;
                     action.slotType = dragSourceType;
                     action.targetIndex = i;
                 }
@@ -1320,10 +1157,10 @@ public class UI {
 
         if(!inventoryWindowBounds.contains(mouseX, mouseY)){
             if(dragSourceType == SLOT_BAG){
-                action.actionType = "drop";
+                action.actionType = InventoryActionType.DROP;
                 action.sourceIndex = dragSourceIndex;
             } else {
-                action.actionType = "unequip_to_world";
+                action.actionType = InventoryActionType.UNEQUIP_TO_WORLD;
                 action.slotType = dragSourceType;
             }
             gp.requestInventoryAction(action);
@@ -1542,5 +1379,75 @@ public class UI {
 
     public void showTitleMessage(String message){
         joinStatusMessage = message;
+    }
+
+    public void openOptions(){
+        subState = 0;
+        commandNum = 0;
+        gp.optionsOpen = true;
+    }
+
+    public void closeOptions(){
+        gp.optionsOpen = false;
+        subState = 0;
+        commandNum = 0;
+    }
+
+    private void activateOptionItem(int index){
+        switch(subState){
+            case 0 -> {
+                switch(index){
+                    case 0 -> {
+                        gp.fullScreenOn = !gp.fullScreenOn;
+                        gp.config.saveConfigSafe();
+                        subState = 1;
+                        commandNum = 0;
+                    }
+                    case 3 -> { subState = 2; commandNum = 0; }
+                    case 4 -> { subState = 3; commandNum = 0; }
+                    case 5 -> closeOptions();
+                    // 1 and 2 are the volume rows: adjusted with A/D, nothing to activate
+                }
+            }
+            case 1 -> subState = 0;
+            case 2 -> { subState = 0; commandNum = 3; }
+            case 3 -> {
+                if(index == 0){
+                    closeOptions();
+                    gp.stopMusic();
+                    gp.shutdownNetwork();
+                    gp.resetAfterNetworkSession();
+                    gp.gameState = gp.titleState;
+                } else {
+                    subState = 0;
+                    commandNum = 4;
+                }
+            }
+        }
+    }
+
+    public void confirmOptionSelection(){
+        activateOptionItem(commandNum);
+    }
+
+    private void updateCombatLog(int mx, int my){
+        int boxX = chatLogMargin;
+        int boxY = gp.screenHeight - chatLogHeight - chatLogMargin;
+        combatLogBounds.setBounds(boxX, boxY, chatLogWidth, chatLogHeight);
+        combatLogHovered = combatLogBounds.contains(mx, my);
+
+        if(combatLogHovered && gp.mouseH.wheelRotation != 0){
+            chatScrollOffset -= gp.mouseH.wheelRotation; // scroll up = view older history
+            int maxOffset = Math.max(0, chatHistory.size() - chatVisibleLines);
+            chatScrollOffset = Math.max(0, Math.min(chatScrollOffset, maxOffset));
+        }
+        gp.mouseH.wheelRotation = 0; // consumed every tick, so wheel turns elsewhere no longer pile up
+
+        // age only the visible lines: history you scrolled back to stays fully readable
+        int endIndex = chatHistory.size() - chatScrollOffset;
+        int startIndex = Math.max(0, endIndex - chatVisibleLines);
+        for(int i = startIndex; i < endIndex; i++){
+            chatHistory.get(i).ageTicks++;
+        }
     }
 }

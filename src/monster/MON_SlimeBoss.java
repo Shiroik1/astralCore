@@ -1,6 +1,6 @@
 package monster;
 
-import entity.Entity;
+import entity.Monster;
 import entity.Particle;
 import entity.Player;
 import main.Gamepanel;
@@ -12,7 +12,7 @@ import object.OBJ_rock;
 import java.awt.*;
 import java.util.Random;
 
-public class MON_SlimeBoss extends Entity {
+public class MON_SlimeBoss extends Monster {
 
     public String bossState = "idle"; // idle, telegraph_slam, telegraph_spray, cooldown
     public int bossStateTimer = 0;
@@ -28,7 +28,6 @@ public class MON_SlimeBoss extends Entity {
     public MON_SlimeBoss(Gamepanel gp) {
         super(gp);
 
-        type = type_monster;
         name = "Slime King";
         speed = 2;
         maxHP = 60;

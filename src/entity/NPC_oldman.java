@@ -11,6 +11,7 @@ public class NPC_oldman extends Entity{
         direction = "down";
         speed = 1;
         npcId = "oldman";
+        type = type_npc;
 
         getImage();
         loadDialogue("/dialogue/oldman.json");

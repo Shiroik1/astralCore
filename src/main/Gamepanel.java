@@ -1,6 +1,8 @@
 package main;
 
+import net.GameEventType;
 import entity.Entity;
+import entity.Monster;
 import entity.Player;
 import net.InputState;
 import tile.TileManager;
@@ -25,7 +27,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public net.GameServer gameServer;
     public net.GameClient gameClient;
     public static final int NETWORK_PORT = 5001;
-    public static final int SNAPSHOT_INTERNAL_TICKS = 2;
+    public static final int SNAPSHOT_INTERVAL_TICKS = 2;
 
     //GAME SETTINGS
     final int originalTileSize = 24; //16x16 tile
@@ -65,6 +67,9 @@ public class Gamepanel extends JPanel implements Runnable{
     public int screenShakeCounter = 0;
     public int screenShakeIntensity = 0;
     private final java.util.Random shakeRandom = new java.util.Random();
+    private int shakeOffsetX = 0;
+    private int shakeOffsetY = 0;
+    public final java.util.concurrent.ConcurrentLinkedQueue<RawInput> inputQueue = new java.util.concurrent.ConcurrentLinkedQueue<>();
 
     //MOUSE SETTING
     public MouseHandler mouseH = new MouseHandler(this);
@@ -81,7 +86,7 @@ public class Gamepanel extends JPanel implements Runnable{
     }
     public Entity obj[] = new Entity[50];
     public Entity npc[] = new Entity[10];
-    public Entity monster[] = new Entity[20];
+    public Monster monster[] = new Monster[20];
     public InteractiveTile interactable[] = new InteractiveTile[50];
     public ArrayList<Entity> entityList = new ArrayList<>();
     public ArrayList<Entity> projectileList = new ArrayList<>();
@@ -90,13 +95,16 @@ public class Gamepanel extends JPanel implements Runnable{
 
     //GAME STATE
     public int gameState;
+    public volatile boolean optionsOpen = false;
+    public volatile boolean paused = false;
+
+    public boolean isWorldFrozen(){
+        return !isNetworked && (optionsOpen || paused);
+    }
+
     public final int titleState = 0;
     public final int playState = 1;
-    public final int pauseState = 2;
-    public final int dialogueState = 3;
     public final int characterState = 4;
-    public final int optionState = 5;
-    public final int gameOverState = 6;
 
     public int slimesKilled = 0;
     public boolean bossSpawned = false;
@@ -211,13 +219,15 @@ public class Gamepanel extends JPanel implements Runnable{
 
         currentTick++;
 
+        processInput();
+
         if(hitStopCounter > 0){
             hitStopCounter--;
         }
 
         ui.update(mouseH.getScaledX(),mouseH.getScaledY(),mouseH.leftClicked);
 
-        if(gameState == playState){
+        if(gameState == playState && !isWorldFrozen()){
 
             // 1. Reconcile FIRST, using only inputs already buffered from previous ticks
             if(isNetworked && !isHost){
@@ -238,20 +248,15 @@ public class Gamepanel extends JPanel implements Runnable{
             Player local = localPlayer();
             InputState localInput = null;
             if(local != null){
-                int hoveredIndex = -1;
-                if(local.hoveredTarget != null){
-                    for(int i = 0; i < monster.length; i++){
-                        if(monster[i] == local.hoveredTarget){
-                            hoveredIndex = i;
-                            break;
-                        }
-                    }
-                }
+                int hoveredIndex = findHoveredMonsterIndex(local);
+                local.hoveredTarget = (hoveredIndex >= 0) ? monster[hoveredIndex] : null;
                 localInput = InputState.captureFrom(keyH, mouseH, currentTick, hoveredIndex);
-                if(inventoryOpen){
-                    localInput.suppressGameplay();   // the host never sees movement, clicks or skills while the bag is open
-                    mouseH.leftClicked = false;      // inventory clicks are never attacks
-                    java.util.Arrays.fill(keyH.skillKeyPressed, false);
+                localInput.aimWorldX = mouseH.getScaledX() - local.screenX + local.worldX;
+                localInput.aimWorldY = mouseH.getScaledY() - local.screenY + local.worldY;
+                java.util.Arrays.fill(keyH.skillKeyPressed, false); // skill presses are one-shot: consumed at capture
+                if(inventoryOpen || optionsOpen || paused){
+                    localInput.suppressGameplay();
+                    mouseH.leftClicked = false;
                 }
                 local.applyInput(localInput);
             }
@@ -354,54 +359,17 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
-            if(isNetworked && isHost && SNAPSHOT_INTERNAL_TICKS == 0){
-                broadcastWorldSnapshot();
+            if(isNetworked && isHost && currentTick % SNAPSHOT_INTERVAL_TICKS == 0){
+                gameServer.broadcastSnapshot(net.SnapshotBuilder.build(this));
             }
         }
-        else if(gameState == titleState || gameState == optionState || gameState == characterState || gameState == gameOverState){
-            ui.update(mouseH.getScaledX(),mouseH.getScaledY(),mouseH.leftClicked);
-        }
-    }
-
-    public void retry(){
-        for(Player p : players){
-            if(p != null){
-                p.setDefaultPosition();
-                p.resetHPandMP();
-            }
-        }
-        assetSetter.setNPC();
-        assetSetter.setMonster();
-    }
-
-    public void restart(){
-        for(Player p : players){
-            if(p != null){
-                p.setDefaultPosition();
-                p.resetHPandMP();
-            }
-        }
-        assetSetter.setNPC();
-        assetSetter.setMonster();
-        assetSetter.setInteractiveTile();
-
+        updateScreenShake();
     }
 
     public void drawToTempscreen() throws IOException {
 
         g2.setColor(Color.black);
         g2.fillRect(0, 0, screenWidth, screenHeight);
-
-        int shakeX = 0;
-        int shakeY = 0;
-        if(screenShakeCounter > 0){
-            shakeX = shakeRandom.nextInt(screenShakeIntensity * 2 + 1) - screenShakeIntensity;
-            shakeY = shakeRandom.nextInt(screenShakeIntensity * 2 + 1) - screenShakeIntensity;
-            screenShakeCounter--;
-            if(screenShakeCounter <= 0){
-                screenShakeIntensity = 0;
-            }
-        }
 
         //TITLE SCREEN
         if(gameState == titleState){
@@ -411,7 +379,7 @@ public class Gamepanel extends JPanel implements Runnable{
         else{
 
             //SCREENSHAKE
-            g2.translate(shakeX, shakeY);
+            g2.translate(shakeOffsetX, shakeOffsetY);
 
             //TILE
             tileM.draw(g2);
@@ -489,7 +457,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 ft.draw(g2);
             }
 
-            g2.translate(-shakeX, -shakeY);
+            g2.translate(-shakeOffsetX, -shakeOffsetY);
 
             //UI
             ui.draw(g2);
@@ -574,6 +542,8 @@ public class Gamepanel extends JPanel implements Runnable{
         local.isDead = false;
         local.inDialogue = false;
         inventoryOpen = false;
+        optionsOpen = false;
+        paused = false;
         players[0] = local;
 
         java.util.Arrays.fill(monster, null);
@@ -589,102 +559,7 @@ public class Gamepanel extends JPanel implements Runnable{
         assetSetter.setMonster();
     }
 
-    private void broadcastWorldSnapshot(){
-        java.util.List<net.PlayerState> playerStates = new java.util.ArrayList<>();
-        for(Player p : players){
-            if(p == null) continue;
-            net.PlayerState ps = new net.PlayerState();
-            ps.playerId = p.playerId;
-            ps.playerName = p.playerName;
-            ps.playerClass = p.playerClass;
-            ps.worldX = p.worldX;
-            ps.worldY = p.worldY;
-            ps.direction = p.direction;
-            ps.HP = p.HP;
-            ps.maxHP = p.maxHP;
-            ps.MP = p.MP;
-            ps.maxMP = p.maxMP;
-            ps.animState = p.animState;
-            ps.attacking = p.attacking;
-            ps.ackTick = p.lastProcessedInputTick;
-            ps.isDead = p.isDead;
-            ps.level = p.level;
-            ps.exp = p.exp;
-            ps.nextLevelExp = p.nextLevelExp;
-            ps.strength = p.strength;
-            ps.dexterity = p.dexterity;
-            ps.intelligence = p.intelligence;
-            ps.coin = p.coin;
-            ps.rage = p.rage;
-            ps.maxRage = p.maxRage;
-            ps.arcaneCharge = p.arcaneCharge;
-            playerStates.add(ps);
-            String[] invTypeIds = new String[p.inventorySlots.length];
-            int[] invStackCounts = new int[p.inventorySlots.length];
-            for(int i = 0; i < p.inventorySlots.length; i++){
-                Entity slot = p.inventorySlots[i];
-                if(slot != null){
-                    invTypeIds[i] = object.ItemRegistry.idFor(slot);
-                    invStackCounts[i] = slot.stackCount;
-                }
-            }
-            ps.inventoryTypeIds = invTypeIds;
-            ps.inventoryStackCounts = invStackCounts;
-            ps.weaponTypeId = (p.currentWeapon != null) ? object.ItemRegistry.idFor(p.currentWeapon) : null;
-            ps.shieldTypeId = (p.currentShield != null) ? object.ItemRegistry.idFor(p.currentShield) : null;
-        }
-
-        net.MonsterState[] monsterStates = new net.MonsterState[monster.length];
-        for(int i = 0; i < monster.length; i++){
-            if(monster[i] == null) continue;
-            net.MonsterState ms = new net.MonsterState();
-            ms.worldX = monster[i].worldX;
-            ms.worldY = monster[i].worldY;
-            ms.direction = monster[i].direction;
-            ms.HP = monster[i].HP;
-            ms.maxHP = monster[i].maxHP;
-            ms.dying = monster[i].dying;
-            ms.alive = monster[i].alive;
-            if(monster[i] instanceof monster.MON_SlimeBoss boss){
-                ms.isBoss = true;
-                ms.bossState = boss.bossState;
-                ms.bossStateTimer = boss.bossStateTimer;
-            }
-            monsterStates[i] = ms;
-        }
-
-        net.ObjectState[] objectStates = new net.ObjectState[obj.length];
-        for(int i = 0; i < obj.length; i++){
-            if(obj[i] == null) continue;
-            net.ObjectState os = new net.ObjectState();
-            os.typeId = object.ItemRegistry.idFor(obj[i]);
-            os.worldX = obj[i].worldX;
-            os.worldY = obj[i].worldY;
-            os.stackCount = obj[i].stackCount;
-            objectStates[i] = os;
-        }
-
-        net.NpcState[] npcStates = new net.NpcState[npc.length];
-        for(int i = 0; i < npc.length; i++){
-            if(npc[i] == null) continue;
-            net.NpcState ns = new net.NpcState();
-            ns.worldX = npc[i].worldX;
-            ns.worldY = npc[i].worldY;
-            ns.direction = npc[i].direction;
-            npcStates[i] = ns;
-        }
-
-        net.WorldSnapshot snapshot = new net.WorldSnapshot();
-        snapshot.tick = currentTick;
-        snapshot.players = playerStates.toArray(new net.PlayerState[0]);
-        snapshot.monsters = monsterStates;
-        snapshot.objects = objectStates;
-        snapshot.npcs = npcStates;
-
-        gameServer.broadcastSnapshot(snapshot);
-    }
-
-    public void broadcastPlayerEvent(int playerId, String type, String ambientMessage, String personalMessage){
+    public void broadcastPlayerEvent(int playerId, GameEventType type, String ambientMessage, String personalMessage){
         if(isNetworked && !isHost){
             // Clients don't apply locally here and don't resolve authority —
             // send to the host, which applies it once and relays to everyone (including echoing back to us)
@@ -710,8 +585,10 @@ public class Gamepanel extends JPanel implements Runnable{
         }
     }
 
-    public void applyGameEventLocally(int playerId, String type, String ambientMessage, String personalMessage){
-        if(type.equals("respawn_request")){
+    public void applyGameEventLocally(int playerId, GameEventType type, String ambientMessage, String personalMessage){
+        if(type == null) return;
+
+        if(type == GameEventType.RESPAWN_REQUEST){
             if(!isNetworked || isHost){
                 Player target = players[playerId];
                 if(target != null){
@@ -720,7 +597,7 @@ public class Gamepanel extends JPanel implements Runnable{
             }
         }
 
-        if(type.equals("levelup")){
+        if(type == GameEventType.LEVELUP){
             Player leveledPlayer = players[playerId];
             if(leveledPlayer != null){
                 leveledPlayer.spawnLevelUpBurst();
@@ -730,7 +607,7 @@ public class Gamepanel extends JPanel implements Runnable{
         if(ambientMessage != null){
             ui.addMessage(ambientMessage, colorForEventType(type));
         }
-        if(playerId == localPlayerIndex && personalMessage != null && !type.equals("levelup")){
+        if(playerId == localPlayerIndex && personalMessage != null && type != GameEventType.LEVELUP){
             Player p = localPlayer();
             if(p != null){
                 p.showPersonalNotification(personalMessage);
@@ -738,14 +615,15 @@ public class Gamepanel extends JPanel implements Runnable{
         }
     }
 
-    private Color colorForEventType(String type){
+    private Color colorForEventType(GameEventType type){
         return switch(type){
-            case "levelup" -> new Color(255, 215, 0);
-            case "kill" -> Color.yellow;
-            case "damage" -> Color.orange;
-            case "pickup" -> new Color(120, 220, 120);
-            case "death" -> Color.red;
-            case "heal" -> new Color(120, 200, 255);
+            case LEVELUP -> new Color(255, 215, 0);
+            case KILL -> Color.yellow;
+            case DAMAGE -> Color.orange;
+            case PICKUP -> new Color(120, 220, 120);
+            case DEATH -> Color.red;
+            case HEAL -> new Color(120, 200, 255);
+            case SKILL -> new Color(200, 170, 255);
             default -> Color.white;
         };
     }
@@ -759,16 +637,17 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void applyInventoryActionLocally(net.InventoryAction action){
+        if(action.actionType == null) return;
         Player target = players[action.playerId];
         if(target == null) return;
 
         switch(action.actionType){
-            case "equip" -> target.tryEquipFromBag(action.sourceIndex, action.slotType);
-            case "swap" -> target.swapOrMergeBagSlots(action.sourceIndex, action.targetIndex);
-            case "unequip_to_bag" -> target.unequipToBagIndex(action.slotType, action.targetIndex);
-            case "unequip_to_world" -> target.unequipToWorld(action.slotType);
-            case "drop" -> target.dropBagItemToWorld(action.sourceIndex);
-            case "use" -> target.useInventoryItem(action.sourceIndex);
+            case EQUIP -> target.tryEquipFromBag(action.sourceIndex, action.slotType);
+            case SWAP -> target.swapOrMergeBagSlots(action.sourceIndex, action.targetIndex);
+            case UNEQUIP_TO_BAG -> target.unequipToBagIndex(action.slotType, action.targetIndex);
+            case UNEQUIP_TO_WORLD -> target.unequipToWorld(action.slotType);
+            case DROP -> target.dropBagItemToWorld(action.sourceIndex);
+            case USE -> target.useInventoryItem(action.sourceIndex);
         }
     }
 
@@ -818,6 +697,62 @@ public class Gamepanel extends JPanel implements Runnable{
                 ui.addMessage("The Slime King has awoken!", new Color(200, 60, 220));
                 break;
             }
+        }
+    }
+
+    private int findHoveredMonsterIndex(Player local){
+        int mouseWorldX = mouseH.getScaledX() - local.screenX + local.worldX;
+        int mouseWorldY = mouseH.getScaledY() - local.screenY + local.worldY;
+        int pickRadius = tileSize * 3 / 2; // forgiving: the sprite is bigger than the hitbox
+
+        int best = -1;
+        long bestDist = Long.MAX_VALUE;
+        for(int i = 0; i < monster.length; i++){
+            Entity m = monster[i];
+            if(m == null || !m.alive || m.dying) continue;
+
+            int centerX = m.worldX + m.solidArea.x + m.solidArea.width / 2;
+            int centerY = m.worldY + m.solidArea.y + m.solidArea.height / 2;
+            long dx = mouseWorldX - centerX;
+            long dy = mouseWorldY - centerY;
+            long dist = dx * dx + dy * dy;
+            if(dist <= (long) pickRadius * pickRadius && dist < bestDist){
+                bestDist = dist;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    // The ONLY place input handlers run. The EDT just records; this drains on the game thread.
+    private void processInput(){
+        mouseH.leftClicked = false;   // one-shot flags live exactly one tick
+        mouseH.rightClicked = false;
+
+        RawInput in;
+        while((in = inputQueue.poll()) != null){
+            switch(in.kind){
+                case KEY_PRESSED -> keyH.handleKeyPressed(in.code);
+                case KEY_RELEASED -> keyH.handleKeyReleased(in.code);
+                case KEY_TYPED -> keyH.handleKeyTyped(in.ch);
+                case MOUSE_PRESSED -> mouseH.handleMousePressed(in.code);
+                case MOUSE_RELEASED -> mouseH.handleMouseReleased(in.code);
+                case MOUSE_WHEEL -> mouseH.handleWheel(in.code);
+            }
+        }
+    }
+
+    private void updateScreenShake(){
+        if(screenShakeCounter > 0){
+            shakeOffsetX = shakeRandom.nextInt(screenShakeIntensity * 2 + 1) - screenShakeIntensity;
+            shakeOffsetY = shakeRandom.nextInt(screenShakeIntensity * 2 + 1) - screenShakeIntensity;
+            screenShakeCounter--;
+            if(screenShakeCounter <= 0){
+                screenShakeIntensity = 0;
+            }
+        } else {
+            shakeOffsetX = 0;
+            shakeOffsetY = 0;
         }
     }
 

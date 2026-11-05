@@ -10,53 +10,35 @@ public class MouseHandler implements MouseListener, MouseMotionListener, MouseWh
 
     Gamepanel gp;
 
-    public int mouseX, mouseY;
-    public boolean leftClicked; //One-shot flag FOR ATTACK
-    public boolean rightClicked;
-    public boolean leftPressed; //Held state, CHARGE
+    public volatile int mouseX, mouseY; // written by the EDT, read by the game thread
+
+    // Everything below is touched by the game thread only
+    public boolean leftClicked;   // one-shot, lives exactly one tick (cleared in Gamepanel.processInput)
+    public boolean rightClicked;  // one-shot, same lifetime
+    public boolean leftPressed;   // held state
     public int wheelRotation = 0;
 
     public MouseHandler(Gamepanel gp){
         this.gp = gp;
     }
 
-    @Override
-    public void mouseClicked(MouseEvent e) {
-
-    }
-
+    //EDT: RECORD ONLY
     @Override
     public void mousePressed(MouseEvent e) {
         gp.requestFocusInWindow();
-
-        if(e.getButton() == MouseEvent.BUTTON1){
-            leftPressed = true;
-            leftClicked = true;
-
-            if(gp.gameState == gp.pauseState){
-                gp.gameState = gp.playState;
-            }
-        }
-        if(e.getButton() == MouseEvent.BUTTON3){
-            rightClicked = true;
-        }
+        mouseX = e.getX();
+        mouseY = e.getY();
+        gp.inputQueue.add(RawInput.mousePressed(e.getButton()));
     }
 
     @Override
     public void mouseReleased(MouseEvent e) {
-        if(e.getButton() == MouseEvent.BUTTON1){
-            leftPressed = false;
-        }
+        gp.inputQueue.add(RawInput.mouseReleased(e.getButton()));
     }
 
     @Override
-    public void mouseEntered(MouseEvent e) {
-
-    }
-
-    @Override
-    public void mouseExited(MouseEvent e) {
-
+    public void mouseWheelMoved(MouseWheelEvent e) {
+        gp.inputQueue.add(RawInput.mouseWheel(e.getWheelRotation()));
     }
 
     @Override
@@ -72,8 +54,38 @@ public class MouseHandler implements MouseListener, MouseMotionListener, MouseWh
     }
 
     @Override
-    public void mouseWheelMoved(MouseWheelEvent e) {
-        wheelRotation += e.getWheelRotation();
+    public void mouseClicked(MouseEvent e) {}
+
+    @Override
+    public void mouseEntered(MouseEvent e) {}
+
+    @Override
+    public void mouseExited(MouseEvent e) {}
+
+    //GAME THREAD: INTERPRET
+    void handleMousePressed(int button){
+        if(button == MouseEvent.BUTTON1){
+            leftPressed = true;
+            leftClicked = true;
+
+            if(gp.paused){
+                gp.paused = false;
+                leftClicked = false; // the click that resumes must not also attack
+            }
+        }
+        if(button == MouseEvent.BUTTON3){
+            rightClicked = true;
+        }
+    }
+
+    void handleMouseReleased(int button){
+        if(button == MouseEvent.BUTTON1){
+            leftPressed = false;
+        }
+    }
+
+    void handleWheel(int rotation){
+        wheelRotation += rotation;
     }
 
     //COORD SCALING FOR FULLSCREEN

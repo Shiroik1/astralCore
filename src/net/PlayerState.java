@@ -1,5 +1,7 @@
 package net;
 
+import object.ItemType;
+
 public class PlayerState {
     public int playerId;
     public String playerName;
@@ -9,10 +11,10 @@ public class PlayerState {
     public String animState;
     public boolean attacking;
     public long ackTick; // the sender's last input tick this position reflects
-    public String[] inventoryTypeIds;
+    public ItemType[] inventoryTypes;
     public int[] inventoryStackCounts;
-    public String weaponTypeId;
-    public String shieldTypeId;
+    public ItemType weaponType;
+    public ItemType shieldType;
     public boolean isDead;
     public String playerClass;
     public int level, exp, nextLevelExp;
@@ -20,4 +22,11 @@ public class PlayerState {
     public int coin;
     public int rage, maxRage;
     public int arcaneCharge;
+
+    // host-owned combat state, mirrored to clients
+    public int[] skillCooldowns;
+    public String[] effectTypes;
+    public int[] effectDurations;
+    public int[] effectValues;
+    public int auraRgb = -1; // -1 = no aura
 }

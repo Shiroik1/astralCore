@@ -12,11 +12,8 @@ public class KeyHandler implements KeyListener {
     public boolean ePressed;
     private boolean ePressedPrevCapture = false;
     public boolean showDebug;
-    public boolean shotKeyPressed;
-    public boolean enterPressed;
     public boolean escapePressed;
     private boolean escapePressedPrevCapture = false;
-
 
     public boolean enteringNetworkAddress = false;
     public StringBuilder networkAddressInput = new StringBuilder();
@@ -31,9 +28,24 @@ public class KeyHandler implements KeyListener {
         this.gp = gp;
     }
 
+    //EDT: RECORD ONLY — nothing here touches game state
     @Override
     public void keyTyped(KeyEvent e) {
-        char c = e.getKeyChar();
+        gp.inputQueue.add(RawInput.keyTyped(e.getKeyChar()));
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        gp.inputQueue.add(RawInput.keyPressed(e.getKeyCode()));
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        gp.inputQueue.add(RawInput.keyReleased(e.getKeyCode()));
+    }
+
+    //GAME THREAD: INTERPRET — called from Gamepanel.processInput(), once per queued event
+    void handleKeyTyped(char c){
         if(enteringNetworkAddress && c >= 32 && c < 127 && networkAddressInput.length() < 64){
             networkAddressInput.append(c);
         }
@@ -42,10 +54,7 @@ public class KeyHandler implements KeyListener {
         }
     }
 
-    @Override
-    public void keyPressed(KeyEvent e) {
-        int code = e.getKeyCode();
-
+    void handleKeyPressed(int code){
         if(enteringCharacterName){
             handleCharacterNameKeyPress(code);
             return;
@@ -61,57 +70,38 @@ public class KeyHandler implements KeyListener {
             return;
         }
 
-        //TITLE STATE
         if(gp.gameState == gp.titleState){
             titleState(code);
         }
-        //PLAY STATE
         else if(gp.gameState == gp.playState){
-            playState(code);
-        }
-        //PAUSE STATE
-        else if(gp.gameState == gp.pauseState){
-            pauseState(code);
-        }
-        //DIALOGUE STATE
-        else if(gp.gameState == gp.dialogueState){
-            dialogueState(code);
-        }
-        //OPTION STATE
-        else if(gp.gameState == gp.optionState){
-            optionState(code);
-        }
-        //GAMEOVER STATE
-        else if(gp.gameState == gp.gameOverState){
-            gameOverState(code);
+            if(gp.optionsOpen){
+                optionState(code);
+            } else if(gp.paused){
+                pauseState(code);
+            } else {
+                playState(code);
+            }
         }
     }
 
-    public void gameOverState(int code) {
+    void handleKeyReleased(int code){
         if(code == KeyEvent.VK_W){
-            gp.ui.commandNum--;
-            if(gp.ui.commandNum < 0){
-                gp.ui.commandNum = 1;
-            }
-            gp.playSE(8);
+            upPressed = false;
         }
         if(code == KeyEvent.VK_S){
-            gp.ui.commandNum++;
-            if(gp.ui.commandNum > 1){
-                gp.ui.commandNum = 0;
-            }
-            gp.playSE(8);
+            downPressed = false;
         }
-        if(code == KeyEvent.VK_ENTER){
-            if(gp.ui.commandNum == 0){
-                gp.gameState = gp.playState;
-                gp.playMusic(0);
-                gp.retry();
-            }
-            else if(gp.ui.commandNum == 1){
-                gp.gameState = gp.titleState;
-                gp.restart();
-            }
+        if(code == KeyEvent.VK_A){
+            leftPressed = false;
+        }
+        if(code == KeyEvent.VK_D){
+            rightPressed = false;
+        }
+        if(code == KeyEvent.VK_E){
+            ePressed = false;
+        }
+        if(code == KeyEvent.VK_ESCAPE){
+            escapePressed = false;
         }
     }
 
@@ -150,7 +140,9 @@ public class KeyHandler implements KeyListener {
             rightPressed = true;
         }
         if(code == KeyEvent.VK_ENTER){
-            gp.gameState = gp.pauseState;
+            if(!gp.isNetworked){
+                gp.paused = true;
+            }
         }
         if(code == KeyEvent.VK_C){
             gp.inventoryOpen = !gp.inventoryOpen;
@@ -158,15 +150,12 @@ public class KeyHandler implements KeyListener {
         if(code == KeyEvent.VK_E){
             ePressed = true;
         }
-        if(code == KeyEvent.VK_F){
-            shotKeyPressed = true;
-        }
         if(code == KeyEvent.VK_ESCAPE){
             escapePressed = true;
             Player local = gp.localPlayer();
             boolean inDialogueNow = (local != null && local.inDialogue);
             if(!inDialogueNow){
-                gp.gameState = gp.optionState;
+                gp.ui.openOptions();
             }
         }
 
@@ -176,21 +165,22 @@ public class KeyHandler implements KeyListener {
         if(code == KeyEvent.VK_3){ skillKeyPressed[2] = true; }
         if(code == KeyEvent.VK_4){ skillKeyPressed[3] = true; }
         if(code == KeyEvent.VK_5){ skillKeyPressed[4] = true; }
-
     }
 
     public void pauseState(int code){
         if(code == KeyEvent.VK_ENTER){
-            gp.gameState = gp.playState;
+            gp.paused = false;
         }
     }
 
     public void optionState(int code){
         if(code == KeyEvent.VK_ESCAPE){
-            gp.gameState = gp.playState;
+            gp.ui.closeOptions();
+            return;
         }
         if(code == KeyEvent.VK_ENTER){
-            enterPressed = true;
+            gp.ui.confirmOptionSelection();
+            return;
         }
 
         int maxCommandNum = 0;
@@ -242,39 +232,6 @@ public class KeyHandler implements KeyListener {
                     gp.config.saveConfigSafe();
                 }
             }
-        }
-    }
-
-    public void dialogueState(int code){
-        if(code == KeyEvent.VK_SPACE || code == KeyEvent.VK_E){
-            gp.gameState = gp.playState;
-        }
-    }
-
-    @Override
-    public void keyReleased(KeyEvent e) {
-        int code = e.getKeyCode();
-
-        if(code == KeyEvent.VK_W){
-            upPressed = false;
-        }
-        if(code == KeyEvent.VK_S){
-            downPressed = false;
-        }
-        if(code == KeyEvent.VK_A){
-            leftPressed = false;
-        }
-        if(code == KeyEvent.VK_D){
-            rightPressed = false;
-        }
-        if(code == KeyEvent.VK_F){
-            shotKeyPressed = false;
-        }
-        if(code == KeyEvent.VK_E){
-            ePressed = false;
-        }
-        if(code == KeyEvent.VK_ESCAPE){
-            escapePressed = false;
         }
     }
 
@@ -351,6 +308,4 @@ public class KeyHandler implements KeyListener {
         escapePressedPrevCapture = escapePressed;
         return edge;
     }
-
-
 }

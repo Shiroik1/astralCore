@@ -3,6 +3,7 @@ package entity;
 import main.Gamepanel;
 import main.KeyHandler;
 import main.UtilityTool;
+import net.GameEventType;
 import object.*;
 
 import javax.imageio.ImageIO;
@@ -62,6 +63,8 @@ public class Player extends Entity{
     private int bodySize; // canvas size shared by every player body animation (idle/run/attack)
     public Entity hoveredTarget = null;
     private boolean mageProjectileFired = false;
+    private Entity mageTarget= null;
+    private int mageAimX, mageAimY;
 
     public int arcaneCharge = 0;
     public final int maxArcaneCharge = 4;
@@ -422,8 +425,7 @@ public class Player extends Entity{
 
     public void update(){
         if(!isLocal && !gp.isHost){
-            updateStatusEffects();
-            updateAura();
+            updateAura(); // effects come from the snapshot
             if(!isDead){
                 updateAnimation();
             }
@@ -431,7 +433,7 @@ public class Player extends Entity{
         }
 
         if(isDead){
-            updateStatusEffects();
+            if(!isPredictedClient()) updateStatusEffects();
             return;
         }
 
@@ -447,7 +449,7 @@ public class Player extends Entity{
         }
 
         if(isLocal && gp.inventoryOpen){
-            updateStatusEffects();
+            if(!isPredictedClient()) updateStatusEffects();
             return;
         }
 
@@ -483,22 +485,23 @@ public class Player extends Entity{
 
         animState = attacking ? "attack" : (moving ? "run" : "idle");
 
-        updateStatusEffects();
+        if(!isPredictedClient()){
+            updateStatusEffects();
+        }
         updateAura();
         updateDroppedItemPickupBlocks();
 
-        for(int i = 0; i < skills.length; i++){
-            if(skills[i] != null){
-                skills[i].update();
-                if(currentInput.skillKeyPressed[i]){
-                    if(skills[i].isReady() && hasEnoughResource(skills[i].resourceCost)){
-                        spendResource(skills[i].resourceCost);
-                        skills[i].trigger();
+        if(!isPredictedClient()){
+            for(int i = 0; i < skills.length; i++){
+                if(skills[i] != null){
+                    skills[i].update();
+                    if(currentInput.skillKeyPressed[i]){
+                        if(skills[i].isReady() && hasEnoughResource(skills[i].resourceCost)){
+                            spendResource(skills[i].resourceCost);
+                            skills[i].trigger();
+                        }
+                        currentInput.skillKeyPressed[i] = false;
                     }
-                    if(isLocal){
-                        keyH.skillKeyPressed[i] = false;
-                    }
-                    currentInput.skillKeyPressed[i] = false;
                 }
             }
         }
@@ -598,6 +601,12 @@ public class Player extends Entity{
                     attacking = true;
                     spriteNum = 1;
                     attackFrameHoldCounter = 0;
+                    mageTarget = hoveredTarget;
+                    mageAimX = currentInput.aimWorldX;
+                    mageAimY = currentInput.aimWorldY;
+                    if(playerClass.equals("mage")){
+                        direction = radialDirection(mageAimX - (worldX + gp.tileSize/2), mageAimY - (worldY + gp.tileSize/2));
+                    }
                 }
 
             if(isLocal){
@@ -609,16 +618,6 @@ public class Player extends Entity{
             attackCanceled = false;
             attackBuffered = false;
         }
-
-//        if(gp.keyH.shotKeyPressed && !projectile.alive && shotAvailableCounter == 30 && projectile.hasResource(this)){
-//            //SET DEFAULT POSITION, DIRECTION AND USER
-//            projectile.set(worldX, worldY, direction, true, this);
-//
-//            projectile.subtractResource(this);
-//            gp.projectileList.add(projectile);
-//            gp.playSE(9);
-//            shotAvailableCounter = 0;
-//        }
 
         if(invincible){
             invincibleCounter++;
@@ -640,23 +639,25 @@ public class Player extends Entity{
             shotAvailableCounter++;
         }
 
-        if(playerClass.equals("mage")){
-            ticksSinceSkillUse++;
-            if(ticksSinceSkillUse >= mpRegenDelayTicks && MP < maxMP){
-                mpRegenCounter++;
-                if(mpRegenCounter >= mpRegenIntervalTicks){
-                    MP++;
-                    mpRegenCounter = 0;
+        if(!isPredictedClient()){
+            if(playerClass.equals("mage")){
+                ticksSinceSkillUse++;
+                if(ticksSinceSkillUse >= mpRegenDelayTicks && MP < maxMP){
+                    mpRegenCounter++;
+                    if(mpRegenCounter >= mpRegenIntervalTicks){
+                        MP++;
+                        mpRegenCounter = 0;
+                    }
                 }
             }
-        }
-        else {
-            ticksSinceRageGain++;
-            if(ticksSinceRageGain >= rageDecayDelayTicks && rage > 0){
-                rageDecayCounter++;
-                if(rageDecayCounter >= rageDecayIntervalTicks){
-                    rage--;
-                    rageDecayCounter = 0;
+            else {
+                ticksSinceRageGain++;
+                if(ticksSinceRageGain >= rageDecayDelayTicks && rage > 0){
+                    rageDecayCounter++;
+                    if(rageDecayCounter >= rageDecayIntervalTicks){
+                        rage--;
+                        rageDecayCounter = 0;
+                    }
                 }
             }
         }
@@ -676,7 +677,7 @@ public class Player extends Entity{
                 animState = "idle";
                 spriteNum = 1;
                 attacking = false;
-                gp.broadcastPlayerEvent(playerId, "death", "Player " + (playerId + 1) + " has fallen!", null);
+                gp.broadcastPlayerEvent(playerId, GameEventType.DEATH, "Player " + (playerId + 1) + " has fallen!", null);
             }
         }
 
@@ -754,10 +755,14 @@ public class Player extends Entity{
 
 
     public void damageMonster(int index, int attack) {
-        damageMonster(index, attack, false);
+        damageMonster(index, attack, false, null);
     }
 
     public void damageMonster(int index, int attack, boolean forcedBigHit) {
+        damageMonster(index, attack, forcedBigHit, null);
+    }
+
+    public void damageMonster(int index, int attack, boolean forcedBigHit, String knockbackDir) {
         if(index != 999){
             Entity target = gp.monster[index];
             if(!target.invincible){
@@ -788,7 +793,7 @@ public class Player extends Entity{
                 target.hpBarCounter = 0;
 
                 int knockbackDist = isBigHit ? target.knockbackDistance * 2 : target.knockbackDistance;
-                target.startKnockback(direction, knockbackDist);
+                target.startKnockback(knockbackDir != null ? knockbackDir : direction, knockbackDist);
 
                 int shakeDuration = isBigHit ? hitStopOnHitMonster * 2 : hitStopOnHitMonster;
                 int shakeIntensity = isBigHit ? 8 : 4;
@@ -814,7 +819,7 @@ public class Player extends Entity{
                 if(target.HP <= 0){
                     target.dying = true;
                     exp += target.exp;
-                    gp.broadcastPlayerEvent(playerId, "kill",
+                    gp.broadcastPlayerEvent(playerId, GameEventType.KILL,
                             "Player " + (playerId + 1) + " killed the " + target.name + "! (+" + target.exp + " EXP)", null);
                     checkLevelUp();
                 }
@@ -842,7 +847,7 @@ public class Player extends Entity{
             gp.playSE(7);
             String ambient = "Player " + (playerId + 1) + " reached level " + level + "!";
             String personal = "You are level " + level + " now!\nYour will is stronger than ever!";
-            gp.broadcastPlayerEvent(playerId, "levelup", ambient, personal);
+            gp.broadcastPlayerEvent(playerId, GameEventType.LEVELUP, ambient, personal);
         }
     }
 
@@ -894,7 +899,7 @@ public class Player extends Entity{
             } else {
                 ambient = "Player " + (playerId + 1) + "'s inventory is full!";
             }
-            gp.broadcastPlayerEvent(playerId, "pickup", ambient, null);
+            gp.broadcastPlayerEvent(playerId, GameEventType.PICKUP, ambient, null);
             gp.obj[index] = null;
         }
     }
@@ -1242,14 +1247,14 @@ public class Player extends Entity{
             powerStrikePending = true;
             powerStrikeBonus = attack;
             spawnSkillParticles(new Color(255, 200, 0), 8);
-            gp.ui.addMessage("Power Strike!");
+            announceSkill("Power Strike");
         }, loadSkillIcon("/skill_icon/sword_powerstrike"));
 
         skills[1] = new Skill("War Cry", 20, 600, () -> {
             addStatusEffect(new StatusEffect("attackBoost", 300, 3, 0));
             startAura(new Color(255, 80, 80), 300);
             spawnSkillParticles(new Color(255, 80, 80), 10);
-            gp.ui.addMessage("War Cry!");
+            announceSkill("War Cry");
         }, loadSkillIcon("/skill_icon/sword_warcry"));
         statusEffectIcons.put("attackBoost", skills[1].icon);
 
@@ -1257,21 +1262,21 @@ public class Player extends Entity{
             addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
             startAura(new Color(255, 255, 0), 300);
             spawnSkillParticles(new Color(255, 255, 0), 10);
-            gp.ui.addMessage("Adrenaline Rush!");
+            announceSkill("Adrenaline Rush");
         }, loadSkillIcon("/skill_icon/sword_adrenaline"));
         statusEffectIcons.put("attackSpeedBoost", skills[2].icon);
 
         skills[3] = new Skill("Rend", 25, 480, () -> {
             rendPending = true;
             spawnSkillParticles(new Color(150, 0, 0), 8);
-            gp.ui.addMessage("Rend!");
+            announceSkill("Rend");
         }, loadSkillIcon("/skill_icon/sword_rend"));
 
         skills[4] = new Skill("Fortify", 20, 600, () -> {
             addStatusEffect(new StatusEffect("defenseBoost", 300, 3, 0));
             startAura(new Color(120, 180, 255), 300);
             spawnSkillParticles(new Color(120, 180, 255), 10);
-            gp.ui.addMessage("Fortify!");
+            announceSkill("Fortify!");
         }, loadSkillIcon("/skill_icon/fortify"));
         statusEffectIcons.put("defenseBoost", skills[4].icon);
     }
@@ -1283,7 +1288,7 @@ public class Player extends Entity{
                 startAura(new Color(190, 120, 255), 999999);
             }
             spawnSkillParticles(new Color(190, 120, 255), 8);
-            gp.ui.addMessage("Mana Infusion!");
+            announceSkill("Mana Infusion");
         }, loadSkillIcon("/skill_icon/mage_manainfusion"));
 
         skills[1] = new Skill("Arcane Detonation", 4, 480, () -> {
@@ -1294,21 +1299,21 @@ public class Player extends Entity{
             addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
             startAura(new Color(255, 255, 120), 300);
             spawnSkillParticles(new Color(255, 255, 120), 10);
-            gp.ui.addMessage("Haste!");
+            announceSkill("Haste");
         }, loadSkillIcon("/skill_icon/mage_haste"));
         statusEffectIcons.put("attackSpeedBoost", skills[2].icon);
 
         skills[3] = new Skill("Ignite", 3, 420, () -> {
             rendPending = true;
             spawnSkillParticles(new Color(255, 120, 0), 8);
-            gp.ui.addMessage("Ignite!");
+            announceSkill("Ignite");
         }, loadSkillIcon("/skill_icon/mage_ignite"));
 
         skills[4] = new Skill("Mana Shield", 3, 600, () -> {
             addStatusEffect(new StatusEffect("defenseBoost", 300, 3, 0));
             startAura(new Color(120, 200, 255), 300);
             spawnSkillParticles(new Color(120, 200, 255), 10);
-            gp.ui.addMessage("Mana Shield!");
+            announceSkill("Mana Shield");
         }, loadSkillIcon("/skill_icon/mage_manashield"));
         statusEffectIcons.put("defenseBoost", skills[4].icon);
     }
@@ -1379,7 +1384,7 @@ public class Player extends Entity{
         currentInput = input;
         lastProcessedInputTick = input.tick;
         if(isLocal){
-            boolean movementSuppressedThisTick = inDialogue || isDead || gp.inventoryOpen;
+            boolean movementSuppressedThisTick = inDialogue || isDead || gp.inventoryOpen || gp.optionsOpen;
             if(!movementSuppressedThisTick){
                 inputHistory.addLast(input);
                 while(inputHistory.size() > inputHistoryCapacity){
@@ -1452,6 +1457,29 @@ public class Player extends Entity{
 
     public boolean canResolveWorldActions(){
         return !gp.isNetworked || gp.isHost;
+    }
+
+    private boolean isPredictedClient(){
+        return isLocal && gp.isNetworked && !gp.isHost;
+    }
+
+    public void applySyncedEffects(String[] types, int[] durations, int[] values, int auraRgb){
+        statusEffects.clear();
+        if(types != null){
+            for(int i = 0; i < types.length; i++){
+                statusEffects.add(new StatusEffect(types[i], durations[i], values[i], 0));
+            }
+        }
+        if(auraRgb < 0){
+            auraActive = false;
+        } else if(!auraActive || auraColor == null || (auraColor.getRGB() & 0xFFFFFF) != auraRgb){
+            startAura(new Color(auraRgb), 999999); // the host clears it; the client never times it out itself
+        }
+    }
+
+    private void announceSkill(String skillName){
+        String who = (playerName != null && !playerName.isEmpty()) ? playerName : "Player " + (playerId + 1);
+        gp.broadcastPlayerEvent(playerId, GameEventType.SKILL, who + " used " + skillName + "!", null);
     }
 
     public void simulateMovement(InputState input){
@@ -1548,6 +1576,17 @@ public class Player extends Entity{
 
 
 
+    private boolean isValidTarget(Entity e){
+        return e != null && e.alive && !e.dying;
+    }
+
+    private String radialDirection(double dx, double dy){
+        if(Math.abs(dx) > Math.abs(dy)){
+            return dx > 0 ? "right" : "left";
+        }
+        return dy > 0 ? "down" : "up";
+    }
+
     private void mageAttacking(){
         SpriteAnimation anim = getCurrentAnimation();
         int totalFrames = (anim != null) ? anim.frames.length : 1;
@@ -1563,38 +1602,44 @@ public class Player extends Entity{
                 spriteNum = 1;
                 attacking = false;
                 mageProjectileFired = false;
+                mageTarget = null;
                 return;
             }
         }
 
         if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame && !mageProjectileFired){
-            if(hoveredTarget != null && hoveredTarget.alive && !hoveredTarget.dying){
-                boolean unleashed = arcaneCharge >= maxArcaneCharge;
+            Entity target = isValidTarget(hoveredTarget) ? hoveredTarget
+                    : (isValidTarget(mageTarget) ? mageTarget : null);
+            boolean unleashed = arcaneCharge >= maxArcaneCharge;
 
-                Projectile shot = new OBJ_fireball(gp);
-                shot.attack = unleashed ? getEffectiveAttack() * 3 : getEffectiveAttack();
-                shot.empowered = unleashed;
-                shot.set(worldX, worldY, direction, true, this, hoveredTarget);
-                gp.projectileList.add(shot);
-                gp.playSE(9);
+            Projectile shot = new OBJ_fireball(gp);
+            shot.attack = unleashed ? getEffectiveAttack() * 3 : getEffectiveAttack();
+            shot.empowered = unleashed;
+            if(target != null){
+                shot.set(worldX, worldY, direction, true, this, target); // homes on the target
+            } else {
+                double angle = Math.atan2(mageAimY - (worldY + gp.tileSize/2), mageAimX - (worldX + gp.tileSize/2));
+                shot.setAngled(worldX, worldY, angle, true, this);      // flies toward where the cursor was
+            }
+            gp.projectileList.add(shot);
+            gp.playSE(9);
 
-                if(rendPending){
-                    hoveredTarget.addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
-                    rendPending = false;
+            if(rendPending && target != null){
+                target.addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
+                rendPending = false;
+            }
+
+            if(unleashed){
+                arcaneCharge = 0;
+                auraActive = false;
+                spawnNovaCastParticles();
+                gp.startScreenShake(10, 8);
+            } else {
+                arcaneCharge = Math.min(maxArcaneCharge, arcaneCharge + 1);
+                if(arcaneCharge >= maxArcaneCharge){
+                    startAura(new Color(120, 152, 255), 999999);
                 }
-
-                if(unleashed){
-                    arcaneCharge = 0;
-                    auraActive = false;
-                    spawnNovaCastParticles();
-                    gp.startScreenShake(10, 8);
-                } else {
-                    arcaneCharge = Math.min(maxArcaneCharge, arcaneCharge + 1);
-                    if(arcaneCharge >= maxArcaneCharge){
-                        startAura(new Color(120, 152, 255), 999999);
-                    }
-                    spawnCastParticles();
-                }
+                spawnCastParticles();
             }
             mageProjectileFired = true;
         }
@@ -1666,7 +1711,7 @@ public class Player extends Entity{
             int dy = m.worldY - worldY;
             double distance = Math.sqrt(dx*dx + dy*dy);
             if(distance <= radius){
-                damageMonster(i, damagePerHit, true);
+                damageMonster(i, damagePerHit, true, radialDirection(dx, dy));
             }
         }
 
@@ -1674,6 +1719,6 @@ public class Player extends Entity{
         auraActive = false;
         spawnNovaCastParticles();
         gp.startScreenShake(10, 8);
-        gp.ui.addMessage("Arcane Detonation!");
+        announceSkill("Arcane Detonation");
     }
 }

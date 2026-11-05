@@ -1,6 +1,6 @@
 package monster;
 
-import entity.Entity;
+import entity.Monster;
 import entity.Player;
 import entity.SpriteAnimation;
 import main.Gamepanel;
@@ -12,7 +12,7 @@ import object.OBJ_rock;
 import java.awt.image.BufferedImage;
 import java.util.Random;
 
-public class MON_GreenSlime extends Entity {
+public class MON_GreenSlime extends Monster {
 
     public MON_GreenSlime(Gamepanel gp) {
         super(gp);
@@ -21,7 +21,6 @@ public class MON_GreenSlime extends Entity {
         attackDamageStartFrame = 6;   // frame the hit window opens (out of 10 total frames)
         attackDamageEndFrame = 8;     // frame the hit window closes
         monsterAttackCooldown = 40;
-        type = type_monster;
         name = "Green Slime";
         speed = 2;
         maxHP = 10;

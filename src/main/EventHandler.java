@@ -1,6 +1,7 @@
 package main;
 
 import entity.Player;
+import net.GameEventType;
 
 import java.awt.*;
 
@@ -49,14 +50,6 @@ public class EventHandler {
         }
     }
 
-    private void damagePit(int col, int row, int gameState) {
-        gp.gameState = gameState;
-        gp.playSE(6);
-        gp.ui.currentDialogue = "You tripped!";
-        gp.localPlayer().HP -= 2;
-        canTouchEvent = false;
-    }
-
     public void healingPool(int col, int row, Player player){
         if(player.currentInput != null && player.currentInput.ePressed && player.canResolveWorldActions()){
             player.attackCanceled = true;
@@ -64,7 +57,7 @@ public class EventHandler {
             player.HP = player.maxHP;
             player.MP = player.maxMP;
             gp.playSE(2);
-            gp.broadcastPlayerEvent(player.playerId, "heal",
+            gp.broadcastPlayerEvent(player.playerId, GameEventType.HEAL,
                     "Player " + (player.playerId + 1) + " drank the aqua of life and was fully healed!",
                     "You drink the aqua of life.\nYour wounds have been fully healed!");
             if(healedAmount > 0){

@@ -9,9 +9,9 @@ public class InputState {
     public boolean ePressed;
     public boolean escapePressed;
     public boolean leftClicked;
-    public boolean shotKeyPressed;
     public boolean[] skillKeyPressed = new boolean[5];
     public int targetedMonsterIndex = -1;
+    public int aimWorldX, aimWorldY;
 
 
     public static InputState captureFrom(KeyHandler keyH, MouseHandler mouseH, long tick, int targetedMonsterIndex){
@@ -24,7 +24,6 @@ public class InputState {
         state.ePressed = keyH.consumeEEdge();
         state.escapePressed = keyH.consumeEscapeEdge();
         state.leftClicked = mouseH.leftClicked;
-        state.shotKeyPressed = keyH.shotKeyPressed;
         state.targetedMonsterIndex = targetedMonsterIndex;
         for(int i = 0; i < state.skillKeyPressed.length; i++){
             state.skillKeyPressed[i] = keyH.skillKeyPressed[i];
@@ -38,9 +37,10 @@ public class InputState {
         down = newer.down;
         left = newer.left;
         right = newer.right;
+        aimWorldX = newer.aimWorldX;
+        aimWorldY = newer.aimWorldY;
         ePressed = ePressed || newer.ePressed;
         leftClicked = leftClicked || newer.leftClicked;
-        shotKeyPressed = shotKeyPressed || newer.shotKeyPressed;
         for(int i = 0; i < skillKeyPressed.length; i++){
             skillKeyPressed[i] = skillKeyPressed[i] || newer.skillKeyPressed[i];
         }
@@ -54,7 +54,6 @@ public class InputState {
         right = false;
         ePressed = false;
         leftClicked = false;
-        shotKeyPressed = false;
         for(int i = 0; i < skillKeyPressed.length; i++){
             skillKeyPressed[i] = false;
         }

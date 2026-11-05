@@ -115,30 +115,31 @@ public class GameClient {
 
             if(p.isLocal){
                 p.reconcile(ps.worldX, ps.worldY, ps.direction, ps.HP, ps.maxHP, ps.MP, ps.maxMP, ps.isDead, ps.ackTick);
-                for(int i = 0; i < ps.inventoryTypeIds.length; i++){
-                    String typeId = ps.inventoryTypeIds[i];
-                    if(typeId == null){
+                for(int i = 0; i < ps.inventoryTypes.length; i++){
+                    object.ItemType type = ps.inventoryTypes[i];
+                    if(type == null){
                         p.inventorySlots[i] = null;
                         continue;
                     }
                     Entity existing = p.inventorySlots[i];
-                    if(existing == null || !object.ItemRegistry.idFor(existing).equals(typeId)){
-                        p.inventorySlots[i] = object.ItemRegistry.create(typeId, gp);
+                    if(existing == null || object.ItemRegistry.typeFor(existing) != type){
+                        p.inventorySlots[i] = object.ItemRegistry.create(type, gp);
                     }
                     if(p.inventorySlots[i] != null){
                         p.inventorySlots[i].stackCount = ps.inventoryStackCounts[i];
                     }
                 }
 
-                if(ps.weaponTypeId != null && (p.currentWeapon == null || !object.ItemRegistry.idFor(p.currentWeapon).equals(ps.weaponTypeId))){
-                    p.currentWeapon = object.ItemRegistry.create(ps.weaponTypeId, gp);
+                if(ps.weaponType != null && object.ItemRegistry.typeFor(p.currentWeapon) != ps.weaponType){
+                    p.currentWeapon = object.ItemRegistry.create(ps.weaponType, gp);
                     p.attack = p.getAttack();
                     p.getPlayerAttackImage();
                 }
-                if(ps.shieldTypeId != null && (p.currentShield == null || !object.ItemRegistry.idFor(p.currentShield).equals(ps.shieldTypeId))){
-                    p.currentShield = object.ItemRegistry.create(ps.shieldTypeId, gp);
+                if(ps.shieldType != null && object.ItemRegistry.typeFor(p.currentShield) != ps.shieldType){
+                    p.currentShield = object.ItemRegistry.create(ps.shieldType, gp);
                     p.defense = p.getDefense();
                 }
+
                 p.level = ps.level;
                 p.exp = ps.exp;
                 p.nextLevelExp = ps.nextLevelExp;
@@ -151,6 +152,12 @@ public class GameClient {
                 p.arcaneCharge = ps.arcaneCharge;
                 p.attack = p.getAttack();
                 p.defense = p.getDefense();
+                for(int i = 0; i < p.skills.length && ps.skillCooldowns != null && i < ps.skillCooldowns.length; i++){
+                    if(p.skills[i] != null){
+                        p.skills[i].cooldownRemaining = ps.skillCooldowns[i];
+                    }
+                }
+                p.applySyncedEffects(ps.effectTypes, ps.effectDurations, ps.effectValues, ps.auraRgb);
             } else {
                 int previousHP = p.HP;
                 p.playerName = ps.playerName;
@@ -164,6 +171,7 @@ public class GameClient {
                 p.animState = ps.animState;
                 p.attacking = ps.attacking;
                 p.isDead = ps.isDead;
+                p.applySyncedEffects(ps.effectTypes, ps.effectDurations, ps.effectValues, ps.auraRgb);
 
                 if(ps.playerClass != null && !ps.playerClass.equals(p.playerClass)){
                     p.playerClass = ps.playerClass;
@@ -224,8 +232,8 @@ public class GameClient {
                 gp.obj[i] = null;
                 continue;
             }
-            if(gp.obj[i] == null || !object.ItemRegistry.idFor(gp.obj[i]).equals(os.typeId)){
-                gp.obj[i] = object.ItemRegistry.create(os.typeId, gp);
+            if(gp.obj[i] == null || object.ItemRegistry.typeFor(gp.obj[i]) != os.type){
+                gp.obj[i] = object.ItemRegistry.create(os.type, gp);
             }
             if(gp.obj[i] != null){
                 gp.obj[i].worldX = os.worldX;
