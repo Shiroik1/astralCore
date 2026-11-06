@@ -47,10 +47,19 @@ public class GameServer {
                     }
                 }
                 if(object instanceof GameEvent event){
-                    pendingClientEvents.add(event);
+                    Integer senderId = connectionToPlayerId.get(connection.getID());
+                    boolean allowed = event.type == GameEventType.CHAT || event.type == GameEventType.RESPAWN_REQUEST;
+                    if(senderId != null && allowed){
+                        event.playerId = senderId; // never trust the id the client claims
+                        pendingClientEvents.add(event);
+                    }
                 }
                 if(object instanceof InventoryAction action){
-                    pendingInventoryActions.add(action);
+                    Integer senderId = connectionToPlayerId.get(connection.getID());
+                    if(senderId != null){
+                        action.playerId = senderId;
+                        pendingInventoryActions.add(action);
+                    }
                 }
                 if(object instanceof JoinRequest request){
                     Integer existingId = connectionToPlayerId.get(connection.getID());
@@ -184,8 +193,18 @@ public class GameServer {
     public void relayPendingClientEvents(){
         GameEvent event;
         while((event = pendingClientEvents.poll()) != null){
+            if(event.type == GameEventType.CHAT){
+                Player sender = gp.players[event.playerId];
+                String name = (sender != null && sender.playerName != null && !sender.playerName.isEmpty())
+                        ? sender.playerName : "Player " + (event.playerId + 1);
+                String text = (event.message == null) ? "" : event.message.trim();
+                if(text.isEmpty()) continue;
+                if(text.length() > 120) text = text.substring(0, 120);
+                event.message = name + ": " + text;
+                event.personalText = null;
+            }
             gp.applyGameEventLocally(event.playerId, event.type, event.message, event.personalText);
-            broadcastEvent(event); // pass it along to every other connected client
+            broadcastEvent(event); // pass it along to every connected client
         }
     }
 

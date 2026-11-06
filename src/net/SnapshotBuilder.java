@@ -7,6 +7,7 @@ import main.Gamepanel;
 import monster.MON_SlimeBoss;
 import object.ItemRegistry;
 import object.ItemType;
+import monster.MonsterType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,6 +105,7 @@ public class SnapshotBuilder {
             ms.maxHP = m.maxHP;
             ms.dying = m.dying;
             ms.alive = m.alive;
+            ms.monsterType = MonsterType.of(m);
             if(m instanceof MON_SlimeBoss boss){
                 ms.isBoss = true;
                 ms.bossState = boss.bossState;

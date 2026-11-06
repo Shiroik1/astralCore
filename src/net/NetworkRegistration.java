@@ -26,5 +26,6 @@ public class NetworkRegistration {
         kryo.register(InventoryActionType.class);
         kryo.register(object.ItemType.class);
         kryo.register(object.ItemType[].class);
+        kryo.register(monster.MonsterType.class);
     }
 }

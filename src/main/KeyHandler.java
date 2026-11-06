@@ -19,6 +19,8 @@ public class KeyHandler implements KeyListener {
     public StringBuilder networkAddressInput = new StringBuilder();
     public boolean enteringCharacterName = false;
     public StringBuilder characterNameInput = new StringBuilder();
+    public boolean enteringChat = false;
+    public StringBuilder chatInput = new StringBuilder();
 
     public int characterCreationStep = 0; // 0 = naming, 1 = class/gender select
     public int selectedClassIndex = 0; // 0 = swordsman, 1 = mage
@@ -46,6 +48,17 @@ public class KeyHandler implements KeyListener {
 
     //GAME THREAD: INTERPRET — called from Gamepanel.processInput(), once per queued event
     void handleKeyTyped(char c){
+        if(enteringChat){
+            if(c >= 32 && c < 127 && chatInput.length() < 120){
+                chatInput.append(c);
+            }
+            return;
+        }
+        if(c == '/' && canOpenChat()){
+            beginChat();
+            chatInput.append('/');
+            return;
+        }
         if(enteringNetworkAddress && c >= 32 && c < 127 && networkAddressInput.length() < 64){
             networkAddressInput.append(c);
         }
@@ -55,6 +68,10 @@ public class KeyHandler implements KeyListener {
     }
 
     void handleKeyPressed(int code){
+        if(enteringChat){
+            handleChatKeyPress(code);
+            return;
+        }
         if(enteringCharacterName){
             handleCharacterNameKeyPress(code);
             return;
@@ -140,6 +157,9 @@ public class KeyHandler implements KeyListener {
             rightPressed = true;
         }
         if(code == KeyEvent.VK_ENTER){
+            beginChat();
+        }
+        if(code == KeyEvent.VK_P){
             if(!gp.isNetworked){
                 gp.paused = true;
             }
@@ -168,7 +188,7 @@ public class KeyHandler implements KeyListener {
     }
 
     public void pauseState(int code){
-        if(code == KeyEvent.VK_ENTER){
+        if(code == KeyEvent.VK_ENTER || code == KeyEvent.VK_P){
             gp.paused = false;
         }
     }
@@ -307,5 +327,40 @@ public class KeyHandler implements KeyListener {
         boolean edge = escapePressed && !escapePressedPrevCapture;
         escapePressedPrevCapture = escapePressed;
         return edge;
+    }
+
+    private boolean canOpenChat(){
+        return gp.gameState == gp.playState && !gp.optionsOpen && !gp.paused
+                && !enteringNetworkAddress && !enteringCharacterName;
+    }
+
+    public void beginChat(){
+        if(!canOpenChat()) return;
+        enteringChat = true;
+        chatInput.setLength(0);
+        upPressed = false;
+        downPressed = false;
+        leftPressed = false;
+        rightPressed = false;
+    }
+
+    private void handleChatKeyPress(int code){
+        if(code == KeyEvent.VK_ENTER){
+            String text = chatInput.toString().trim();
+            enteringChat = false;
+            chatInput.setLength(0);
+            if(!text.isEmpty()){
+                gp.submitChat(text);
+            }
+        }
+        else if(code == KeyEvent.VK_ESCAPE){
+            enteringChat = false;
+            chatInput.setLength(0);
+        }
+        else if(code == KeyEvent.VK_BACK_SPACE){
+            if(chatInput.length() > 0){
+                chatInput.deleteCharAt(chatInput.length() - 1);
+            }
+        }
     }
 }

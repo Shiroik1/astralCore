@@ -20,7 +20,7 @@ public class Player extends Entity{
 
     public int playerId;
     public String playerName = "";
-    public String playerClass = "swordman";
+    public String playerClass = "swordsman";
     public String gender = "male";
 
     public boolean isLocal = true; // remote players (Step 3+) will explicitly set this false
@@ -851,6 +851,13 @@ public class Player extends Entity{
         }
     }
 
+    public void debugGrantLevels(int count){
+        for(int i = 0; i < count && level < 25; i++){ // the exp threshold doubles each level; this keeps it from overflowing an int
+            exp = nextLevelExp;
+            checkLevelUp();
+        }
+    }
+
     private void contactMonster(int index) {
         if(index != 999){
             if(!invincible && !gp.monster[index].dying){
@@ -1384,7 +1391,7 @@ public class Player extends Entity{
         currentInput = input;
         lastProcessedInputTick = input.tick;
         if(isLocal){
-            boolean movementSuppressedThisTick = inDialogue || isDead || gp.inventoryOpen || gp.optionsOpen;
+            boolean movementSuppressedThisTick = inDialogue || isDead || gp.inventoryOpen || gp.optionsOpen || gp.keyH.enteringChat;
             if(!movementSuppressedThisTick){
                 inputHistory.addLast(input);
                 while(inputHistory.size() > inputHistoryCapacity){

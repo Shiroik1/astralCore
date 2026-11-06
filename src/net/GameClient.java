@@ -8,6 +8,7 @@ import entity.Player;
 import main.Gamepanel;
 import monster.MON_GreenSlime;
 import monster.MON_SlimeBoss;
+import monster.MonsterType;
 
 import java.awt.*;
 import java.io.IOException;
@@ -166,6 +167,8 @@ public class GameClient {
                 p.direction = ps.direction;
                 p.HP = ps.HP;
                 p.maxHP = ps.maxHP;
+                p.rage = ps.rage;
+                p.maxRage = ps.maxRage;
                 p.MP = ps.MP;
                 p.maxMP = ps.maxMP;
                 p.animState = ps.animState;
@@ -197,8 +200,8 @@ public class GameClient {
                 gp.monster[i] = null;
                 continue;
             }
-            if(gp.monster[i] == null){
-                gp.monster[i] = ms.isBoss ? new MON_SlimeBoss(gp) : new MON_GreenSlime(gp);
+            if(gp.monster[i] == null || (ms.monsterType != null && MonsterType.of(gp.monster[i]) != ms.monsterType)){
+                gp.monster[i] = (ms.monsterType != null) ? ms.monsterType.create(gp) : new MON_GreenSlime(gp);
                 gp.monster[i].HP = ms.HP; // avoid a false "just got hit" trigger on first creation
             }
 

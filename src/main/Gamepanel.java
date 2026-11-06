@@ -70,6 +70,7 @@ public class Gamepanel extends JPanel implements Runnable{
     private int shakeOffsetX = 0;
     private int shakeOffsetY = 0;
     public final java.util.concurrent.ConcurrentLinkedQueue<RawInput> inputQueue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    public CommandProcessor commands = new CommandProcessor(this);
 
     //MOUSE SETTING
     public MouseHandler mouseH = new MouseHandler(this);
@@ -254,7 +255,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 localInput.aimWorldX = mouseH.getScaledX() - local.screenX + local.worldX;
                 localInput.aimWorldY = mouseH.getScaledY() - local.screenY + local.worldY;
                 java.util.Arrays.fill(keyH.skillKeyPressed, false); // skill presses are one-shot: consumed at capture
-                if(inventoryOpen || optionsOpen || paused){
+                if(inventoryOpen || optionsOpen || paused || keyH.enteringChat){
                     localInput.suppressGameplay();
                     mouseH.leftClicked = false;
                 }
@@ -591,7 +592,7 @@ public class Gamepanel extends JPanel implements Runnable{
         if(type == GameEventType.RESPAWN_REQUEST){
             if(!isNetworked || isHost){
                 Player target = players[playerId];
-                if(target != null){
+                if(target != null && target.isDead){
                     target.performRespawn();
                 }
             }
@@ -624,6 +625,7 @@ public class Gamepanel extends JPanel implements Runnable{
             case DEATH -> Color.red;
             case HEAL -> new Color(120, 200, 255);
             case SKILL -> new Color(200, 170, 255);
+            case CHAT -> new Color(235,235,235);
             default -> Color.white;
         };
     }
@@ -753,6 +755,23 @@ public class Gamepanel extends JPanel implements Runnable{
         } else {
             shakeOffsetX = 0;
             shakeOffsetY = 0;
+        }
+    }
+
+    public void submitChat(String text){
+        Player local = localPlayer();
+        if(local == null) return;
+
+        if(text.startsWith("/")){
+            commands.execute(text);
+            return;
+        }
+
+        if(isNetworked && !isHost){
+            broadcastPlayerEvent(local.playerId, GameEventType.CHAT, text, null); // the host formats and relays it
+        } else {
+            String name = (local.playerName != null && !local.playerName.isEmpty()) ? local.playerName : "Player " + (local.playerId + 1);
+            broadcastPlayerEvent(local.playerId, GameEventType.CHAT, name + ": " + text, null);
         }
     }
 

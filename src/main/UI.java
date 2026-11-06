@@ -372,9 +372,10 @@ public class UI {
         int boxX = combatLogBounds.x;
         int boxY = combatLogBounds.y;
         boolean hovering = combatLogHovered;
+        boolean chatActive = gp.keyH.enteringChat;
 
         //Background only shows while actively interacting
-        boolean boxVisible = hovering || chatScrollOffset > 0;
+        boolean boxVisible = hovering || chatActive || chatScrollOffset > 0;
         if(boxVisible){
             g2.setColor(new Color(0, 0, 0, 80));
             g2.fillRoundRect(boxX, boxY, chatLogWidth, chatLogHeight, 12, 12);
@@ -389,10 +390,10 @@ public class UI {
         int startIndex = Math.max(0, endIndex - chatVisibleLines);
 
         for(int i = endIndex - 1; i >= startIndex; i--){
-            ChatMessage msg = chatHistory.get(i);
+            ChatMessage msg = chatHistory.get(i);   // msg only exists from here, inside the loop
 
             float alpha = 1f;
-            if(chatScrollOffset == 0 && !hovering && msg.ageTicks > chatFadeStartTicks){
+            if(chatScrollOffset == 0 && !hovering && !chatActive && msg.ageTicks > chatFadeStartTicks){
                 float fadeProgress = (msg.ageTicks - chatFadeStartTicks) / (float) chatFadeDurationTicks;
                 alpha = Math.max(0f, 1f - fadeProgress);
             }
@@ -571,8 +572,12 @@ public class UI {
             int barX = startX + 60;
             drawMiniStatBar(barX, y, barWidth, hpHeight, p.HP, p.maxHP, new Color(60, 20, 20), new Color(200, 40, 40));
 
-            int mpY = y + hpHeight + 3;
-            drawMiniStatBar(barX, mpY, barWidth, mpHeight, p.MP, p.maxMP, new Color(20, 30, 60), new Color(60, 130, 230));
+            int secondY = y + hpHeight + 3;
+            if(p.playerClass.equals("mage")){
+                drawMiniStatBar(barX, secondY, barWidth, mpHeight, p.MP, p.maxMP, new Color(20, 30, 60), new Color(60, 130, 230));
+            } else {
+                drawMiniStatBar(barX, secondY, barWidth, mpHeight, p.rage, p.maxRage, new Color(50, 15, 15), new Color(220, 60, 30));
+            }
 
             y += hpHeight + 3 + mpHeight + 14; // advance to the next player's row
         }
@@ -869,7 +874,7 @@ public class UI {
         textY += gp.tileSize;
         g2.drawString("Move",textX, textY);
         textY += gp.tileSize;
-        g2.drawString("Confirm/Pause",textX, textY);
+        g2.drawString("Chat/Pause",textX, textY);
         textY += gp.tileSize;
         g2.drawString("Attack",textX, textY);
         textY += gp.tileSize;
@@ -883,7 +888,7 @@ public class UI {
         textY = frameY + gp.tileSize*2;
         g2.drawString("WASD", textX, textY);
         textY += gp.tileSize;
-        g2.drawString("ENTER", textX, textY);
+        g2.drawString("ENTER/P", textX, textY);
         textY += gp.tileSize;
         g2.drawString("E", textX, textY);
         textY += gp.tileSize;
@@ -1449,5 +1454,28 @@ public class UI {
         for(int i = startIndex; i < endIndex; i++){
             chatHistory.get(i).ageTicks++;
         }
+    }
+
+    private void drawChatInput(){
+        int boxX = combatLogBounds.x;
+        int boxHeight = 30;
+        int boxY = combatLogBounds.y - boxHeight - 6;
+
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.fillRoundRect(boxX, boxY, chatLogWidth, boxHeight, 10, 10);
+        g2.setColor(Color.white);
+        g2.setStroke(new BasicStroke(1));
+        g2.drawRoundRect(boxX, boxY, chatLogWidth, boxHeight, 10, 10);
+
+        g2.setFont(jetbrainsMono.deriveFont(14f));
+        String display = gp.keyH.chatInput.toString();
+        if((System.currentTimeMillis() / 400) % 2 == 0){
+            display += "_";
+        }
+        FontMetrics fm = g2.getFontMetrics();
+        while(display.length() > 1 && fm.stringWidth(display) > chatLogWidth - 20){
+            display = display.substring(1); // keep the tail visible when the text outgrows the box
+        }
+        g2.drawString(display, boxX + 10, boxY + 20);
     }
 }
