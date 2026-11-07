@@ -25,35 +25,18 @@ public class AssetSetter {
         int i = 0;
 
         gp.npc[i] = new NPC_oldman(gp);
-        gp.npc[i].worldX = 22 * gp.tileSize;
-        gp.npc[i].worldY = 14 * gp.tileSize;
+        gp.npc[i].worldX = 27 * gp.tileSize;
+        gp.npc[i].worldY = 23 * gp.tileSize;
         i++;
     }
 
     public void setMonster(){
-        int i = 0;
-
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 16;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 20;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 24;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 28;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
-        gp.monster[i] = new MON_GreenSlime(gp);
-        gp.monster[i].worldX = gp.tileSize * 32;
-        gp.monster[i].worldY = gp.tileSize * 36;
-        i++;
-
+        int[][] spots = {{13, 33}, {18, 38}, {32, 33}, {37, 37}, {30, 38}};
+        for(int i = 0; i < spots.length; i++){
+            gp.monster[i] = new MON_GreenSlime(gp);
+            gp.monster[i].worldX = gp.tileSize * spots[i][0];
+            gp.monster[i].worldY = gp.tileSize * spots[i][1];
+        }
     }
 
     public void setInteractiveTile(){

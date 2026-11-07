@@ -1,5 +1,5 @@
 package art;
 
 public enum Terrain {
-    GRASS, PATH, COBBLE
+    GRASS, PATH, COBBLE, DEEP
 }

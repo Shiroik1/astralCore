@@ -2,6 +2,7 @@ package main;
 
 import entity.Entity;
 import entity.Player;
+import world.WorldObject;
 
 import java.awt.*;
 
@@ -13,10 +14,7 @@ public class CollisionChecker {
     }
 
     private boolean isSolidTile(int col, int row){
-        if(col < 0 || row < 0 || col >= gp.maxWorldCol || row >= gp.maxWorldRow){
-            return true; // outside the map counts as a wall
-        }
-        return gp.tileM.tiles[gp.tileM.mapTileNum[col][row]].collision;
+        return gp.tileM.isSolid(col, row);
     }
 
     public void checkTile(Entity entity){
@@ -56,6 +54,8 @@ public class CollisionChecker {
                 }
             }
         }
+
+        checkScenery(entity);
     }
 
     public int checkObject(Entity entity, boolean player){
@@ -227,6 +227,57 @@ public class CollisionChecker {
         }
 
         return hits;
+    }
+
+    // Blocks movement into a scenery object's collision box. An entity already overlapping a box is allowed
+    // to move, so nothing can get permanently stuck (spawned inside one, knocked into one, and so on).
+    private void checkScenery(Entity entity){
+        int dx = 0, dy = 0;
+        switch (entity.direction){
+            case "up" -> dy = -entity.speed;
+            case "down" -> dy = entity.speed;
+            case "left" -> dx = -entity.speed;
+            case "right" -> dx = entity.speed;
+        }
+
+        int x = entity.worldX + entity.solidArea.x;
+        int y = entity.worldY + entity.solidArea.y;
+        Rectangle now = new Rectangle(x, y, entity.solidArea.width, entity.solidArea.height);
+        Rectangle moved = new Rectangle(x + dx, y + dy, entity.solidArea.width, entity.solidArea.height);
+
+        for(WorldObject o : gp.worldObjects){
+            if(!o.blocks) continue;
+            if(Math.abs(o.worldX - entity.worldX) > 300 || Math.abs(o.worldY - entity.worldY) > 300) continue; // cheap reject
+            if(moved.intersects(o.blockRect) && !now.intersects(o.blockRect)){
+                entity.collisionOn = true;
+                return;
+            }
+        }
+    }
+
+    // the nearest interactive object within reach of `source`, or null
+    public WorldObject findInteractable(Entity source){
+        Rectangle body = new Rectangle(source.worldX + source.solidArea.x, source.worldY + source.solidArea.y,
+                source.solidArea.width, source.solidArea.height);
+        body.grow(10, 10);
+        int cx = body.x + body.width / 2;
+        int cy = body.y + body.height / 2;
+
+        WorldObject best = null;
+        long bestDist = Long.MAX_VALUE;
+        for(WorldObject o : gp.worldObjects){
+            if(!o.isInteractive()) continue;
+            Rectangle reach = o.reachRect();
+            if(!body.intersects(reach)) continue;
+            long dx = reach.x + reach.width / 2 - cx;
+            long dy = reach.y + reach.height / 2 - cy;
+            long dist = dx * dx + dy * dy;
+            if(dist < bestDist){
+                bestDist = dist;
+                best = o;
+            }
+        }
+        return best;
     }
 
 }

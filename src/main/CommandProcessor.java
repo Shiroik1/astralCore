@@ -6,6 +6,9 @@ import entity.Player;
 import monster.MonsterType;
 import object.ItemRegistry;
 import object.ItemType;
+import world.SceneryLoader;
+import world.WorldObject;
+import world.WorldObjectType;
 
 import java.awt.Color;
 import java.util.Arrays;
@@ -44,6 +47,9 @@ public class CommandProcessor {
             case "give" -> give(me, args);
             case "kill" -> killAll();
             case "clear" -> clearAll();
+            case "place" -> place(me, args);
+            case "remove" -> remove(me);
+            case "saveobjects" -> saveObjects();
             default -> reply("Unknown command: /" + cmd + "  (try /help)", ERROR);
         }
     }
@@ -53,11 +59,13 @@ public class CommandProcessor {
         reply("/level [n]   /tp <col> <row>", INFO);
         reply("/spawn <monster> [n]", INFO);
         reply("/give <item> [n]", INFO);
+        reply("/place <obj> [text]  /remove  /saveobjects", INFO);
     }
 
     private void list(){
         replyList("Monsters", Arrays.stream(MonsterType.values()).map(t -> t.name().toLowerCase(Locale.ROOT)).toList());
         replyList("Items", Arrays.stream(ItemType.values()).map(t -> t.name().toLowerCase(Locale.ROOT)).toList());
+        replyList("Objects", Arrays.stream(WorldObjectType.values()).map(t -> t.name().toLowerCase(Locale.ROOT)).toList());
     }
 
     private void pos(Player me){
@@ -207,10 +215,8 @@ public class CommandProcessor {
         reply("Removed " + n + " monster(s).", INFO);
     }
 
-    //HELPERS
     private boolean isWalkable(int col, int row){
-        if(col < 0 || row < 0 || col >= gp.maxWorldCol || row >= gp.maxWorldRow) return false;
-        return !gp.tileM.tiles[gp.tileM.mapTileNum[col][row]].collision;
+        return !gp.tileM.isSolid(col, row);
     }
 
     // up to 3 tiles in front of the player, backing off to the player's own tile if walls are in the way
@@ -266,5 +272,74 @@ public class CommandProcessor {
             line.append(piece);
         }
         reply(line.toString(), INFO);
+    }
+
+    private void place(Player me, String[] args){
+        if(gp.isNetworked){
+            reply("Placing objects only works in single-player.", ERROR);
+            return;
+        }
+        if(args.length < 2){
+            reply("Usage: /place <object> [text]   (see /list)", ERROR);
+            return;
+        }
+        WorldObjectType type = WorldObjectType.fromName(args[1]);
+        if(type == null){
+            reply("Unknown object: " + args[1], ERROR);
+            return;
+        }
+        int[] tile = facingTile(me);
+        String text = args.length > 2
+                ? String.join(" ", Arrays.copyOfRange(args, 2, args.length)).replace("\\n", "\n")
+                : null;
+        gp.worldObjects.add(new WorldObject(gp, type, tile[0], tile[1], text));
+        reply("Placed " + args[1].toLowerCase(Locale.ROOT) + " at " + tile[0] + ", " + tile[1] + ".", INFO);
+    }
+
+    private void remove(Player me){
+        if(gp.isNetworked){
+            reply("Removing objects only works in single-player.", ERROR);
+            return;
+        }
+        int[] tile = facingTile(me);
+        int fx = tile[0] * gp.tileSize + gp.tileSize / 2;
+        int fy = (tile[1] + 1) * gp.tileSize - 4;
+
+        WorldObject best = null;
+        long bestDist = (long) (gp.tileSize * 2) * (gp.tileSize * 2); // within two tiles
+        for(WorldObject o : gp.worldObjects){
+            long dx = o.worldX - fx;
+            long dy = o.worldY - fy;
+            long d = dx * dx + dy * dy;
+            if(d < bestDist){
+                bestDist = d;
+                best = o;
+            }
+        }
+        if(best == null){
+            reply("Nothing close enough to remove.", ERROR);
+            return;
+        }
+        gp.worldObjects.remove(best);
+        reply("Removed " + best.kind.name().toLowerCase(Locale.ROOT) + ".", INFO);
+    }
+
+    private void saveObjects(){
+        reply(SceneryLoader.save(gp)
+                ? "Saved " + gp.worldObjects.size() + " objects to " + SceneryLoader.EXTERNAL_PATH + "."
+                : "Could not save (see the console).", gp.worldObjects.isEmpty() ? ERROR : INFO);
+    }
+
+    // the tile directly in front of the player
+    private int[] facingTile(Player me){
+        int col = Math.floorDiv(me.worldX + me.solidArea.x + me.solidArea.width / 2, gp.tileSize);
+        int row = Math.floorDiv(me.worldY + me.solidArea.y + me.solidArea.height / 2, gp.tileSize);
+        switch(me.direction){
+            case "up" -> row--;
+            case "down" -> row++;
+            case "left" -> col--;
+            case "right" -> col++;
+        }
+        return new int[]{col, row};
     }
 }

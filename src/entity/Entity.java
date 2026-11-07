@@ -351,6 +351,11 @@ public class Entity {
         g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alphaValue));
     }
 
+    // depth-sorting key: the bottom of the collision box, so things in front draw over things behind
+    public int sortY(){
+        return worldY + solidArea.y + solidArea.height;
+    }
+
     public Color getParticleColor(){
         Color color = null;
         return  color;

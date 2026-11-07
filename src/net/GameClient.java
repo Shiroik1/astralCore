@@ -9,6 +9,7 @@ import main.Gamepanel;
 import monster.MON_GreenSlime;
 import monster.MON_SlimeBoss;
 import monster.MonsterType;
+import world.WorldObject;
 
 import java.awt.*;
 import java.io.IOException;
@@ -20,6 +21,7 @@ public class GameClient {
     private ConcurrentLinkedQueue<WorldSnapshot> pendingSnapshots = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<JoinAccepted> pendingJoinAccepted = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<GameEvent> pendingEvents = new ConcurrentLinkedQueue<>();
+    private boolean warnedSceneryMismatch = false;
 
     private volatile boolean hostLost = false;
 
@@ -251,6 +253,23 @@ public class GameClient {
             gp.npc[i].worldX = ns.worldX;
             gp.npc[i].worldY = ns.worldY;
             gp.npc[i].direction = ns.direction;
+        }
+
+        if(snapshot.sceneryState != null){
+            int expected = 0;
+            for(WorldObject o : gp.worldObjects){
+                if(o.hasState()) expected++;
+            }
+            if(expected == snapshot.sceneryState.length){
+                int i = 0;
+                for(WorldObject o : gp.worldObjects){
+                    if(o.hasState()) o.state = snapshot.sceneryState[i++];
+                }
+            } else if(!warnedSceneryMismatch){
+                warnedSceneryMismatch = true;
+                System.out.println("[CLIENT] scenery mismatch: host has " + snapshot.sceneryState.length
+                        + " stateful objects, this client has " + expected + ". Use the same maps/ files.");
+            }
         }
     }
 

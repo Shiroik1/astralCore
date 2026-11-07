@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import world.SceneryLoader;
+import world.WorldObject;
 
 import static main.Main.window;
 
@@ -90,6 +92,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public Monster monster[] = new Monster[20];
     public InteractiveTile interactable[] = new InteractiveTile[50];
     public ArrayList<Entity> entityList = new ArrayList<>();
+    public java.util.List<WorldObject> worldObjects = new ArrayList<>();
     public ArrayList<Entity> projectileList = new ArrayList<>();
     public ArrayList<Entity> particleList = new ArrayList<>();
     public java.util.List<entity.FloatingText> floatingTextList = new java.util.ArrayList<>();
@@ -128,6 +131,7 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void setUpGame(){
+        SceneryLoader.load(this);
         assetSetter.setObject();
         assetSetter.setNPC();
         assetSetter.setMonster();
@@ -353,6 +357,11 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            //WORLD OBJECTS (visual only: trees and roofs fade when the player is behind them)
+            for(WorldObject o : worldObjects){
+                o.update();
+            }
+
             //FLOATING TEXT
             for(int i = floatingTextList.size() - 1; i >= 0; i--){
                 if(!floatingTextList.get(i).update()){
@@ -384,6 +393,12 @@ public class Gamepanel extends JPanel implements Runnable{
 
             //TILE
             tileM.draw(g2);
+
+            for(WorldObject o : worldObjects){
+                if(o.onScreen()){
+                    entityList.add(o);
+                }
+            }
 
             //GROUND-LEVEL PARTICLE EFFECTS - always drawn beneath every entity
             for(int i = 0; i < particleList.size(); i++){
@@ -435,16 +450,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
-
-
-            //SORT
-            Collections.sort(entityList, new Comparator<Entity>() {
-                @Override
-                public int compare(Entity e1, Entity e2) {
-                    int result = Integer.compare(e1.worldY, e2.worldY);
-                    return result;
-                }
-            });
+            entityList.sort(Comparator.comparingInt(Entity::sortY));
 
             //DRAW ENTITIES
             for(int i = 0; i < entityList.size(); i++){
@@ -533,6 +539,10 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void resetAfterNetworkSession(){
         Player local = localPlayer();
+
+        for(WorldObject o : worldObjects){
+            o.state = 0;
+        }
 
         for(int i = 0; i < players.length; i++){
             players[i] = null;
@@ -674,6 +684,11 @@ public class Gamepanel extends JPanel implements Runnable{
                 n.highlighted = true;
             }
         }
+
+        WorldObject near = collisionChecker.findInteractable(local);
+        for(WorldObject o : worldObjects){
+            o.highlighted = (o == near);
+        }
     }
 
     private void applyHoverHighlight(Entity[] arr, int mouseWorldX, int mouseWorldY){
@@ -693,8 +708,8 @@ public class Gamepanel extends JPanel implements Runnable{
         for(int i = 0; i < monster.length; i++){
             if(monster[i] == null){
                 monster.MON_SlimeBoss boss = new monster.MON_SlimeBoss(this);
-                boss.worldX = tileSize * 24; // placeholder spawn point — move as needed
-                boss.worldY = tileSize * 30;
+                boss.worldX = tileSize * 25; // placeholder spawn point — move as needed
+                boss.worldY = tileSize * 36;
                 monster[i] = boss;
                 ui.addMessage("The Slime King has awoken!", new Color(200, 60, 220));
                 break;

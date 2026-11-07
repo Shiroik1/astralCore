@@ -446,4 +446,24 @@ public class ObjectArt {
         g.fill(new RoundRectangle2D.Double(21, 24, 6, 7, 2, 2));
         return done("chest", s, 24, 41, -16, -12, 32, 12, true);
     }
+
+    public Sprite chestOpen(){
+        ArtKit.Surface s = begin(1, 1);
+        Graphics2D g = s.g;
+        OutlineStyle o = OutlineStyle.INTERACTIVE;
+        shadow(g, 27, 42, 17, 4);
+        Path2D.Double lid = new Path2D.Double();   // the lid swung up behind the box
+        lid.moveTo(9, 20);
+        lid.lineTo(11, 6);
+        lid.quadTo(24, -1, 37, 6);
+        lid.lineTo(39, 20);
+        lid.closePath();
+        part(g, lid, ArtKit.mix(Palette.WOOD, Palette.WOOD_LIGHT, 0.4f), o, 3, true);
+        part(g, new RoundRectangle2D.Double(8, 20, 32, 21, 4, 4), Palette.WOOD, o, 3, true);
+        g.setColor(ArtKit.shade(ArtKit.shade(Palette.WOOD)));
+        g.fill(new RoundRectangle2D.Double(11, 22, 26, 7, 3, 3));   // dark, empty inside
+        g.setColor(Palette.GOLD);
+        g.fill(new Rectangle2D.Double(21, 29, 6, 12));
+        return done("chest_open", s, 24, 41, -16, -12, 32, 12, true);
+    }
 }

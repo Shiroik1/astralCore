@@ -42,12 +42,6 @@ public class EventHandler {
         if(distance > gp.tileSize){
             player.canTouchEvent = true;
         }
-
-        if(player.canTouchEvent){
-            if(hit(32,18,"up", player)){
-                healingPool(32,18, player);
-            }
-        }
     }
 
     public void healingPool(int col, int row, Player player){

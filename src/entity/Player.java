@@ -14,6 +14,7 @@ import net.InputState;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
+import world.WorldObject;
 
 public class Player extends Entity{
     KeyHandler keyH;
@@ -120,8 +121,8 @@ public class Player extends Entity{
 
     public void setDefaultValues(){
         type = type_player;
-        worldX = gp.tileSize * 12;
-        worldY = gp.tileSize * 20;
+        worldX = gp.tileSize * 25;
+        worldY = gp.tileSize * 28;
         speed = 4;
         direction = "down";
 
@@ -165,8 +166,8 @@ public class Player extends Entity{
     }
 
     public void setDefaultPosition(){
-        worldX = gp.tileSize * 12;
-        worldY = gp.tileSize * 20;
+        worldX = gp.tileSize * 25;
+        worldY = gp.tileSize * 28;
         direction = "down";
     }
 
@@ -556,6 +557,7 @@ public class Player extends Entity{
                 //CHECK NPC COLLISION
                 int npcIndex = gp.collisionChecker.checkEntity(this, gp.npc);
                 interactNPC(npcIndex);
+                interactScenery();
 
                 //CHECK MONSTER COLLISION
                 int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
@@ -1727,5 +1729,17 @@ public class Player extends Entity{
         spawnNovaCastParticles();
         gp.startScreenShake(10, 8);
         announceSkill("Arcane Detonation");
+    }
+
+    private void interactScenery(){
+        if(!currentInput.ePressed || attackCanceled) return;
+
+        WorldObject target = gp.collisionChecker.findInteractable(this);
+        if(target == null) return;
+
+        attackCanceled = true; // E opens things instead of swinging the weapon
+        if(canResolveWorldActions()){
+            target.interact(this);
+        }
     }
 }

@@ -1,142 +1,164 @@
 package tile;
 
+import art.GroundTiles;
+import art.Palette;
+import art.Terrain;
+import entity.Player;
 import main.Gamepanel;
-import main.UtilityTool;
+import world.TownMapGenerator;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
-import java.io.BufferedReader;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
-import entity.Player;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-public class TileManager {
-    Gamepanel gp;
-    public Tile[] tiles;
-    public int mapTileNum[][];
-    ArrayList<String> filenames = new ArrayList<>();
-    ArrayList<String> collisionStatus = new ArrayList<>();
+public class TileManager implements GroundTiles.World {
+    private static final String TERRAIN_PATH = "maps/terrain.txt";
+    private static final String LEVELS_PATH = "maps/levels.txt";
+    private static final int CHUNK = 16; // tiles per chunk side
+
+    private final Gamepanel gp;
+    private final GroundTiles ground;
+    private Terrain[][] terrainGrid;   // [col][row]
+    private int[][] levelGrid;
+    private final Map<Integer, BufferedImage> chunks = new HashMap<>();
 
     public TileManager(Gamepanel gp) throws IOException {
         this.gp = gp;
-
-        //READ TILE DATA
-        InputStream is = getClass().getResourceAsStream("/maps/tile_data.txt");
-        BufferedReader br = new BufferedReader(new InputStreamReader(is));
-
-        String line;
-        while ((line = br.readLine()) != null){
-            filenames.add(line);
-            collisionStatus.add(br.readLine());
-        }
-        br.close();
-
-        tiles = new Tile[filenames.size()];
-
-        getTileImage();
-
-        is = getClass().getResourceAsStream("/maps/overworld.txt");
-        br = new BufferedReader(new InputStreamReader(is));
-
-        String line2 = br.readLine();
-        String maxTile[] = line2.split(" ");
-
-        gp.maxWorldCol = maxTile.length;
-        gp.maxWorldRow = maxTile.length;
-
-        mapTileNum = new int[gp.maxWorldCol][gp.maxWorldRow];
-
-        br.close();
-
-        loadMap("/maps/overworld.txt");
+        this.ground = new GroundTiles(gp.tileSize);
+        loadMap();
+        bakeAll();
     }
 
-    public void getTileImage(){
-
-        for(int i = 0; i < filenames.size(); i++){
-            String fileName;
-            boolean collision;
-
-            fileName = filenames.get(i);
-
-            if(collisionStatus.get(i).equals("true")){
-                collision = true;
-            }
-            else {
-                collision = false;
-            }
-
-            setup(i, fileName, collision);
+    private void loadMap() throws IOException {
+        if(!new File(TERRAIN_PATH).isFile() && getClass().getResource("/maps/terrain.txt") == null){
+            System.out.println("[MAP] no terrain.txt found, generating the starter town");
+            TownMapGenerator.writeFiles();
         }
 
-    }
+        List<String> terrainLines = readLines(TERRAIN_PATH, "/maps/terrain.txt");
+        List<String> levelLines = readLines(LEVELS_PATH, "/maps/levels.txt");
 
-    public void setup(int index, String imageName, boolean collision){
-        UtilityTool utilityTool = new UtilityTool();
+        int rows = terrainLines.size();
+        int cols = terrainLines.get(0).length();
+        gp.maxWorldCol = cols;
+        gp.maxWorldRow = rows;
 
-        try{
-            tiles[index] = new Tile();
-            tiles[index].image = ImageIO.read(getClass().getResourceAsStream("/tile/" + imageName));
-            tiles[index].image = utilityTool.scaleImage(tiles[index].image, gp.tileSize, gp.tileSize);
-            tiles[index].collision = collision;
-        }
-        catch (Exception e){
-            e.printStackTrace();
+        terrainGrid = new Terrain[cols][rows];
+        levelGrid = new int[cols][rows];
+        for(int r = 0; r < rows; r++){
+            String line = terrainLines.get(r);
+            String levels = (r < levelLines.size()) ? levelLines.get(r) : "";
+            for(int c = 0; c < cols; c++){
+                terrainGrid[c][r] = parse(c < line.length() ? line.charAt(c) : '.');
+                char lv = c < levels.length() ? levels.charAt(c) : '0';
+                levelGrid[c][r] = Math.max(0, Math.min(GroundTiles.LEVELS - 1, lv - '0'));
+            }
         }
     }
 
-    public void loadMap(String mapFilePath){
-        try{
-            InputStream is = getClass().getResourceAsStream(mapFilePath);
-            BufferedReader br = new BufferedReader(new InputStreamReader(is));
+    private static Terrain parse(char ch){
+        return switch(ch){
+            case '=' -> Terrain.PATH;
+            case '#' -> Terrain.COBBLE;
+            case 'X' -> Terrain.DEEP;
+            default -> Terrain.GRASS;
+        };
+    }
 
-            int col = 0;
-            int row = 0;
-
-            while(col < gp.maxWorldCol && row < gp.maxWorldRow){
-                String line = br.readLine();
-
-                while (col < gp.maxWorldCol){
-                    String numbers[] = line.split(" ");
-                    int num = Integer.parseInt(numbers[col]);
-
-                    mapTileNum[col][row] = num;
-                    col++;
-                }
-
-                if(col == gp.maxWorldCol){
-                    col = 0;
-                    row++;
-                }
+    // a file next to the game wins over a bundled copy, so hand edits take effect on the next launch
+    private List<String> readLines(String externalPath, String resourcePath) throws IOException {
+        String text;
+        File f = new File(externalPath);
+        if(f.isFile()){
+            text = Files.readString(f.toPath(), StandardCharsets.UTF_8);
+        } else {
+            try(InputStream is = getClass().getResourceAsStream(resourcePath)){
+                if(is == null) throw new IOException("Missing map file: " + externalPath);
+                text = new String(is.readAllBytes(), StandardCharsets.UTF_8);
             }
-
-            br.close();
-
         }
-        catch (Exception e){
-            e.printStackTrace();
+        List<String> lines = new ArrayList<>();
+        for(String line : text.split("\\R")){
+            if(!line.isBlank()) lines.add(line.stripTrailing());
         }
+        return lines;
+    }
+
+    //WORLD INTERFACE (read by GroundTiles; out-of-range cells return the nearest valid cell)
+    @Override
+    public Terrain terrain(int col, int row){
+        return terrainGrid[Math.max(0, Math.min(gp.maxWorldCol - 1, col))][Math.max(0, Math.min(gp.maxWorldRow - 1, row))];
+    }
+
+    @Override
+    public int level(int col, int row){
+        return levelGrid[Math.max(0, Math.min(gp.maxWorldCol - 1, col))][Math.max(0, Math.min(gp.maxWorldRow - 1, row))];
+    }
+
+    // the only terrain rule the rest of the game needs: outside the map and deep forest are walls
+    public boolean isSolid(int col, int row){
+        if(col < 0 || row < 0 || col >= gp.maxWorldCol || row >= gp.maxWorldRow) return true;
+        return terrainGrid[col][row] == Terrain.DEEP;
+    }
+
+    //BAKING: the ground never changes, so draw it once into 16x16-tile images
+    private void bakeAll(){
+        long start = System.currentTimeMillis();
+        int chunkCols = (gp.maxWorldCol + CHUNK - 1) / CHUNK;
+        int chunkRows = (gp.maxWorldRow + CHUNK - 1) / CHUNK;
+        for(int cy = 0; cy < chunkRows; cy++){
+            for(int cx = 0; cx < chunkCols; cx++){
+                chunks.put(cy * 100 + cx, bakeChunk(cx, cy));
+            }
+        }
+        System.out.println("[MAP] baked " + chunks.size() + " ground chunks in " + (System.currentTimeMillis() - start) + " ms");
+    }
+
+    private BufferedImage bakeChunk(int cx, int cy){
+        int ts = gp.tileSize;
+        int tilesW = Math.min(CHUNK, gp.maxWorldCol - cx * CHUNK);
+        int tilesH = Math.min(CHUNK, gp.maxWorldRow - cy * CHUNK);
+        BufferedImage img = new BufferedImage(tilesW * ts, tilesH * ts, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        for(int r = 0; r < tilesH; r++){
+            for(int c = 0; c < tilesW; c++){
+                ground.drawCell(g, this, cx * CHUNK + c, cy * CHUNK + r, c * ts, r * ts);
+            }
+        }
+        g.dispose();
+        return img;
     }
 
     public void draw(Graphics2D g2){
         Player camera = gp.localPlayer();
         int viewLeft = camera.worldX - camera.screenX;
         int viewTop = camera.worldY - camera.screenY;
+        int ts = gp.tileSize;
 
-        // one extra tile of margin on each side so screen shake never exposes a gap
-        int firstCol = Math.max(0, Math.floorDiv(viewLeft, gp.tileSize) - 1);
-        int lastCol = Math.min(gp.maxWorldCol - 1, Math.floorDiv(viewLeft + gp.screenWidth, gp.tileSize) + 1);
-        int firstRow = Math.max(0, Math.floorDiv(viewTop, gp.tileSize) - 1);
-        int lastRow = Math.min(gp.maxWorldRow - 1, Math.floorDiv(viewTop + gp.screenHeight, gp.tileSize) + 1);
+        // beyond the map edge: the deepest forest tone, so the screen never shows a black void
+        g2.setColor(Palette.GROUND[GroundTiles.LEVELS - 1]);
+        g2.fillRect(-ts * 2, -ts * 2, gp.screenWidth + ts * 4, gp.screenHeight + ts * 4);
 
-        for(int row = firstRow; row <= lastRow; row++){
-            for(int col = firstCol; col <= lastCol; col++){
-                int tileNum = mapTileNum[col][row];
-                int screenX = col * gp.tileSize - camera.worldX + camera.screenX;
-                int screenY = row * gp.tileSize - camera.worldY + camera.screenY;
-                g2.drawImage(tiles[tileNum].image, screenX, screenY, null);
+        int chunkPx = CHUNK * ts;
+        int firstCx = Math.max(0, Math.floorDiv(viewLeft - ts, chunkPx));
+        int lastCx = Math.min((gp.maxWorldCol - 1) / CHUNK, Math.floorDiv(viewLeft + gp.screenWidth + ts, chunkPx));
+        int firstCy = Math.max(0, Math.floorDiv(viewTop - ts, chunkPx));
+        int lastCy = Math.min((gp.maxWorldRow - 1) / CHUNK, Math.floorDiv(viewTop + gp.screenHeight + ts, chunkPx));
+
+        for(int cy = firstCy; cy <= lastCy; cy++){
+            for(int cx = firstCx; cx <= lastCx; cx++){
+                BufferedImage img = chunks.get(cy * 100 + cx);
+                if(img == null) continue;
+                g2.drawImage(img, cx * chunkPx - camera.worldX + camera.screenX,
+                        cy * chunkPx - camera.worldY + camera.screenY, null);
             }
         }
     }

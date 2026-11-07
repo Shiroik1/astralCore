@@ -6,4 +6,5 @@ public class WorldSnapshot {
     public MonsterState[] monsters;
     public ObjectState[] objects;
     public NpcState[] npcs;
+    public byte[] sceneryState;
 }

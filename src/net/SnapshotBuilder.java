@@ -11,6 +11,7 @@ import monster.MonsterType;
 
 import java.util.ArrayList;
 import java.util.List;
+import world.WorldObject;
 
 public class SnapshotBuilder {
 
@@ -21,6 +22,7 @@ public class SnapshotBuilder {
         snapshot.monsters = buildMonsters(gp);
         snapshot.objects = buildObjects(gp);
         snapshot.npcs = buildNpcs(gp);
+        snapshot.sceneryState = buildScenery(gp);
         return snapshot;
     }
 
@@ -143,6 +145,19 @@ public class SnapshotBuilder {
             ns.worldY = n.worldY;
             ns.direction = n.direction;
             states[i] = ns;
+        }
+        return states;
+    }
+
+    private static byte[] buildScenery(Gamepanel gp){
+        int n = 0;
+        for(WorldObject o : gp.worldObjects){
+            if(o.hasState()) n++;
+        }
+        byte[] states = new byte[n];
+        int i = 0;
+        for(WorldObject o : gp.worldObjects){
+            if(o.hasState()) states[i++] = (byte) o.state;
         }
         return states;
     }
