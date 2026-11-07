@@ -219,6 +219,7 @@ public class UI {
                 drawOtherPlayersHUD(local);
             }
             drawCombatLog();
+            gp.grassEditor.drawHud(g2, jetbrainsMono);
             drawSkillHotbar();
 
             if(gp.inventoryOpen){

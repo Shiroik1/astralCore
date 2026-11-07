@@ -141,6 +141,7 @@ public class KeyHandler implements KeyListener {
     }
 
     public void playState(int code){
+        if(gp.grassEditor.active && gp.grassEditor.handleKey(code)) return; // brush keys are not skill keys
         if(code == KeyEvent.VK_T){
             showDebug = !showDebug;
         }

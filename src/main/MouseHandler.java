@@ -16,6 +16,7 @@ public class MouseHandler implements MouseListener, MouseMotionListener, MouseWh
     public boolean leftClicked;   // one-shot, lives exactly one tick (cleared in Gamepanel.processInput)
     public boolean rightClicked;  // one-shot, same lifetime
     public boolean leftPressed;   // held state
+    public boolean rightPressed;
     public int wheelRotation = 0;
 
     public MouseHandler(Gamepanel gp){
@@ -81,6 +82,9 @@ public class MouseHandler implements MouseListener, MouseMotionListener, MouseWh
     void handleMouseReleased(int button){
         if(button == MouseEvent.BUTTON1){
             leftPressed = false;
+        }
+        if(button == MouseEvent.BUTTON3){
+            rightPressed = false;
         }
     }
 

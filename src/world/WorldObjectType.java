@@ -72,4 +72,17 @@ public enum WorldObjectType {
         }
         return null;
     }
+
+    private static final double[][] NO_LIGHTS = {};
+    private static final double[][] LANTERN_LIGHTS = {{0, -66, 150, 1.0}};
+    private static final double[][] HOUSE_LIGHTS = {{-51, -57, 80, 0.8}, {47, -57, 80, 0.8}};
+
+    // light sources relative to the object's foot point: {dx, dy, radius, intensity}, in 48-unit art coordinates
+    public double[][] lights(){
+        return switch(this){
+            case LANTERN -> LANTERN_LIGHTS;
+            case HOUSE_CORAL, HOUSE_THATCH, HOUSE_SLATE -> HOUSE_LIGHTS;
+            default -> NO_LIGHTS;
+        };
+    }
 }

@@ -13,10 +13,13 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import world.SceneryLoader;
 import world.WorldObject;
+import world.AmbientFX;
+import world.GrassEditor;
+import world.GrassLayer;
+import world.Lighting;
 
 import static main.Main.window;
 
@@ -55,7 +58,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public int maxWorldRow;
 
     //SYSTEM
-    TileManager tileM = new TileManager(this);
+    public TileManager tileM = new TileManager(this);
     public KeyHandler keyH = new KeyHandler(this);
     Sound soundEffect = new Sound();
     Sound music = new Sound();
@@ -63,6 +66,10 @@ public class Gamepanel extends JPanel implements Runnable{
     public AssetSetter assetSetter = new AssetSetter(this);
     public UI ui = new UI(this);
     public EventHandler eventHandler = new EventHandler(this);
+    public AmbientFX ambient = new AmbientFX(this);
+    public Lighting lighting = new Lighting(this);
+    public GrassLayer grass = new GrassLayer(this);
+    public GrassEditor grassEditor = new GrassEditor(this);
     Config config = new Config(this);
     Thread gameThread;
     public int hitStopCounter = 0;
@@ -132,6 +139,7 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void setUpGame(){
         SceneryLoader.load(this);
+        grass.load();
         assetSetter.setObject();
         assetSetter.setNPC();
         assetSetter.setMonster();
@@ -263,6 +271,11 @@ public class Gamepanel extends JPanel implements Runnable{
                     localInput.suppressGameplay();
                     mouseH.leftClicked = false;
                 }
+                if(grassEditor.active){
+                    localInput.leftClicked = false;   // painting must not swing the weapon
+                    mouseH.leftClicked = false;
+                    localInput.targetedMonsterIndex = -1;
+                }
                 local.applyInput(localInput);
             }
 
@@ -362,6 +375,12 @@ public class Gamepanel extends JPanel implements Runnable{
                 o.update();
             }
 
+            //AMBIENT, LIGHTING AND GRASS
+            ambient.update();
+            lighting.update();
+            grass.update();
+            grassEditor.update();
+
             //FLOATING TEXT
             for(int i = floatingTextList.size() - 1; i >= 0; i--){
                 if(!floatingTextList.get(i).update()){
@@ -413,6 +432,8 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            grass.drawBase(g2);
+
             //ADD ENTITIES TO THE LIST
             for(Player p : players){
                 if(p != null){
@@ -455,6 +476,7 @@ public class Gamepanel extends JPanel implements Runnable{
             //DRAW ENTITIES
             for(int i = 0; i < entityList.size(); i++){
                 entityList.get(i).draw(g2);
+                grass.drawFront(g2, entityList.get(i));
             }
 
             //EMPTY ENTITY LIST
@@ -464,7 +486,12 @@ public class Gamepanel extends JPanel implements Runnable{
                 ft.draw(g2);
             }
 
+            ambient.drawLeaves(g2);
+            grassEditor.drawBrush(g2);
+
             g2.translate(-shakeOffsetX, -shakeOffsetY);
+
+            lighting.draw(g2, shakeOffsetX, shakeOffsetY);
 
             //UI
             ui.draw(g2);

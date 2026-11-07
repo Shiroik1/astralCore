@@ -123,6 +123,7 @@ public class MON_SlimeBoss extends Monster {
             }
         }
         direction = savedDirection;
+        gp.grass.burst(worldX + solidArea.x + solidArea.width / 2f, worldY + solidArea.y + solidArea.height / 2f, slamRadius, 1f);
         gp.startScreenShake(15, 10);
         gp.startHitStop(10);
         gp.playSE(6);

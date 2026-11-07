@@ -609,6 +609,7 @@ public class Player extends Entity{
                     if(playerClass.equals("mage")){
                         direction = radialDirection(mageAimX - (worldX + gp.tileSize/2), mageAimY - (worldY + gp.tileSize/2));
                     }
+                    gustGrass();
                 }
 
             if(isLocal){
@@ -683,6 +684,12 @@ public class Player extends Entity{
             }
         }
 
+    }
+
+    private void gustGrass(){
+        float dirX = direction.equals("left") ? -1 : direction.equals("right") ? 1 : 0;
+        float dirY = direction.equals("up") ? -1 : direction.equals("down") ? 1 : 0;
+        gp.grass.burst(worldX + gp.tileSize / 2f + dirX * 30, worldY + solidArea.y + solidArea.height + dirY * 24, 56, 0.6f);
     }
 
     public void attacking() {

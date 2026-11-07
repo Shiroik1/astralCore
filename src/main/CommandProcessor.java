@@ -9,6 +9,8 @@ import object.ItemType;
 import world.SceneryLoader;
 import world.WorldObject;
 import world.WorldObjectType;
+import world.GrassLayer;
+import world.Lighting;
 
 import java.awt.Color;
 import java.util.Arrays;
@@ -50,6 +52,9 @@ public class CommandProcessor {
             case "place" -> place(me, args);
             case "remove" -> remove(me);
             case "saveobjects" -> saveObjects();
+            case "mood" -> mood(args);
+            case "paint" -> paint(args);
+            case "savegrass" -> saveGrass();
             default -> reply("Unknown command: /" + cmd + "  (try /help)", ERROR);
         }
     }
@@ -60,6 +65,9 @@ public class CommandProcessor {
         reply("/spawn <monster> [n]", INFO);
         reply("/give <item> [n]", INFO);
         reply("/place <obj> [text]  /remove  /saveobjects", INFO);
+        reply("/mood <day|golden|dusk|night|off>", INFO);
+        reply("/paint <short|tall|flowers|erase|off>", INFO);
+        reply("/savegrass", INFO);
     }
 
     private void list(){
@@ -341,5 +349,67 @@ public class CommandProcessor {
             case "right" -> col++;
         }
         return new int[]{col, row};
+    }
+
+    private void mood(String[] args){
+        if(args.length < 2){
+            reply("Usage: /mood <day|golden|dusk|night|off>", ERROR);
+            return;
+        }
+        String name = args[1].toLowerCase(Locale.ROOT);
+        if(name.equals("off")){
+            gp.lighting.enabled = false;
+            reply("Lighting off.", INFO);
+            return;
+        }
+        Lighting.Mood m = Lighting.Mood.fromName(name);
+        if(m == null){
+            reply("Unknown mood: " + name, ERROR);
+            return;
+        }
+        gp.lighting.enabled = true;
+        gp.lighting.setMood(m, false);
+        reply("Mood: " + name + ".", INFO);
+    }
+
+    private void paint(String[] args){
+        if(gp.isNetworked){
+            reply("Painting grass only works in single-player.", ERROR);
+            return;
+        }
+        if(args.length < 2){
+            reply("Usage: /paint <short|tall|flowers|erase|off> [size 0-4] [density 1-4]", ERROR);
+            return;
+        }
+        String mode = args[1].toLowerCase(Locale.ROOT);
+        if(mode.equals("off")){
+            gp.grassEditor.stop();
+            reply("Paint mode off. Use /savegrass to keep your changes.", INFO);
+            return;
+        }
+        int type = switch(mode){
+            case "short" -> GrassLayer.SHORT;
+            case "tall" -> GrassLayer.TALL;
+            case "flowers" -> GrassLayer.FLOWERS;
+            case "erase" -> GrassLayer.NONE;
+            default -> -1;
+        };
+        if(type < 0){
+            reply("Unknown brush: " + mode, ERROR);
+            return;
+        }
+        int size = parseInt(args, 2, 1);
+        int density = parseInt(args, 3, 3);
+        if(size < 0 || size > 4 || density < 1 || density > 4){
+            reply("Size is 0 to 4 and density is 1 to 4.", ERROR);
+            return;
+        }
+        gp.grassEditor.start(type, size, density);
+        reply("Paint mode: LMB paints, RMB erases. 1-4 brush, [ ] size, , . density.", INFO);
+    }
+
+    private void saveGrass(){
+        boolean ok = gp.grass.save();
+        reply(ok ? "Saved grass to " + GrassLayer.PATH + "." : "Could not save (see the console).", ok ? INFO : ERROR);
     }
 }
