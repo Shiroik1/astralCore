@@ -31,10 +31,10 @@ public class TownMapGenerator {
         List<Obj> objects = new ArrayList<>();
         generate(terrain, level, objects);
 
-        new File("maps").mkdirs();
-        Files.writeString(new File("maps/terrain.txt").toPath(), terrainText(terrain), StandardCharsets.UTF_8);
-        Files.writeString(new File("maps/levels.txt").toPath(), levelText(level), StandardCharsets.UTF_8);
-        Files.writeString(new File("maps/scenery.json").toPath(), sceneryJson(objects), StandardCharsets.UTF_8);
+        main.AppPaths.createParent(main.AppPaths.mapFile("maps/terrain.txt").toPath());
+        Files.writeString(main.AppPaths.mapFile("maps/terrain.txt").toPath(), terrainText(terrain), StandardCharsets.UTF_8);
+        Files.writeString(main.AppPaths.mapFile("maps/levels.txt").toPath(), levelText(level), StandardCharsets.UTF_8);
+        Files.writeString(main.AppPaths.mapFile("maps/scenery.json").toPath(), sceneryJson(objects), StandardCharsets.UTF_8);
     }
 
     private static void generate(Terrain[][] t, int[][] level, List<Obj> out){

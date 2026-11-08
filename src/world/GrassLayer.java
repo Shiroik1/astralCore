@@ -85,8 +85,8 @@ public class GrassLayer {
             sb.append('\n');
         }
         try{
-            new File("maps").mkdirs();
-            Files.writeString(new File(PATH).toPath(), sb.toString(), StandardCharsets.UTF_8);
+            main.AppPaths.createParent(main.AppPaths.mapFile(PATH).toPath());
+            Files.writeString(main.AppPaths.mapFile(PATH).toPath(), sb.toString(), StandardCharsets.UTF_8);
             return true;
         } catch(IOException e){
             e.printStackTrace();
@@ -314,7 +314,7 @@ public class GrassLayer {
     }
 
     private String readText(){
-        File f = new File(PATH);
+        File f = main.AppPaths.mapFile(PATH);
         try{
             if(f.isFile()) return Files.readString(f.toPath(), StandardCharsets.UTF_8);
             try(InputStream is = GrassLayer.class.getResourceAsStream(RESOURCE)){

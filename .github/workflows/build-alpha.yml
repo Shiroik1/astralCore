@@ -1,0 +1,56 @@
+name: Build standalone alpha downloads
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build both self-contained packages
+        run: python3 packaging/build_release.py --target all
+      - name: Verify Mac package with its bundled runtime
+        run: |
+          app=$(find build/release -path '*/AstralCore.app/Contents/MacOS/AstralCore' -type f | head -n 1)
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE/$app" --verify-install
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: dist/*-macos-arm64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: dist/*-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: checksums-and-toolchain
+          path: |
+            dist/SHA256SUMS.txt
+            dist/build-toolchain.json
+  verify-windows:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-x64
+          path: artifacts
+      - name: Verify Windows launcher and bundled runtime
+        shell: pwsh
+        run: |
+          Expand-Archive -Path (Get-ChildItem artifacts/*-windows-x64.zip).FullName -DestinationPath package
+          $launcher = (Get-ChildItem package -Recurse -Filter AstralCore.exe).FullName
+          $process = Start-Process -FilePath $launcher -ArgumentList '--verify-install' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Windows package verification failed: $($process.ExitCode)" }
+          if (!(Test-Path "$env:LOCALAPPDATA/AstralCore/config.txt")) { throw 'Settings did not use the user-data folder' }

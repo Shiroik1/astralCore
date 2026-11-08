@@ -8,13 +8,14 @@ public class Config {
     private final Path path;
 
     public Config(Gamepanel gp){
-        this(gp,Path.of("config.txt"));
+        this(gp,AppPaths.configFile());
     }
 
     public Config(Gamepanel gp,Path path){this.gp=gp;this.path=path;}
 
     public void saveConfig() throws IOException {
 
+        AppPaths.createParent(path);
         BufferedWriter bw = new BufferedWriter(new FileWriter(path.toFile()));
 
         //Fullscreen

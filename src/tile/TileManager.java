@@ -38,7 +38,7 @@ public class TileManager implements GroundTiles.World {
     }
 
     private void loadMap() throws IOException {
-        if(!new File(TERRAIN_PATH).isFile() && getClass().getResource("/maps/terrain.txt") == null){
+        if(!main.AppPaths.mapFile(TERRAIN_PATH).isFile() && getClass().getResource("/maps/terrain.txt") == null){
             System.out.println("[MAP] no terrain.txt found, generating the starter town");
             TownMapGenerator.writeFiles();
         }
@@ -76,7 +76,7 @@ public class TileManager implements GroundTiles.World {
     // a file next to the game wins over a bundled copy, so hand edits take effect on the next launch
     private List<String> readLines(String externalPath, String resourcePath) throws IOException {
         String text;
-        File f = new File(externalPath);
+        File f = main.AppPaths.mapFile(externalPath);
         if(f.isFile()){
             text = Files.readString(f.toPath(), StandardCharsets.UTF_8);
         } else {

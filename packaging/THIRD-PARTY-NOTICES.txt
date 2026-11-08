@@ -1,0 +1,21 @@
+AstralCore third-party components
+
+The bundled Eclipse Temurin OpenJDK runtime includes its own legal/ directory and license files.
+Preserve those files when redistributing this package.
+Runtime source and project: https://github.com/adoptium/temurin21-binaries
+
+Bundled Java libraries (unmodified JARs under app/lib or Contents/app/lib):
+Kryo 2.20: https://github.com/EsotericSoftware/kryo
+KryoNet 2.21: https://github.com/EsotericSoftware/kryonet
+ReflectASM 1.07: https://github.com/EsotericSoftware/reflectasm
+MinLog 1.2 (no logging): https://github.com/EsotericSoftware/minlog
+JsonBeans 0.5: https://github.com/EsotericSoftware/jsonbeans
+ASM 4.0: https://asm.ow2.io/
+Objenesis 1.2: https://objenesis.org/
+Any license/notice files found inside the JARs are also copied into third-party-licenses/.
+
+Fonts, audio, and artwork retain their respective authors' rights. The game assets included in
+this alpha are the assets supplied with the AstralCore project. Retain asset-specific license
+and attribution records with public distributions.
+
+The Windows launcher is built using Zig. The Zig compiler is a build tool and is not bundled.

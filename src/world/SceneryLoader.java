@@ -71,8 +71,8 @@ public class SceneryLoader {
         sb.append("  ]\n}\n");
 
         try{
-            new File("maps").mkdirs();
-            Files.writeString(new File(EXTERNAL_PATH).toPath(), sb.toString(), StandardCharsets.UTF_8);
+            main.AppPaths.createParent(main.AppPaths.mapFile(EXTERNAL_PATH).toPath());
+            Files.writeString(main.AppPaths.mapFile(EXTERNAL_PATH).toPath(), sb.toString(), StandardCharsets.UTF_8);
             return true;
         } catch(IOException e){
             e.printStackTrace();
@@ -81,7 +81,7 @@ public class SceneryLoader {
     }
 
     private static String readExternal(){
-        File f = new File(EXTERNAL_PATH);
+        File f = main.AppPaths.mapFile(EXTERNAL_PATH);
         if(!f.isFile()) return null;
         try{
             return Files.readString(f.toPath(), StandardCharsets.UTF_8);
