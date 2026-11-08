@@ -55,6 +55,7 @@ public class CommandProcessor {
             case "mood" -> mood(args);
             case "paint" -> paint(args);
             case "savegrass" -> saveGrass();
+            case "pixel" -> pixel(args);
             default -> reply("Unknown command: /" + cmd + "  (try /help)", ERROR);
         }
     }
@@ -101,6 +102,21 @@ public class CommandProcessor {
         }
         me.debugGrantLevels(n);
         reply("You are level " + me.level + ".", INFO);
+    }
+
+    private void pixel(String[] args){
+        String mode = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
+        switch(mode){
+            case "on"   -> { entity.CharacterSprites.pixelMode = true;  gp.pixelBuffer = true; }
+            case "off"  -> { entity.CharacterSprites.pixelMode = false; gp.pixelBuffer = false; }
+            case "char" -> { entity.CharacterSprites.pixelMode = true;  gp.pixelBuffer = false; }
+            default -> { reply("Usage: /pixel <on|off|char>", ERROR); return; }
+        }
+        for(entity.Player p : gp.players){
+            if(p == null) continue;
+            if(p.playerClass.equals("mage")) p.getMagePlayerImage(); else p.getPlayerImage();
+        }
+        reply("Pixel mode: " + mode, INFO);
     }
 
     private void teleport(Player me, String[] args){

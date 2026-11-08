@@ -395,6 +395,38 @@ public class Gamepanel extends JPanel implements Runnable{
         updateScreenShake();
     }
 
+    // PIXEL BUFFER: world is drawn into a small image, then scaled up with nearest-neighbour
+    public boolean pixelBuffer = false;
+    private BufferedImage pixelBuf;
+    private Graphics2D pixelG;
+    private Graphics2D screenG;
+
+    private void beginPixelBuffer(){
+        int s = entity.CharacterSprites.PIXEL_SCALE;
+        if(pixelBuf == null){
+            pixelBuf = new BufferedImage(screenWidth / s, screenHeight / s, BufferedImage.TYPE_INT_ARGB);
+            pixelG = pixelBuf.createGraphics();
+            pixelG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            pixelG.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            pixelG.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        }
+        pixelG.setTransform(new java.awt.geom.AffineTransform());
+        pixelG.setComposite(AlphaComposite.Src);
+        pixelG.setColor(Color.black);
+        pixelG.fillRect(0, 0, pixelBuf.getWidth(), pixelBuf.getHeight());
+        pixelG.setComposite(AlphaComposite.SrcOver);
+        pixelG.scale(1.0 / s, 1.0 / s);   // game code keeps drawing in normal screen pixels
+        screenG = g2;
+        g2 = pixelG;
+    }
+
+    private void endPixelBuffer(){
+        g2 = screenG;
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2.drawImage(pixelBuf, 0, 0, screenWidth, screenHeight, null);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+    }
+
     public void drawToTempscreen() throws IOException {
 
         g2.setColor(Color.black);
@@ -406,6 +438,8 @@ public class Gamepanel extends JPanel implements Runnable{
         }
         //INGAME SCREEN
         else{
+
+            if(pixelBuffer) beginPixelBuffer();
 
             //SCREENSHAKE
             g2.translate(shakeOffsetX, shakeOffsetY);
@@ -490,6 +524,8 @@ public class Gamepanel extends JPanel implements Runnable{
             grassEditor.drawBrush(g2);
 
             g2.translate(-shakeOffsetX, -shakeOffsetY);
+
+            if(pixelBuffer) endPixelBuffer();
 
             lighting.draw(g2, shakeOffsetX, shakeOffsetY);
 

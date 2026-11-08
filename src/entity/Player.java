@@ -195,6 +195,7 @@ public class Player extends Entity{
     }
 
     public void getPlayerImage(){
+        if(USE_GENERATED_BODY){buildGeneratedBody(); return;}
         bodySize = (int)(gp.tileSize * 3); // tunable — re-check against your art
         int size = bodySize;
 
@@ -297,7 +298,17 @@ public class Player extends Entity{
         down1 = idleDown[0]; // still used by UI.drawTitleScreen() for the title portrait
     }
 
+    public static final boolean USE_GENERATED_BODY = true;
+    private final art.CharacterArt.Look bodyLook = new art.CharacterArt.Look();
+
+    private void buildGeneratedBody(){
+        bodySize = CharacterSprites.canvasSize();
+        CharacterSprites.build(sprites, bodyLook);
+        down1 = sprites.get("idle_down").frames[0]; // title-screen portrait
+    }
+
     public void getPlayerAttackImage(){
+        if(USE_GENERATED_BODY) return;
         if(playerClass.equals("mage")) return;
         String weaponFolder = getWeaponFolder();
 
@@ -349,6 +360,7 @@ public class Player extends Entity{
     }
 
     public void getMagePlayerImage(){
+        if(USE_GENERATED_BODY){buildGeneratedBody(); return;}
         int size = bodySize > 0 ? bodySize : (int)(gp.tileSize * 3);
         bodySize = size;
 
@@ -1156,6 +1168,12 @@ public class Player extends Entity{
             int relScreenY = worldY - camera.worldY + camera.screenY;
             drawX = relScreenX + (gp.tileSize - bodyWidth) / 2;
             drawY = relScreenY + (gp.tileSize - bodyHeight) / 2;
+        }
+
+        if(USE_GENERATED_BODY){
+            // put the feet on the bottom of the hitbox instead of centring the canvas on the tile
+            int footPx = (int)(bodyHeight * CharacterSprites.FOOT_FRAC);
+            drawY += (solidArea.y + solidArea.height - 2 - footPx) - (gp.tileSize - bodyHeight) / 2;
         }
 
         double bounce = 0;
