@@ -2,14 +2,12 @@ package entity;
 
 import main.Gamepanel;
 
-import java.util.Random;
-
 public class NPC_oldman extends Entity{
 
     public NPC_oldman(Gamepanel gp){
         super(gp);
         direction = "down";
-        speed = 1;
+        speed = 0;
         npcId = "oldman";
         type = type_npc;
 
@@ -31,32 +29,7 @@ public class NPC_oldman extends Entity{
     }
 
     public void setAction(){
-
-        if(activeConversationCount > 0){
-            return;
-        }
-
-        actionLockCounter++;
-
-        if(actionLockCounter == 120){
-            Random random = new Random();
-            int i = random.nextInt(100) + 1;
-
-            if(i <= 25){
-                direction = "up";
-            }
-            if(i > 25 && i <= 50){
-                direction = "down";
-            }
-            if(i > 50 && i <= 75){
-                direction = "left";
-            }
-            if(i > 75 && i <= 100){
-                direction = "right";
-            }
-
-            actionLockCounter = 0;
-        }
+        direction = "down";
     }
 
 }

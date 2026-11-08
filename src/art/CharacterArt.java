@@ -12,6 +12,11 @@ import java.awt.image.BufferedImage;
 public final class CharacterArt {
     private CharacterArt() {}
 
+    // The old side head sat too far in front of the torso, which made the
+    // profile read as hunched. Keep the face layers on the same adjustment.
+    private static final float SIDE_HEAD_CENTER_X = 33.0f;
+    private static final float SIDE_HEAD_DETAIL_SHIFT_X = -1.4f;
+
     public enum Dir { DOWN, UP, LEFT, RIGHT }
 
     /** Look of the body. Colours only, so hair/clothes layers can reuse the same rig later. */
@@ -48,7 +53,7 @@ public final class CharacterArt {
         draw(g, dir, pose, look);
         g.dispose();
         BufferedImage out = boxDown(hi, SS);
-        grain(out, 6);
+        grain(out, 3);
         return out;
     }
 
@@ -98,11 +103,11 @@ public final class CharacterArt {
         // head
         part(g, head(), skin, 18);
         if (!back) {
-            // eyes: tall dark ovals
-            Shape eL = ellipse(25.2f, 25.3f, 1.75f, 3.5f), eR = ellipse(38.8f, 25.3f, 1.75f, 3.5f);
+            // Simple, wide-spaced capsule eyes like the soft chibi reference.
+            Shape eL = ellipse(24.8f, 26.4f, 2.05f, 4.45f), eR = ellipse(39.2f, 26.4f, 2.05f, 4.45f);
             g.setColor(look.eye); g.fill(eL); g.fill(eR);
             g.setColor(new Color(255, 255, 255, 150));
-            g.fill(ellipse(25.8f, 23.6f, 0.55f, 0.75f)); g.fill(ellipse(39.4f, 23.6f, 0.55f, 0.75f));
+            g.fill(ellipse(25.5f, 23.9f, 0.60f, 0.82f)); g.fill(ellipse(39.9f, 23.9f, 0.60f, 0.82f));
             // blush
             g.setColor(withAlpha(look.blush, 70));
             g.fill(ellipse(21.0f, 30.2f, 2.6f, 1.5f)); g.fill(ellipse(43.0f, 30.2f, 2.6f, 1.5f));
@@ -126,23 +131,23 @@ public final class CharacterArt {
         // ear on the head
         // head (profile: nose-less rounded, face shifted right)
         part(g, sideHead(), skin, 25);
-        part(g, ellipse(29.5f, 27.0f, 2.8f, 2.8f), shade(skin, 0.95f), 26);   // ear
+        part(g, ellipse(29.5f + SIDE_HEAD_DETAIL_SHIFT_X, 27.0f, 2.8f, 2.8f), shade(skin, 0.95f), 26);   // ear
         // near arm
         part(g, sideArm(32.5f, 38f, -swing * 3.0f, atk), skin, 27);
         // eye
-        g.setColor(look.eye); g.fill(ellipse(41.0f, 25.3f, 1.75f, 3.5f));
-        g.setColor(new Color(255, 255, 255, 150)); g.fill(ellipse(41.6f, 23.6f, 0.55f, 0.75f));
-        g.setColor(withAlpha(look.blush, 70)); g.fill(ellipse(38.2f, 30.4f, 2.4f, 1.4f));
+        g.setColor(look.eye); g.fill(ellipse(41.0f + SIDE_HEAD_DETAIL_SHIFT_X, 26.4f, 2.05f, 4.45f));
+        g.setColor(new Color(255, 255, 255, 150)); g.fill(ellipse(41.7f + SIDE_HEAD_DETAIL_SHIFT_X, 23.9f, 0.60f, 0.82f));
+        g.setColor(withAlpha(look.blush, 70)); g.fill(ellipse(38.2f + SIDE_HEAD_DETAIL_SHIFT_X, 30.4f, 2.4f, 1.4f));
         g.setTransform(t);
     }
 
     // ------------------------------------------------------------ shapes
     private static Shape head() {
-        // squircle: wide jaw, domed top (reference proportions: ~33 wide x 30 tall)
-        return superellipse(32f, 19.2f, 16.8f, 15.2f, 2.6, 0.0);
+        // Big, almost circular head with a soft flattened jaw.
+        return superellipse(32f, 19.0f, 18.0f, 16.2f, 3.1, 0.0);
     }
     private static Shape sideHead() {
-        return superellipse(34.4f, 19.2f, 16.2f, 15.2f, 2.5, 0.0);
+        return superellipse(SIDE_HEAD_CENTER_X, 19.0f, 17.3f, 16.2f, 3.0, 0.0);
     }
     private static Shape torso() {
         Path2D p = new Path2D.Float();
@@ -189,11 +194,11 @@ public final class CharacterArt {
     /** front arm: capsule from shoulder to mitten; dir -1 = left side of screen. */
     private static Shape arm(float sx, float sy, int dir, float len, float swing) {
         float ex = sx + dir * (4.2f + swing * 0.3f), ey = sy + len + swing;
-        return new BasicStroke(4.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+        return new BasicStroke(5.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
                 .createStrokedShape(new Line2D.Float(sx, sy, ex, ey));
     }
     private static Shape sideArm(float sx, float sy, float swing, float atk) {
-        Shape cap = new BasicStroke(4.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+        Shape cap = new BasicStroke(5.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
                 .createStrokedShape(new Line2D.Float(0, 0, 0, 8.5f));
         AffineTransform at = AffineTransform.getTranslateInstance(sx, sy);
         at.rotate(Math.toRadians(swing * 5.5 - atk * 105));
@@ -226,7 +231,7 @@ public final class CharacterArt {
     // ------------------------------------------------------------ painting
     /** one rig part: fill, shade crescent, rim light, wobbly soft outline */
     private static void part(Graphics2D g, Shape raw, Color fill, int seed) {
-        Shape s = wobble(raw, seed, 0.22f);
+        Shape s = wobble(raw, seed, 0.10f);
         g.setColor(fill); g.fill(s);
 
         Area a = new Area(s);

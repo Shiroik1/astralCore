@@ -1,5 +1,6 @@
 package monster;
 
+import art.SlimeArt;
 import entity.Monster;
 import entity.Particle;
 import entity.Player;
@@ -33,11 +34,11 @@ public class MON_SlimeBoss extends Monster {
         maxHP = 60;
         HP = maxHP;
         attack = 8;
-        defense = 1;
+        defense = 0;
         exp = 30;
         aggroRange = 8;
 
-        int size = gp.tileSize * 2; // reusing slime art scaled up — swap for unique boss art later
+        int size = gp.tileSize * 3;
 
         solidArea.x = 6;
         solidArea.y = 36;
@@ -50,14 +51,10 @@ public class MON_SlimeBoss extends Monster {
     }
 
     public void getImage(int size){
-        up1 = setup("/monster/greenslime_down_1", size, size);
-        up2 = setup("/monster/greenslime_down_2", size, size);
-        down1 = setup("/monster/greenslime_down_1", size, size);
-        down2 = setup("/monster/greenslime_down_2", size, size);
-        left1 = setup("/monster/greenslime_down_1", size, size);
-        left2 = setup("/monster/greenslime_down_2", size, size);
-        right1 = setup("/monster/greenslime_down_1", size, size);
-        right2 = setup("/monster/greenslime_down_2", size, size);
+        // Its collision box is centered 24px right of a normal tile center.
+        // Convert that correction into the 64-unit slime design space.
+        SlimeArt.buildBossAnimations(sprites, size, 1.25f, 10.67f);
+        down1 = sprites.get("idle_down").frames[0];
     }
 
     public void setAction(){

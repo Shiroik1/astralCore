@@ -68,7 +68,7 @@ public class Projectile extends Entity{
                 if(!gp.isNetworked || gp.isHost){
                     damagePlayer(contactedPlayer, attack);
                 }
-                generateParticle(user.projectile, contactedPlayer);
+                generateParticle(this, contactedPlayer);
                 alive = false;
             }
         }
