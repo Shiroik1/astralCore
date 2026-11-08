@@ -21,7 +21,7 @@ public class Player extends Entity{
 
     public int playerId;
     public String playerName = "";
-    public String playerClass = "swordsman";
+    public String playerClass = "warrior";
     public String gender = "male";
 
     public boolean isLocal = true; // remote players (Step 3+) will explicitly set this false
@@ -77,8 +77,8 @@ public class Player extends Entity{
     public static final int EQUIP_SHIELD = 2;
 
     public static final int EQUIP_HAIR = 3, EQUIP_TORSO = 4, EQUIP_PANTS = 5,
-            EQUIP_BOOTS = 6, EQUIP_GLOVES = 7, EQUIP_CLOAK = 8;
-    public final Entity[] apparelSlots = new Entity[6];
+            EQUIP_BOOTS = 6, EQUIP_GLOVES = 7, EQUIP_CLOAK = 8, EQUIP_HEADPIECE = 9;
+    public final Entity[] apparelSlots = new Entity[7];
 
     //SKILL PARAMETERS
     public Skill[] skills = new Skill[5];
@@ -111,9 +111,7 @@ public class Player extends Entity{
         solidArea.width = 32;
         solidArea.height = 32;
 
-        ItemType[] starterOutfit = {ItemType.HAIR, ItemType.TUNIC, ItemType.PANTS,
-                ItemType.BOOTS, ItemType.GLOVES, ItemType.CLOAK};
-        for(int i=0;i<apparelSlots.length;i++) apparelSlots[i]=ItemRegistry.create(starterOutfit[i],gp);
+        applyStarterAppearance();
         setDefaultValues();
         if(playerClass.equals("mage")){
             getMagePlayerImage();
@@ -319,10 +317,39 @@ public class Player extends Entity{
                 }
             };
 
+    public void setCharacterDesign(String classId, String genderId){
+        playerClass=CharacterClass.fromId(classId).id;
+        gender="female".equals(genderId)?"female":"male";
+        applyStarterAppearance();
+        refreshWeaponAnimation();
+    }
+
+    /** Starter wardrobe only. No new class mechanics or specialization choices. */
+    private void applyStarterAppearance(){
+        boolean female="female".equals(gender);
+        ItemType[] items=switch(CharacterClass.fromId(playerClass)){
+            case HUNTER -> new ItemType[]{female?ItemType.LONG_HAIR:ItemType.HAIR,
+                    ItemType.TUNIC,ItemType.PANTS,ItemType.BOOTS,ItemType.GLOVES,ItemType.CLOAK};
+            case MAGE -> new ItemType[]{female?ItemType.MAGE_LONG_HAIR:ItemType.MAGE_HAIR,
+                    ItemType.MAGE_ROBE,ItemType.MAGE_PANTS,ItemType.MAGE_BOOTS,ItemType.MAGE_GLOVES,ItemType.MAGE_CLOAK};
+            case WARRIOR -> new ItemType[]{female?ItemType.WARRIOR_LONG_HAIR:ItemType.WARRIOR_HAIR,
+                    ItemType.WARRIOR_ARMOR,ItemType.WARRIOR_PANTS,ItemType.WARRIOR_BOOTS,ItemType.WARRIOR_GLOVES,ItemType.WARRIOR_CLOAK};
+        };
+        for(int i=0;i<items.length;i++)apparelSlots[i]=ItemRegistry.create(items[i],gp);
+        apparelSlots[6]=CharacterClass.fromId(playerClass)==CharacterClass.MAGE?ItemRegistry.create(ItemType.MAGE_HAT,gp):null;
+    }
+
     public art.CharacterOutfit currentOutfit(){
-        Color[] colors = new Color[6];
-        for(int i=0;i<colors.length;i++) if(apparelSlots[i] instanceof OBJ_apparel item) colors[i]=item.color;
-        return new art.CharacterOutfit(colors[0],colors[1],colors[2],colors[3],colors[4],colors[5]);
+        Color[] colors=new Color[7];
+        art.CharacterOutfit.Theme[] themes=new art.CharacterOutfit.Theme[6];
+        java.util.Arrays.fill(themes,art.CharacterOutfit.Theme.LEATHER);
+        boolean longHair=false;
+        for(int i=0;i<colors.length;i++)if(apparelSlots[i] instanceof OBJ_apparel item){
+            colors[i]=item.color;if(i<themes.length)themes[i]=item.theme;
+            if(i==0)longHair=item.longHair;
+        }
+        return new art.CharacterOutfit(colors[0],colors[1],colors[2],colors[3],colors[4],colors[5],
+                new art.CharacterOutfit.Details(themes[0],themes[1],themes[2],themes[3],themes[4],themes[5],longHair),colors[6]);
     }
 
     private art.WeaponArt.Kind weaponKind(){
@@ -361,7 +388,7 @@ public class Player extends Entity{
     public Entity equippedItem(int slot){
         if(slot==EQUIP_WEAPON) return currentWeapon;
         if(slot==EQUIP_SHIELD) return currentShield;
-        return slot>=EQUIP_HAIR && slot<=EQUIP_CLOAK ? apparelSlots[slot-EQUIP_HAIR] : null;
+        return slot>=EQUIP_HAIR && slot<=EQUIP_HEADPIECE ? apparelSlots[slot-EQUIP_HAIR] : null;
     }
 
     private boolean fitsEquipment(Entity item, int slot){
@@ -374,7 +401,7 @@ public class Player extends Entity{
     private void setEquipment(int slot, Entity item){
         if(slot==EQUIP_WEAPON){currentWeapon=item!=null?item:new OBJ_fists(gp);attack=getAttack();}
         else if(slot==EQUIP_SHIELD){currentShield=item!=null?item:new OBJ_no_shield(gp);defense=getDefense();}
-        else if(slot>=EQUIP_HAIR && slot<=EQUIP_CLOAK)apparelSlots[slot-EQUIP_HAIR]=item;
+        else if(slot>=EQUIP_HAIR && slot<=EQUIP_HEADPIECE)apparelSlots[slot-EQUIP_HAIR]=item;
         refreshWeaponAnimation();
     }
 
@@ -682,7 +709,8 @@ public class Player extends Entity{
                 }
 
 
-                if((currentInput.ePressed || currentInput.leftClicked || attackBuffered) && !attackCanceled){
+                if((currentInput.ePressed || currentInput.leftClicked || attackBuffered) && !attackCanceled
+                        && (!playerClass.equals("mage") || canCastFireball())){
                     attacking = true;
                     spriteNum = 1;
                     attackFrameHoldCounter = 0;
@@ -952,6 +980,7 @@ public class Player extends Entity{
 
     private void contactMonster(int index) {
         if(index != 999){
+            if(!gp.monster[index].canDealContactDamage())return;
             if(!invincible && !gp.monster[index].dying){
                 if(!canResolveWorldActions()) return;
 
@@ -1087,11 +1116,11 @@ public class Player extends Entity{
     public void undress(){
         int count=0,free=0;
         for(Entity item:inventorySlots)if(item==null)free++;
-        for(int slot=EQUIP_WEAPON;slot<=EQUIP_CLOAK;slot++){
+        for(int slot=EQUIP_WEAPON;slot<=EQUIP_HEADPIECE;slot++){
             Entity item=equippedItem(slot);if(item!=null && !item.isPlaceholder)count++;
         }
         if(free<count){gp.ui.addMessage("Make room for "+count+" items before undressing.");return;}
-        for(int slot=EQUIP_WEAPON;slot<=EQUIP_CLOAK;slot++){
+        for(int slot=EQUIP_WEAPON;slot<=EQUIP_HEADPIECE;slot++){
             Entity item=equippedItem(slot);if(item==null || item.isPlaceholder)continue;
             addToInventory(item);
             if(slot==EQUIP_WEAPON){currentWeapon=new OBJ_fists(gp);attack=getAttack();}
@@ -1682,7 +1711,17 @@ public class Player extends Entity{
         return dy > 0 ? "down" : "up";
     }
 
+    public boolean canCastFireball(){
+        return playerClass.equals("mage") && currentWeapon!=null
+                && !currentWeapon.isPlaceholder && currentWeapon.type==type_staff;
+    }
+
     private void mageAttacking(){
+        // Recheck at release as equipment can change after the cast starts.
+        if(!canCastFireball()){
+            attacking=false;attackBuffered=false;mageProjectileFired=false;mageTarget=null;
+            spriteNum=1;attackFrameHoldCounter=0;return;
+        }
         SpriteAnimation anim = getCurrentAnimation();
         int totalFrames = (anim != null) ? anim.frames.length : 1;
 

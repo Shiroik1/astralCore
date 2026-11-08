@@ -15,12 +15,12 @@ public final class CharacterSprites {
     private CharacterSprites() {}
 
     /** toggled by /pixel. false = smooth vector look, true = pixel-buffer look. */
-    public static boolean pixelMode = true;
+    public static boolean pixelMode = false;
 
     /** Hi-res size the vector art is drawn at before it is shrunk/stored. */
-    private static final int HI = 144;
-    /** Low-res canvas for pixel mode. Screen size / PIXEL_SCALE must equal this (see canvasSize). */
-    public static final int LOW = 24;
+    private static final int HI = 180;
+    /** Extra padding adds headroom; the original 64-unit body still occupies 24 low-res pixels. */
+    public static final int LOW = 30;
     public static final int PIXEL_SCALE = 3;
 
     public static final int IDLE_FRAMES = 4, RUN_FRAMES = 8, ATTACK_FRAMES = 8;
@@ -28,8 +28,8 @@ public final class CharacterSprites {
     /** Screen size (px) of the square canvas every body frame is drawn into. */
     public static int canvasSize() { return LOW * PIXEL_SCALE; }
 
-    /** Fraction of the canvas height where the feet sit (matches CharacterArt's FOOT_Y 60 / 64). */
-    public static final float FOOT_FRAC = 60f / 64f;
+    /** Padded headroom preserves body scale while leaving space above the crown for hats. */
+    public static final float FOOT_FRAC = CharacterArt.FOOT_FRACTION;
 
     private static final Dir[] DIRS = {Dir.DOWN, Dir.UP, Dir.LEFT, Dir.RIGHT};
     private static final String[] NAMES = {"down", "up", "left", "right"};

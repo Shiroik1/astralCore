@@ -116,6 +116,9 @@ public class CommandProcessor {
             if(p == null) continue;
             if(p.playerClass.equals("mage")) p.getMagePlayerImage(); else p.getPlayerImage();
         }
+        for(entity.Entity npc : gp.npc){
+            if(npc instanceof entity.NPC_oldman oldman) oldman.getImage();
+        }
         reply("Pixel mode: " + mode, INFO);
     }
 

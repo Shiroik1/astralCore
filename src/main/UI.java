@@ -6,6 +6,7 @@ import net.InventoryActionType;
 import object.OBJ_crystal;
 import object.OBJ_heart;
 import entity.Player;
+import entity.Monster;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -32,7 +33,9 @@ public class UI {
 
     private UIButton[] titleButtons = {new UIButton(), new UIButton(), new UIButton(), new UIButton()};
     private UIButton[] optionTopButtons = {new UIButton(), new UIButton(), new UIButton(), new UIButton(), new UIButton(), new UIButton()};
-    private UIButton[] fullscreenNotiButtons = {new UIButton()};
+    private UIButton[] displayButtons = {new UIButton(),new UIButton(),new UIButton(),new UIButton()};
+    private boolean displayDraftFullscreen;
+    private DisplaySettings.Resolution displayDraftResolution;
     private UIButton[] controlButtons = {new UIButton()};
     private UIButton[] endgameConfirmButtons = {new UIButton(), new UIButton()};
     private UIButton lastHoveredButton = null;
@@ -52,9 +55,9 @@ public class UI {
     private int dragSourceIndex = -1;
     private Rectangle inventoryWindowBounds = new Rectangle();
     private Entity hoveredItem = null;
-    private final Rectangle[] equipmentBounds = new Rectangle[8];
+    private final Rectangle[] equipmentBounds = new Rectangle[9];
     private final Rectangle undressBounds = new Rectangle();
-    private static final String[] EQUIPMENT_LABELS = {"Weapon", "Shield", "Hair", "Tunic", "Pants", "Boots", "Gloves", "Cloak"};
+    private static final String[] EQUIPMENT_LABELS = {"Weapon", "Shield", "Hair", "Tunic", "Pants", "Boots", "Gloves", "Cloak", "Head Piece"};
 
     private final int slotIconSize = 48;      // visual size of one slot — currently matches gp.tileSize
     private final int slotSpacing = 3;        // gap between adjacent slot cells
@@ -169,7 +172,7 @@ public class UI {
     private UIButton[] currentOptionButtons(){
         return switch (subState){
             case 0 -> optionTopButtons;
-            case 1 -> fullscreenNotiButtons;
+            case 1 -> displayButtons;
             case 2 -> controlButtons;
             case 3 -> endgameConfirmButtons;
             default -> new UIButton[0];
@@ -214,6 +217,7 @@ public class UI {
             }
 
             drawPlayerHP();
+            drawBossHealth();
             Player local = gp.localPlayer();
             if(local != null){
                 drawStatusEffects(local);
@@ -251,7 +255,8 @@ public class UI {
         int bagRows = (int) Math.ceil((double) gp.localPlayer().inventorySlots.length / bagColumns);
         int bagGridWidth = bagColumns * slotStride - slotSpacing;
         int bagGridHeight = bagRows * slotStride - slotSpacing;
-        int equipColumnHeight = 4 * (slotIconSize + 18) + 32;
+        int equipmentRows = (equipmentBounds.length+1)/2;
+        int equipColumnHeight = equipmentRows * (slotIconSize + 18) + 32;
         int equipmentWidth = 2 * slotIconSize + equipSlotGap;
 
         int frameWidth = windowPadding + equipmentWidth + equipBagGap + bagGridWidth + windowPadding;
@@ -274,7 +279,7 @@ public class UI {
             g2.drawString(EQUIPMENT_LABELS[i],x,y-3);
             drawEquipSlot(equipmentBounds[i],draggingItem && dragSourceType==i+1 ? null : gp.localPlayer().equippedItem(i+1));
         }
-        undressBounds.setBounds(equipX,frameY+windowPadding+4*(slotIconSize+18)+6,equipmentWidth,24);
+        undressBounds.setBounds(equipX,frameY+windowPadding+equipmentRows*(slotIconSize+18)+6,equipmentWidth,24);
         g2.setColor(new Color(100,65,65));g2.fillRoundRect(undressBounds.x,undressBounds.y,undressBounds.width,24,8,8);
         g2.setColor(Color.white);g2.setFont(savedFont.deriveFont(12f));
         g2.drawString("Undress",undressBounds.x+24,undressBounds.y+17);g2.setFont(savedFont);
@@ -537,6 +542,42 @@ public class UI {
         g2.drawImage(gp.localPlayer().currentShield.down1, tailX - gp.tileSize, textY, null);
     }
 
+    private Monster hudBoss;
+
+    /** An encounter begins when its boss enters view and remains visible until that boss is gone. */
+    private Monster findBossForHud(){
+        if(hudBoss!=null && hudBoss.alive){
+            for(Monster monster:gp.monster)if(monster==hudBoss)return hudBoss;
+        }
+        hudBoss=null;
+        Player camera=gp.localPlayer();if(camera==null)return null;
+        double nearest=Double.MAX_VALUE;
+        for(Monster monster:gp.monster){
+            if(monster==null || !monster.alive || monster.dying || !monster.isBoss())continue;
+            int x=monster.worldX-camera.worldX+camera.screenX+monster.solidArea.x+monster.solidArea.width/2;
+            int y=monster.worldY-camera.worldY+camera.screenY+monster.solidArea.y+monster.solidArea.height/2;
+            if(x<0 || x>gp.screenWidth || y<0 || y>gp.screenHeight)continue;
+            double distance=Math.hypot(x-gp.screenWidth/2.0,y-gp.screenHeight/2.0);
+            if(distance<nearest){hudBoss=monster;nearest=distance;}
+        }
+        return hudBoss;
+    }
+
+    private void drawBossHealth(){
+        Monster boss=findBossForHud();if(boss==null)return;
+        int width=Math.min(620,gp.screenWidth-520),x=(gp.screenWidth-width)/2,y=55;
+        Font font=g2.getFont();Stroke stroke=g2.getStroke();Paint paint=g2.getPaint();
+        String name=boss.name==null?"Boss":boss.name;
+        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,19f));
+        int textX=(gp.screenWidth-g2.getFontMetrics().stringWidth(name))/2;
+        g2.setColor(new Color(0,0,0,160));
+        g2.fillRoundRect(textX-14,y-37,g2.getFontMetrics().stringWidth(name)+28,31,8,8);
+        g2.setColor(Color.black);g2.drawString(name,textX+1,y-9);
+        g2.setColor(Color.white);g2.drawString(name,textX,y-10);
+        drawStatBar(x,y,width,22,boss.HP,boss.maxHP,new Color(60,20,20),new Color(200,40,40),"HP");
+        g2.setFont(font);g2.setStroke(stroke);g2.setPaint(paint);
+    }
+
     private void drawPlayerHP() {
         Player local = gp.localPlayer();
         if(local == null) return;
@@ -612,6 +653,7 @@ public class UI {
 
     private void drawStatBar(int x, int y, int width, int height, int current, int max, Color bgFill, Color barFill, String label){
         if(max <= 0) max = 1; // guard against a stray divide-by-zero if maxHP/maxMP are ever misconfigured
+        current=Math.max(0,Math.min(max,current));
 
         g2.setColor(new Color(0, 0, 0, 160));
         g2.fillRoundRect(x - 2, y - 2, width + 4, height + 4, 8, 8);
@@ -768,15 +810,15 @@ public class UI {
         g2.setColor(Color.white);
         g2.setFont(g2.getFont().deriveFont(15f));
 
-        int frameX = gp.tileSize * 9;
+        int frameWidth = subState==1?576:gp.tileSize*8;
+        int frameX = (gp.screenWidth-frameWidth)/2;
         int frameY = gp.tileSize;
-        int frameWidth = gp.tileSize * 8;
         int frameHeight = gp.tileSize * 10;
         drawSubWindow(frameX, frameY, frameWidth, frameHeight);
 
         switch (subState){
             case 0 -> option_top(frameX, frameY);
-            case 1 -> option_fullScreenNotification(frameX, frameY);
+            case 1 -> option_display(frameX, frameY);
             case 2 -> option_control(frameX, frameY);
             case 3 -> option_endgameConfirm(frameX, frameY);
         }
@@ -794,7 +836,7 @@ public class UI {
 
         textX = frameX + gp.tileSize;
         textY += gp.tileSize * 2;
-        drawMenuButton(optionTopButtons[0], "Full Screen", textX, textY, commandNum == 0);
+        drawMenuButton(optionTopButtons[0], "Display", textX, textY, commandNum == 0);
 
         textY += gp.tileSize;
         drawMenuButton(optionTopButtons[1], "Music", textX, textY, commandNum == 1);
@@ -811,15 +853,10 @@ public class UI {
         textY += gp.tileSize;
         drawMenuButton(optionTopButtons[5], "BACK", textX, textY, commandNum == 5);
 
-        //FULLSCREEN CHECKBOX
         textX = frameX + gp.tileSize*5;
         textY = frameY + gp.tileSize*2 + 24;
-        g2.setStroke(new BasicStroke(3));
-        g2.drawRect(textX, textY, 20, 20);
-        if(gp.fullScreenOn){
-            g2.fillRect(textX, textY, 20, 20);
-        }
-
+        g2.setFont(jetbrainsMono.deriveFont(13f));
+        g2.drawString(gp.fullScreenOn?"Fullscreen":"Windowed",textX,textY+17);
         //MUSIC VOLUME
         textY += gp.tileSize;
         g2.drawRect(textX, textY, 120, 20);
@@ -833,19 +870,27 @@ public class UI {
         g2.fillRect(textX, textY, volumeWidth, 20);
     }
 
-    public void option_fullScreenNotification(int frameX, int frameY){
-        int textX = frameX + gp.tileSize;
-        int textY = frameY + gp.tileSize * 3;
+    private void option_display(int frameX,int frameY){
+        if(displayDraftResolution==null)displayDraftResolution=gp.display.selected();
+        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,22f));g2.setColor(Color.white);
+        String title="DISPLAY";g2.drawString(title,getXforCenteredText(title),frameY+52);
+        int x=frameX+48,y=frameY+118;
+        g2.setFont(jetbrainsMono.deriveFont(17f));
+        drawMenuButton(displayButtons[0],"Mode: "+(displayDraftFullscreen?"Fullscreen":"Windowed"),x,y,commandNum==0);
+        String nativeLabel=displayDraftResolution.equals(gp.display.nativeResolution())?" (Native)":"";
+        drawMenuButton(displayButtons[1],"Resolution: < "+displayDraftResolution+nativeLabel+" >",x,y+64,commandNum==1);
+        g2.setFont(jetbrainsMono.deriveFont(13f));g2.setColor(Color.lightGray);
+        g2.drawString("A/D changes the selected setting",x,y+112);
+        g2.drawString("Resolutions come from this display.",x,y+139);
+        g2.setFont(jetbrainsMono.deriveFont(18f));
+        drawMenuButton(displayButtons[2],"Apply",x,y+216,commandNum==2);
+        drawMenuButton(displayButtons[3],"Back",x,y+280,commandNum==3);
+    }
 
-        String message = "The changes will take\neffect after\nrestarting the game!";
-        for(String line: message.split("\n")){
-            g2.drawString(line, textX, textY);
-            textY += 40;
-        }
-
-        //BACK
-        textY = frameY + gp.tileSize * 9;
-        drawMenuButton(fullscreenNotiButtons[0], "BACK", textX, textY, commandNum == 0);
+    public void adjustDisplaySelection(int delta){
+        if(subState!=1)return;
+        if(commandNum==0)displayDraftFullscreen=!displayDraftFullscreen;
+        if(commandNum==1)displayDraftResolution=gp.display.cycle(displayDraftResolution,delta);
     }
 
     private void option_endgameConfirm(int frameX, int frameY){
@@ -1248,8 +1293,7 @@ public class UI {
     public void confirmCharacterCreation(int classIndex, int genderIndex){
         Player local = gp.localPlayer();
         local.playerName = pendingCharacterName;
-        local.playerClass = (classIndex == 1) ? "mage" : "swordsman";
-        local.gender = (genderIndex == 1) ? "female" : "male";
+        local.setCharacterDesign(entity.CharacterClass.at(classIndex).id, genderIndex == 1 ? "female" : "male");
 
         local.setDefaultValues();
         if(local.playerClass.equals("mage")){
@@ -1315,42 +1359,75 @@ public class UI {
         g2.drawString(hint, x, boxY + boxHeight + 40);
     }
 
+    private final java.util.Map<String, BufferedImage> creationPreviews = new java.util.HashMap<>();
+
+    private BufferedImage creationPreview(entity.CharacterClass choice, boolean female, boolean side){
+        String key=choice.id+"|"+female+"|"+side;
+        return creationPreviews.computeIfAbsent(key,k -> {
+            art.CharacterArt.Look look=new art.CharacterArt.Look();
+            look.outfit=choice.outfit(female);look.shadow=false;
+            return art.CharacterArt.render(side?art.CharacterArt.Dir.RIGHT:art.CharacterArt.Dir.DOWN,
+                    new art.CharacterArt.Pose(),look,144);
+        });
+    }
+
     private void drawClassGenderStep(){
-        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD, 30f));
-        g2.setColor(Color.white);
-        String title = "Choose your class";
-        int x = getXforCenteredText(title);
-        int y = gp.tileSize * 4;
-        g2.drawString(title, x, y);
-
-        g2.setFont(jetbrainsMono.deriveFont(22f));
-        String[] classNames = {"Swordsman", "Mage"};
-        y += gp.tileSize * 2;
-        for(int i = 0; i < classNames.length; i++){
-            boolean selected = gp.keyH.selectedClassIndex == i;
-            g2.setColor(selected ? new Color(255, 230, 120) : Color.gray);
-            String label = (selected ? "> " : "  ") + classNames[i];
-            x = getXforCenteredText(label);
-            g2.drawString(label, x, y);
-            y += 40;
+        g2.setColor(new Color(25,29,40));g2.fillRect(0,0,gp.screenWidth,gp.screenHeight);
+        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,30f));g2.setColor(Color.white);
+        g2.drawString("Choose your class",getXforCenteredText("Choose your class"),70);
+        g2.setFont(jetbrainsMono.deriveFont(14f));g2.setColor(new Color(180,185,199));
+        String subtitle="Choose your class and appearance.";
+        g2.drawString(subtitle,getXforCenteredText(subtitle),100);
+        boolean female=gp.keyH.selectedGenderIndex==1;
+        int gap=18,cardWidth=(gp.screenWidth-120-2*gap)/3,top=133,cardHeight=340;
+        int mx=gp.mouseH.getScaledX(),my=gp.mouseH.getScaledY();
+        boolean clicked=gp.mouseH.leftClicked;
+        for(entity.CharacterClass choice:entity.CharacterClass.values()){
+            int x=60+choice.ordinal()*(cardWidth+gap);
+            Rectangle card=new Rectangle(x,top,cardWidth,cardHeight);
+            if(clicked && card.contains(mx,my))gp.keyH.selectedClassIndex=choice.ordinal();
+            boolean selected=gp.keyH.selectedClassIndex==choice.ordinal();
+            g2.setColor(selected?new Color(53,58,72):new Color(35,40,53));
+            g2.fillRoundRect(x,top,cardWidth,cardHeight,20,20);
+            g2.setColor(selected?new Color(225,189,116):new Color(79,85,102));
+            g2.setStroke(new BasicStroke(selected?3:1));g2.drawRoundRect(x,top,cardWidth,cardHeight,20,20);
+            g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,24f));
+            g2.setColor(selected?new Color(225,189,116):new Color(225,228,237));
+            g2.drawString(choice.label,x+(cardWidth-g2.getFontMetrics().stringWidth(choice.label))/2,top+43);
+            int center=x+cardWidth/2;
+            g2.drawImage(creationPreview(choice,female,false),center-144,top+73,null);
+            g2.drawImage(creationPreview(choice,female,true),center,top+73,null);
+            g2.setFont(jetbrainsMono.deriveFont(14f));g2.setColor(new Color(219,222,232));
+            String type=choice.armorLabel+" type";
+            g2.drawString(type,center-g2.getFontMetrics().stringWidth(type)/2,top+251);
+            g2.setFont(jetbrainsMono.deriveFont(12f));g2.setColor(new Color(165,173,190));
+            g2.drawString(choice.weaponLabel,center-g2.getFontMetrics().stringWidth(choice.weaponLabel)/2,top+281);
+            if(selected){g2.setColor(new Color(225,189,116));g2.drawString("SELECTED",center-g2.getFontMetrics().stringWidth("SELECTED")/2,top+312);}
         }
-
-        y += gp.tileSize;
-        String[] genderNames = {"Male", "Female"};
-        for(int i = 0; i < genderNames.length; i++){
-            boolean selected = gp.keyH.selectedGenderIndex == i;
-            g2.setColor(selected ? new Color(255, 230, 120) : Color.gray);
-            String label = (selected ? "> " : "  ") + genderNames[i];
-            x = getXforCenteredText(label);
-            g2.drawString(label, x, y);
-            y += 40;
+        String[] labels={"Male / short hair","Female / long hair"};
+        for(int i=0;i<2;i++){
+            int x=gp.screenWidth/2-264+i*274,y=505;
+            Rectangle box=new Rectangle(x,y,254,46);
+            if(clicked && box.contains(mx,my))gp.keyH.selectedGenderIndex=i;
+            boolean selected=gp.keyH.selectedGenderIndex==i;
+            g2.setColor(selected?new Color(88,74,57):new Color(35,40,53));g2.fillRoundRect(x,y,254,46,12,12);
+            g2.setFont(jetbrainsMono.deriveFont(15f));g2.setColor(selected?new Color(244,211,147):Color.lightGray);
+            g2.drawString(labels[i],x+(254-g2.getFontMetrics().stringWidth(labels[i]))/2,y+29);
         }
-
-        g2.setFont(jetbrainsMono.deriveFont(14f));
-        g2.setColor(Color.white);
-        String hint = "A/D: class   W/S: gender   ENTER: confirm";
-        x = getXforCenteredText(hint);
-        g2.drawString(hint, x, y + 40);
+        g2.setFont(jetbrainsMono.deriveFont(13f));g2.setColor(new Color(165,173,190));
+        String hint="A/D: class   W/S: male / female   ENTER: confirm";
+        g2.drawString(hint,getXforCenteredText(hint),594);
+        String note="Hair length only for now. More customization later.";
+        g2.drawString(note,getXforCenteredText(note),621);
+        Rectangle confirm=new Rectangle(gp.screenWidth/2-110,646,220,42);
+        g2.setColor(new Color(225,189,116));g2.fillRoundRect(confirm.x,confirm.y,220,42,12,12);
+        g2.setColor(new Color(25,29,40));g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,16f));
+        g2.drawString("Create character",confirm.x+(220-g2.getFontMetrics().stringWidth("Create character"))/2,confirm.y+27);
+        gp.mouseH.leftClicked=false;
+        if(clicked && confirm.contains(mx,my)){
+            gp.keyH.characterCreationStep=0;
+            confirmCharacterCreation(gp.keyH.selectedClassIndex,gp.keyH.selectedGenderIndex);
+        }
     }
 
     private String capitalize(String s){
@@ -1402,10 +1479,9 @@ public class UI {
             case 0 -> {
                 switch(index){
                     case 0 -> {
-                        gp.fullScreenOn = !gp.fullScreenOn;
-                        gp.config.saveConfigSafe();
-                        subState = 1;
-                        commandNum = 0;
+                        displayDraftFullscreen=gp.fullScreenOn;
+                        displayDraftResolution=gp.display.selected();
+                        subState=1;commandNum=0;
                     }
                     case 3 -> { subState = 2; commandNum = 0; }
                     case 4 -> { subState = 3; commandNum = 0; }
@@ -1413,7 +1489,14 @@ public class UI {
                     // 1 and 2 are the volume rows: adjusted with A/D, nothing to activate
                 }
             }
-            case 1 -> subState = 0;
+            case 1 -> {
+                if(index<=1)adjustDisplaySelection(1);
+                if(index==2){
+                    gp.display.apply(displayDraftFullscreen,displayDraftResolution);
+                    gp.config.saveConfigSafe();subState=0;commandNum=0;
+                }
+                if(index==3){subState=0;commandNum=0;}
+            }
             case 2 -> { subState = 0; commandNum = 3; }
             case 3 -> {
                 if(index == 0){

@@ -65,6 +65,7 @@ public class MouseHandler implements MouseListener, MouseMotionListener, MouseWh
 
     //GAME THREAD: INTERPRET
     void handleMousePressed(int button){
+        if(getScaledX()<0 || getScaledY()<0)return;
         if(button == MouseEvent.BUTTON1){
             leftPressed = true;
             leftClicked = true;
@@ -92,12 +93,16 @@ public class MouseHandler implements MouseListener, MouseMotionListener, MouseWh
         wheelRotation += rotation;
     }
 
-    //COORD SCALING FOR FULLSCREEN
-    public int getScaledX(){
-        return (int)(mouseX * ((double) gp.screenWidth / gp.screenWidth2));
+    private DisplaySettings.Viewport viewport(){
+        return gp.display.gameViewport(gp.getWidth()>0?gp.getWidth():gp.screenWidth2,
+                gp.getHeight()>0?gp.getHeight():gp.screenHeight2);
     }
-
+    public int getScaledX(){
+        DisplaySettings.Viewport view=viewport();
+        return view.contains(mouseX,mouseY)?(int)((mouseX-view.x())*(double)gp.screenWidth/view.width()):-1;
+    }
     public int getScaledY(){
-        return (int)(mouseY * ((double) gp.screenHeight / gp.screenHeight2));
+        DisplaySettings.Viewport view=viewport();
+        return view.contains(mouseX,mouseY)?(int)((mouseY-view.y())*(double)gp.screenHeight/view.height()):-1;
     }
 }

@@ -6,7 +6,7 @@ import java.awt.image.BufferedImage;
 
 /**
  * Base chibi character, cutout-puppet rig, Upgraded Vector style.
- * Everything is designed in a 64-unit space (feet at y=60) and scaled to the requested size.
+ * The 64-unit rig (feet at y=60) sits inside an 80-unit canvas with headgear clearance.
  * Self-contained: no dependency on ArtKit so it can be dropped in as-is.
  */
 public final class CharacterArt {
@@ -38,6 +38,8 @@ public final class CharacterArt {
     }
 
     private static final float W = 64f, H = 64f, FOOT_Y = 60f;
+    public static final float VIEW_SIZE = 80f, OFFSET_X = 8f, OFFSET_Y = 16f;
+    public static final float FOOT_FRACTION = (FOOT_Y + OFFSET_Y) / VIEW_SIZE;
     private static final int SS = 4;
 
     // ------------------------------------------------------------ public api
@@ -47,8 +49,9 @@ public final class CharacterArt {
         Graphics2D g = hi.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-        float k = n / W;
+        float k = n / VIEW_SIZE;
         g.scale(k, k);
+        g.translate(OFFSET_X, OFFSET_Y);
         draw(g, dir, pose, look);
         g.dispose();
         BufferedImage out = boxDown(hi, SS);
@@ -129,12 +132,15 @@ public final class CharacterArt {
                 handY = 45.5f - sw.lift * 7 + (back ? -17 : 7) * sw.reach;
             }
         }
-        boolean weaponBehind = pose.attacking && look.weapon != WeaponArt.Kind.STAFF
-                && sw.lift > 0.65f && sw.reach < 0.5f;
+        // Facing away: the character and outfit always occlude the held weapon.
+        // Front and side views retain the wind-up / follow-through layering.
+        boolean weaponBehind = back || (pose.attacking && look.weapon != WeaponArt.Kind.STAFF
+                && sw.lift > 0.65f && sw.reach < 0.5f);
         final float weaponX = handX, weaponY = handY;
         Runnable weapon = () -> WeaponArt.draw(g, look.weapon, weaponX, weaponY, angle,
                 side ? 1 : hs, sw.reach, sw.smear, previous, look.weaponScale);
         CharacterClothing.cloak(g, look.outfit, side, back, swing);
+        if(!back)CharacterClothing.longHair(g,look.outfit,side,false,swing);
         if (weaponBehind) weapon.run();
         if (side) {
             softPart(g, running ? runLeg(29.5f, -swing * 6.5f, farLift)
@@ -239,6 +245,8 @@ public final class CharacterArt {
             g.fill(new RoundRectangle2D.Float(23, 22, 3.6f, 7.3f, 3.6f, 3.6f));
             g.fill(new RoundRectangle2D.Float(37.4f, 22, 3.6f, 7.3f, 3.6f, 3.6f));
         }
+        // Long back hair overlays the cape, collar, and head before the short crown layer.
+        if(back)CharacterClothing.longHair(g,look.outfit,false,true,swing);
         CharacterClothing.hair(g, look.outfit, side, back);
         if (side) {
             softPart(g, handArm(32.5f, 38, handX, handY), lighten(look.skin, 0.10f));
@@ -247,6 +255,8 @@ public final class CharacterArt {
         if (!weaponBehind) weapon.run();
         // Upward swings pass above the crown, so their impact must remain visible over the head.
         if (melee) WeaponArt.drawMeleeSmear(g, look.weapon, side, back, pose.attack, sw.smear);
+        // Headgear is the final character layer, above hair, limbs, weapons, and effects.
+        CharacterClothing.headpiece(g,look.outfit);
         g.setTransform(saved);
     }
 

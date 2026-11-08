@@ -28,6 +28,18 @@ public class SpriteAnimation {
         }
     }
 
+    /** Share immutable artwork, but keep per-entity animation settings and frame arrays independent. */
+    public SpriteAnimation copy(){
+        SpriteAnimation copy=new SpriteAnimation(frames.clone(),width,height);
+        copy.frameDelay=frameDelay;
+        copy.mirroredFrames=mirroredFrames==null?null:mirroredFrames.clone();
+        return copy;
+    }
+
+    public static void copyInto(java.util.Map<String,SpriteAnimation> target,java.util.Map<String,SpriteAnimation> atlas){
+        atlas.forEach((name,animation)->target.put(name,animation.copy()));
+    }
+
     public BufferedImage getFrame(int index, boolean flipped){
         BufferedImage[] set = (flipped && mirroredFrames != null) ? mirroredFrames : frames;
         index = Math.min(index, set.length - 1);

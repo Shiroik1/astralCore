@@ -23,6 +23,14 @@ public enum MonsterType {
         return factory.apply(gp);
     }
 
+    /** Generate each reusable atlas and hit effect once before the game loop starts. */
+    public static void preload(Gamepanel gp){
+        for(MonsterType type:values()){
+            Monster template=type.create(gp);
+            Entity.preloadSpriteEffects(template.sprites);
+        }
+    }
+
     public static MonsterType of(Entity m){
         if(m == null) return null;
         for(MonsterType t : values()){

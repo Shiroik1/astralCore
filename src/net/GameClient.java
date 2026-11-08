@@ -118,6 +118,8 @@ public class GameClient {
 
             // Visual equipment must update for both the local player and remote players.
             boolean appearanceChanged=false;
+            if(ps.playerClass!=null)p.playerClass=entity.CharacterClass.fromId(ps.playerClass).id;
+            if(ps.gender!=null)p.gender="female".equals(ps.gender)?"female":"male";
             if(ps.weaponType!=null && object.ItemRegistry.typeFor(p.currentWeapon)!=ps.weaponType){
                 p.currentWeapon=object.ItemRegistry.create(ps.weaponType,gp);p.attack=p.getAttack();appearanceChanged=true;
             }
@@ -185,16 +187,6 @@ public class GameClient {
                 p.isDead = ps.isDead;
                 p.applySyncedEffects(ps.effectTypes, ps.effectDurations, ps.effectValues, ps.auraRgb);
 
-                if(ps.playerClass != null && !ps.playerClass.equals(p.playerClass)){
-                    p.playerClass = ps.playerClass;
-                    if(p.playerClass.equals("mage")){
-                        p.getMagePlayerImage();
-                    } else {
-                        p.getPlayerImage();
-                    }
-                    p.refreshWeaponAnimation();
-                }
-
                 if(!p.isDead && ps.HP != previousHP){
                     int delta = ps.HP - previousHP;
                     Color color = delta > 0 ? new Color(120, 220, 120) : Color.red;
@@ -235,6 +227,7 @@ public class GameClient {
             if(ms.isBoss && m instanceof MON_SlimeBoss boss){
                 boss.bossState = ms.bossState;
                 boss.bossStateTimer = ms.bossStateTimer;
+                boss.lastAttackWasSlam = ms.lastAttackWasSlam;
             }
         }
 

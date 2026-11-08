@@ -6,11 +6,23 @@ import java.util.Map;
 
 public class PlaceholderSprites {
 
+    private record AtlasKey(int size,int color,String label) {}
+    private static final java.util.concurrent.ConcurrentMap<AtlasKey,Map<String,SpriteAnimation>> ATLASES=
+            new java.util.concurrent.ConcurrentHashMap<>();
     private static final String[] DIRECTIONS = {"down", "up", "left", "right"};
 
     // Fills `sprites` with the same keys real art uses ("idle_down", "walk_left", ...), so swapping in
     // real sprites later means replacing this one call and nothing else.
     public static void fill(Map<String, SpriteAnimation> sprites, int size, Color body, String label){
+        AtlasKey key=new AtlasKey(size,body.getRGB(),label);
+        Map<String,SpriteAnimation> atlas=ATLASES.computeIfAbsent(key,k -> {
+            Map<String,SpriteAnimation> generated=new java.util.HashMap<>();
+            generate(generated,size,body,label);return Map.copyOf(generated);
+        });
+        SpriteAnimation.copyInto(sprites,atlas);
+    }
+
+    private static void generate(Map<String, SpriteAnimation> sprites,int size,Color body,String label){
         for(String dir : DIRECTIONS){
             sprites.put("idle_" + dir, build(size, body, label, dir, "idle", 6, 12));
             sprites.put("walk_" + dir, build(size, body, label, dir, "walk", 8, 5));

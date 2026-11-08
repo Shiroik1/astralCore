@@ -1,6 +1,7 @@
 package main;
 
 import net.GameEventType;
+import monster.MonsterType;
 import entity.Entity;
 import entity.Monster;
 import entity.Player;
@@ -20,8 +21,6 @@ import world.AmbientFX;
 import world.GrassEditor;
 import world.GrassLayer;
 import world.Lighting;
-
-import static main.Main.window;
 
 public class Gamepanel extends JPanel implements Runnable{
 
@@ -43,15 +42,19 @@ public class Gamepanel extends JPanel implements Runnable{
     public final int tileSize =  originalTileSize * scale; //48x48 tile
     public final int maxScreenCol = 26;
     public final int maxScreenRow = 15;
-    public final int screenWidth = tileSize * maxScreenCol; //1280 pixels
+    public final int screenWidth = tileSize * maxScreenCol; //1248 logical pixels
     public final int screenHeight = tileSize * maxScreenRow; //720 pixels
 
     //FULL SCREEN
     int screenWidth2 = screenWidth;
     int screenHeight2 = screenHeight;
     BufferedImage tempScreen;
+    private final FrameBuffer frames = new FrameBuffer();
+    private final java.util.concurrent.atomic.AtomicInteger paintedFrames = new java.util.concurrent.atomic.AtomicInteger();
+    private long lastPaintedSequence;
     Graphics2D g2;
-    public boolean fullScreenOn = false;
+    public volatile boolean fullScreenOn = false;
+    public final DisplaySettings display = new DisplaySettings(this);
 
     //WORLD SETTINGS
     public int maxWorldCol;
@@ -118,7 +121,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public final int characterState = 4;
 
     public int slimesKilled = 0;
-    public boolean bossSpawned = false;
+    private int pendingSlimeBosses = 0;
 
     //FPS
     int FPS = 60;
@@ -140,6 +143,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public void setUpGame(){
         SceneryLoader.load(this);
         grass.load();
+        preloadGameplayAssets();
         assetSetter.setObject();
         assetSetter.setNPC();
         assetSetter.setMonster();
@@ -154,21 +158,18 @@ public class Gamepanel extends JPanel implements Runnable{
         g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        if(fullScreenOn){
-            setFullScreen();
+    }
+
+    public void preloadGameplayAssets(){
+        MonsterType.preload(this);
+        new object.OBJ_slimebolt(this); // first boss spray already has its jelly frames
+        for(object.ItemType type:new object.ItemType[]{object.ItemType.BRONZE_COIN,object.ItemType.HEART,
+                object.ItemType.CRYSTAL,object.ItemType.POTION_RED}){
+            object.ItemRegistry.create(type,this); // decode common event/drop artwork before play
         }
     }
 
-    public void setFullScreen(){
-        //GET LOCAL SCREEN DEVICE
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        GraphicsDevice gd = ge.getDefaultScreenDevice();
-        gd.setFullScreenWindow(window);
-
-        //GET FULLSCREEN WIDTH AND HEIGHT
-        screenWidth2 = window.getWidth();
-        screenHeight2 = window.getHeight();
-    }
+    public void setFullScreen(){ display.apply(true,display.selected()); }
 
     public void startGameThread(){
         gameThread = new Thread(this);
@@ -178,13 +179,12 @@ public class Gamepanel extends JPanel implements Runnable{
     @Override
     public void run() {
 
-        double drawInterval = 1000000000/FPS;
+        double drawInterval = 1000000000.0/FPS;
         double delta = 0;
         long lastTime = System.nanoTime();
         long currentTime;
 
         //FPS Setting
-        int drawCount = 0;
         long timer = 0;
 
         while(gameThread != null){
@@ -205,7 +205,6 @@ public class Gamepanel extends JPanel implements Runnable{
                 drawToScreen();
 
                 delta--;
-                drawCount++;
             }
             else {
                 long remaining = (long)((1 - delta) * drawInterval); // ns until the next tick is due
@@ -221,8 +220,7 @@ public class Gamepanel extends JPanel implements Runnable{
             }
 
             if(timer >= 1000000000){
-                fpsCounter = drawCount;
-                drawCount =  0;
+                fpsCounter = (int)Math.round(paintedFrames.getAndSet(0)*1_000_000_000.0/timer);
                 timer = 0;
             }
         }
@@ -322,20 +320,15 @@ public class Gamepanel extends JPanel implements Runnable{
                             monster[i].update();
                         }
                         if(!monster[i].alive){
-                            if(monster[i] instanceof monster.MON_GreenSlime){
-                                slimesKilled++;
-                                if(slimesKilled >= 5 && !bossSpawned){
-                                    spawnSlimeBoss();
-                                }
-                            }
-                            monster[i].checkDrop();
-                            monster[i] = null;
+                            removeDefeatedMonster(i);
                         }
                     } else {
                         monster[i].updateAnimation();
                     }
                 }
             }
+
+            if(simulateWorld)spawnPendingSlimeBosses();
 
             //PROJECTILE
             for(int i = 0; i< projectileList.size(); i++){
@@ -542,10 +535,22 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void drawToScreen(){
-        Graphics g = getGraphics();
-        g.drawImage(tempScreen, 0,0,screenWidth2,screenHeight2,null);
-        g.dispose();
-        Toolkit.getDefaultToolkit().sync();
+        if(tempScreen==null)return;
+        DisplaySettings.Resolution resolution=display.frameResolution();
+        if(frames.publish(tempScreen,resolution.width(),resolution.height()))repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics graphics){
+        try(FrameBuffer.Frame frame=frames.acquire()){
+            if(frame==null){super.paintComponent(graphics);return;}
+            // An opaque completed frame plus its letterbox margins paints every pixel.
+            // Avoid clearing the entire high-DPI window again before this blit.
+            display.paintFrame((Graphics2D)graphics,frame.image(),getWidth(),getHeight(),frame.sequence());
+            if(frame.sequence()!=lastPaintedSequence){
+                lastPaintedSequence=frame.sequence();paintedFrames.incrementAndGet();
+            }
+        }
     }
 
     public synchronized void playMusic(int i){
@@ -558,10 +563,7 @@ public class Gamepanel extends JPanel implements Runnable{
         music.stop();
     }
 
-    public synchronized void playSE(int i){
-        soundEffect.setFile(i);
-        soundEffect.play();
-    }
+    public void playSE(int i){ soundEffect.playEffect(i); }
 
     public void startHitStop(int duration){
         hitStopCounter = Math.max(hitStopCounter, duration); // a bigger hit shouldn't get cut short by a smaller one already in progress
@@ -628,6 +630,7 @@ public class Gamepanel extends JPanel implements Runnable{
         players[0] = local;
 
         java.util.Arrays.fill(monster, null);
+        slimesKilled=0;pendingSlimeBosses=0;
         java.util.Arrays.fill(obj, null);
         java.util.Arrays.fill(npc, null);
         projectileList.clear();
@@ -774,17 +777,23 @@ public class Gamepanel extends JPanel implements Runnable{
         }
     }
 
-    private void spawnSlimeBoss(){
-        bossSpawned = true;
-        for(int i = 0; i < monster.length; i++){
-            if(monster[i] == null){
-                monster.MON_SlimeBoss boss = new monster.MON_SlimeBoss(this);
-                boss.worldX = tileSize * 25; // placeholder spawn point — move as needed
-                boss.worldY = tileSize * 36;
-                monster[i] = boss;
-                ui.addMessage("The Slime King has awoken!", new Color(200, 60, 220));
-                break;
-            }
+    private void removeDefeatedMonster(int index){
+        Monster defeated=monster[index];
+        if(defeated==null || defeated.alive)return;
+        defeated.checkDrop();monster[index]=null;
+        if(defeated instanceof monster.MON_GreenSlime){
+            slimesKilled++;
+            if(slimesKilled%5==0)pendingSlimeBosses++;
+        }
+    }
+
+    private void spawnPendingSlimeBosses(){
+        for(int i=0;i<monster.length && pendingSlimeBosses>0;i++){
+            if(monster[i]!=null)continue;
+            monster.MON_SlimeBoss boss=new monster.MON_SlimeBoss(this);
+            boss.worldX=tileSize*25;boss.worldY=tileSize*36;
+            monster[i]=boss;pendingSlimeBosses--;
+            ui.addMessage("The Slime King has awoken!",art.Palette.FOLIAGE_LIGHT);
         }
     }
 

@@ -48,6 +48,24 @@ public class MON_GreenSlime extends Monster {
         down1 = sprites.get("idle_down").frames[0];
     }
 
+    @Override
+    protected SpriteAnimation getCurrentAnimation(){
+        if(flashing && !dying && !attackState)return sprites.get("hurt_"+direction);
+        return super.getCurrentAnimation();
+    }
+
+    @Override
+    protected BufferedImage getCurrentFrame(){
+        if(flashing && !dying && !attackState){
+            SpriteAnimation hurt=getCurrentAnimation();
+            BufferedImage frame=hurt.frames[Math.min(hurt.frames.length-1,flashCounter*hurt.frames.length/Math.max(1,flashDuration))];
+            if(flashCounter<2)return getFlashVersion(frame);
+            java.awt.Color tint=getActiveTintColor();
+            return tint!=null?getTintVersion(frame,tint):frame;
+        }
+        return super.getCurrentFrame();
+    }
+
     public void setAction(){
 
         if(isPlayerInAggroRange()){

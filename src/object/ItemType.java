@@ -25,14 +25,33 @@ public enum ItemType {
     TUNIC(art.CharacterOutfit.Slot.TORSO, "Adventurer Tunic"),
     PANTS(art.CharacterOutfit.Slot.PANTS, "Adventurer Pants"),
     GLOVES(art.CharacterOutfit.Slot.GLOVES, "Leather Gloves"),
-    CLOAK(art.CharacterOutfit.Slot.CLOAK, "Teal Cloak");
+    CLOAK(art.CharacterOutfit.Slot.CLOAK, "Teal Cloak"),
+    LONG_HAIR(art.CharacterOutfit.Slot.HAIR, "Long Brown Hair"),
+    MAGE_HAIR(art.CharacterOutfit.Slot.HAIR, "Short Lilac Hair"),
+    MAGE_LONG_HAIR(art.CharacterOutfit.Slot.HAIR, "Long Lilac Hair"),
+    MAGE_ROBE(art.CharacterOutfit.Slot.TORSO, "Ivory Mage Robe"),
+    MAGE_PANTS(art.CharacterOutfit.Slot.PANTS, "Mage Trousers"),
+    MAGE_BOOTS(art.CharacterOutfit.Slot.BOOTS, "Mage Boots"),
+    MAGE_GLOVES(art.CharacterOutfit.Slot.GLOVES, "Mage Gloves"),
+    MAGE_CLOAK(art.CharacterOutfit.Slot.CLOAK, "Violet Mantle"),
+    WARRIOR_HAIR(art.CharacterOutfit.Slot.HAIR, "Short Golden Hair"),
+    WARRIOR_LONG_HAIR(art.CharacterOutfit.Slot.HAIR, "Long Golden Hair"),
+    WARRIOR_ARMOR(art.CharacterOutfit.Slot.TORSO, "Silver Cuirass"),
+    WARRIOR_PANTS(art.CharacterOutfit.Slot.PANTS, "Warrior Trousers"),
+    WARRIOR_BOOTS(art.CharacterOutfit.Slot.BOOTS, "Plate Greaves"),
+    WARRIOR_GLOVES(art.CharacterOutfit.Slot.GLOVES, "Plate Gauntlets"),
+    WARRIOR_CLOAK(art.CharacterOutfit.Slot.CLOAK, "Crimson Cape"),
+    MAGE_HAT(art.CharacterOutfit.Slot.HEADPIECE, "Mage Hat");
 
     final Class<? extends Entity> itemClass;
     final Function<Gamepanel, Entity> factory;
 
     ItemType(art.CharacterOutfit.Slot slot, String label){
         this.itemClass=OBJ_apparel.class;
-        this.factory=gp -> new OBJ_apparel(gp,this,slot,label);
+        art.CharacterOutfit.Theme theme = name().startsWith("MAGE_") ? art.CharacterOutfit.Theme.CASTER
+                : name().startsWith("WARRIOR_") ? art.CharacterOutfit.Theme.ARMOR : art.CharacterOutfit.Theme.LEATHER;
+        boolean longHair=name().contains("LONG_HAIR");
+        this.factory=gp -> new OBJ_apparel(gp,this,slot,label,theme,longHair);
     }
 
     ItemType(Class<? extends Entity> itemClass, Function<Gamepanel, Entity> factory){

@@ -95,14 +95,12 @@ public class Projectile extends Entity{
         }
 
         spriteCounter++;
-        if(spriteCounter > 12){
-            if(spriteNum == 1){
-                spriteNum = 2;
-            }
-            else if(spriteNum == 2){
-                spriteNum = 1;
-            }
-            spriteCounter = 0;
+        SpriteAnimation animation=getCurrentAnimation();
+        int frameDelay=animation!=null?animation.frameDelay:12;
+        int frameCount=animation!=null?animation.frames.length:2;
+        if(spriteCounter>frameDelay){
+            spriteNum=spriteNum%frameCount+1;
+            spriteCounter=0;
         }
     }
 

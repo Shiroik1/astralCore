@@ -18,6 +18,7 @@ public class PlayerState {
     public ItemType[] apparelTypes;
     public boolean isDead;
     public String playerClass;
+    public String gender;
     public int level, exp, nextLevelExp;
     public int strength, dexterity, intelligence;
     public int coin;

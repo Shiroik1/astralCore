@@ -201,7 +201,7 @@ public class Entity {
 
         gp.collisionChecker.checkPlayer(this);
 
-        moving = !collisionOn;
+        moving = speed > 0 && !collisionOn;
         animState = moving ? "walk" : "idle";
 
         if(!collisionOn && !knockbackActive){
@@ -309,7 +309,7 @@ public class Entity {
             }
 
             //HP Bar
-            if(type == type_monster && hpBarOn){
+            if(type == type_monster && hpBarOn && !(this instanceof Monster m && m.isBoss())){
                 double oneScale = (double) gp.tileSize/maxHP;
                 double hpBarValue = oneScale * HP;
 
@@ -337,7 +337,12 @@ public class Entity {
             if(anim != null){
                 drawX = screenX + (gp.tileSize - anim.width) / 2;
                 drawY = screenY + (gp.tileSize - anim.height) / 2;
+                float footFraction = spriteFootFraction();
+                if(!Float.isNaN(footFraction)){
+                    drawY = screenY + solidArea.y + solidArea.height - 2 - (int)(anim.height * footFraction);
+                }
             }
+            drawY -= Math.round(spriteLiftPixels());
             if(highlighted) drawOutline(g2, getFlashVersion(image), drawX, drawY);
             g2.drawImage(image, drawX, drawY, null);
             changeAlpha(g2, 1f);
@@ -393,6 +398,11 @@ public class Entity {
         gp.particleList.add(p4);
     }
 
+
+    /** NaN keeps legacy centred sprites; generated humanoids anchor their feet to the hitbox. */
+    protected float spriteFootFraction(){ return Float.NaN; }
+    protected float spriteLiftPixels(){ return 0; }
+    protected float shadowScale(){ return 1; }
 
     protected SpriteAnimation getCurrentAnimation(){
         SpriteAnimation anim = sprites.get(animState + "_" + direction);
@@ -533,18 +543,29 @@ public class Entity {
         gp.particleList.add(p);
     }
 
+    /** Warm common hit/selection variants during loading, rather than on the first combat event. */
+    public static void preloadSpriteEffects(java.util.Map<String,SpriteAnimation> sprites){
+        for(SpriteAnimation animation:sprites.values())for(BufferedImage image:animation.frames){
+            flashCache.computeIfAbsent(image,SpriteAnimation::whiteFlash);
+        }
+    }
+
     protected BufferedImage getFlashVersion(BufferedImage src){
         if(src == null) return null;
         return flashCache.computeIfAbsent(src, SpriteAnimation::whiteFlash);
     }
 
+    public boolean canBeKnockedBack(){ return true; }
+
     public void startKnockback(String fromDirection, int distance){
+        if(!canBeKnockedBack())return;
         knockbackActive = true;
         knockbackDirection = fromDirection;
         knockbackRemaining = distance;
     }
 
     public void updateKnockback(){
+        if(!canBeKnockedBack()){knockbackActive=false;knockbackRemaining=0;return;}
         if(knockbackRemaining <= 0){
             knockbackActive = false;
             return;
@@ -614,9 +635,9 @@ public class Entity {
     }
 
     public void drawShadow(Graphics2D g2, int screenX, int screenY){
-        int shadowWidth = solidArea.width;
+        int shadowWidth = Math.round(solidArea.width * shadowScale());
         int shadowHeight = shadowWidth / 2;
-        int shadowX = screenX + solidArea.x;
+        int shadowX = screenX + solidArea.x + (solidArea.width-shadowWidth)/2;
         int shadowY = screenY + solidArea.y + solidArea.height - shadowHeight / 2;
 
         g2.setColor(new Color(0, 0, 0, 90));

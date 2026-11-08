@@ -8,7 +8,9 @@ import main.Gamepanel;
 import object.OBJ_bronzecoin;
 import object.OBJ_crystal;
 import object.OBJ_heart;
-import object.OBJ_rock;
+import object.OBJ_slimebolt;
+import entity.SpriteAnimation;
+import java.awt.image.BufferedImage;
 
 import java.awt.*;
 import java.util.Random;
@@ -17,13 +19,14 @@ public class MON_SlimeBoss extends Monster {
 
     public String bossState = "idle"; // idle, telegraph_slam, telegraph_spray, cooldown
     public int bossStateTimer = 0;
+    public boolean lastAttackWasSlam = false;
 
     private final int idleAttackDecisionInterval = 90; // ~1.5s of chasing before it decides to attack
     private final int telegraphSlamDuration = 60;       // 1s warning before slam lands
     private final int telegraphSprayDuration = 40;
     private final int cooldownDuration = 90;
     private final int slamRadius = 120;                 // px
-    private final int sprayRockCount = 5;
+    private final int sprayProjectileCount = 5;
     private final int sprayFanSpreadDegrees = 60;
 
     public MON_SlimeBoss(Gamepanel gp) {
@@ -57,11 +60,43 @@ public class MON_SlimeBoss extends Monster {
         down1 = sprites.get("idle_down").frames[0];
     }
 
+    @Override public boolean isBoss(){ return true; }
+    @Override public boolean canDealContactDamage(){ return !bossState.equals("telegraph_slam"); }
+
+    @Override
+    public void update(){
+        knockbackActive=false;knockbackRemaining=0;
+        if(!dying && (bossState.equals("telegraph_slam") || bossState.equals("telegraph_spray") || landing())){
+            // Special attacks own their clock and cannot be interrupted by contact attacks.
+            attackState=false;attacking=false;moving=false;speed=0;
+            setAction();
+            animState="idle";
+            updateAnimation();updateStatusEffects();updateAura();
+            if(invincible && ++invincibleCounter>40){invincible=false;invincibleCounter=0;}
+            return;
+        }
+        super.update();
+    }
+
+    /** Purely visual altitude: the ground position, telegraph and damage centre stay fixed. */
+    public float slamHeight(){
+        if(dying || !bossState.equals("telegraph_slam"))return 0;
+        float t=bossStateTimer;
+        if(t<12)return 0;
+        if(t<28){float u=(t-12)/16;return 110*u*u*(3-2*u);}
+        if(t<44)return 110;
+        float u=Math.min(1,(t-44)/16);return 110*(1-u*u);
+    }
+
+    @Override protected float spriteLiftPixels(){ return slamHeight(); }
+    @Override protected float shadowScale(){ return 1-0.45f*slamHeight()/110; }
+
     public void setAction(){
+        speed=0;
         switch(bossState){
             case "idle" -> {
                 if(isPlayerInAggroRange()){
-                    chasePlayer();
+                    speed=2;chasePlayer();
                     bossStateTimer++;
                     if(bossStateTimer >= idleAttackDecisionInterval){
                         bossStateTimer = 0;
@@ -91,7 +126,7 @@ public class MON_SlimeBoss extends Monster {
                 }
             }
             case "cooldown" -> {
-                if(isPlayerInAggroRange()) chasePlayer();
+                if(!landing() && isPlayerInAggroRange()){speed=2;chasePlayer();}
                 bossStateTimer++;
                 if(bossStateTimer >= cooldownDuration){
                     bossState = "idle";
@@ -103,11 +138,14 @@ public class MON_SlimeBoss extends Monster {
 
     private void startRandomAttack(){
         boolean useSlam = new Random().nextBoolean();
+        lastAttackWasSlam=useSlam;
         bossState = useSlam ? "telegraph_slam" : "telegraph_spray";
         bossStateTimer = 0;
+        speed=0;moving=false;
     }
 
     private void executeSlam(){
+        lastAttackWasSlam=true;
         String savedDirection = direction;
         for(Player p : gp.players){
             if(p == null || p.isDead) continue;
@@ -127,6 +165,7 @@ public class MON_SlimeBoss extends Monster {
     }
 
     private void executeSpray(){
+        lastAttackWasSlam=false;
         Player target = findNearestPlayer();
         if(target == null) return;
 
@@ -137,14 +176,14 @@ public class MON_SlimeBoss extends Monster {
         double baseAngle = Math.atan2(targetY - centerY, targetX - centerX);
 
         double spreadRad = Math.toRadians(sprayFanSpreadDegrees);
-        double step = (sprayRockCount > 1) ? spreadRad / (sprayRockCount - 1) : 0;
+        double step = (sprayProjectileCount > 1) ? spreadRad / (sprayProjectileCount - 1) : 0;
         double startAngle = baseAngle - spreadRad/2;
 
-        for(int i = 0; i < sprayRockCount; i++){
-            double angle = (sprayRockCount > 1) ? startAngle + step * i : baseAngle;
-            OBJ_rock rock = new OBJ_rock(gp);
-            rock.setAngled((int)centerX, (int)centerY, angle, true, this);
-            gp.projectileList.add(rock);
+        for(int i = 0; i < sprayProjectileCount; i++){
+            double angle = (sprayProjectileCount > 1) ? startAngle + step * i : baseAngle;
+            OBJ_slimebolt droplet = new OBJ_slimebolt(gp);
+            droplet.setAngled((int)centerX, (int)centerY, angle, true, this);
+            gp.projectileList.add(droplet);
         }
         gp.playSE(9);
     }
@@ -162,7 +201,7 @@ public class MON_SlimeBoss extends Monster {
             double angle = Math.random() * 2 * Math.PI;
             int xd = (int) Math.round(Math.cos(angle) * 2);
             int yd = (int) Math.round(Math.sin(angle) * 2);
-            Particle p = new Particle(gp, this, new Color(150, 50, 200), 5, 1, 15, xd, yd);
+            Particle p = new Particle(gp, this, SlimeArt.SAGE, 5, 1, 15, xd, yd);
             gp.particleList.add(p);
         }
     }
@@ -178,11 +217,40 @@ public class MON_SlimeBoss extends Monster {
     }
 
     @Override
-    public void draw(Graphics2D g2){
-        super.draw(g2);
+    protected SpriteAnimation getCurrentAnimation(){
+        if(dying || attackState)return super.getCurrentAnimation();
+        if(bossState.equals("telegraph_slam") || landing())return sprites.get("slam_"+direction);
+        if(bossState.equals("telegraph_spray"))return sprites.get("charge_"+direction);
+        if(flashing)return sprites.get("hurt_"+direction);
+        return super.getCurrentAnimation();
+    }
+
+    private boolean landing(){return lastAttackWasSlam && bossState.equals("cooldown") && bossStateTimer<20;}
+
+    @Override
+    protected BufferedImage getCurrentFrame(){
+        if(dying || attackState)return super.getCurrentFrame();
+        SpriteAnimation anim=getCurrentAnimation();
         if(bossState.equals("telegraph_slam")){
-            drawSlamTelegraph(g2);
+            int frame=Math.min(3,bossStateTimer*4/telegraphSlamDuration);
+            return withPoseEffects(anim.frames[frame]);
         }
+        if(landing())return withPoseEffects(anim.frames[Math.min(7,4+bossStateTimer/5)]);
+        if(bossState.equals("telegraph_spray"))return withPoseEffects(anim.frames[(bossStateTimer/5)%anim.frames.length]);
+        if(flashing)return withPoseEffects(anim.frames[Math.min(anim.frames.length-1,flashCounter*anim.frames.length/Math.max(1,flashDuration))]);
+        return super.getCurrentFrame();
+    }
+
+    private BufferedImage withPoseEffects(BufferedImage frame){
+        if(flashing && flashCounter<2)return getFlashVersion(frame);
+        Color tint=getActiveTintColor();
+        return tint!=null?getTintVersion(frame,tint):frame;
+    }
+
+    @Override
+    public void draw(Graphics2D g2){
+        if(!dying && bossState.equals("telegraph_slam"))drawSlamTelegraph(g2);
+        super.draw(g2);
     }
 
     private void drawSlamTelegraph(Graphics2D g2){

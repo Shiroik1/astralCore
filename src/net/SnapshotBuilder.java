@@ -35,6 +35,7 @@ public class SnapshotBuilder {
             ps.playerId = p.playerId;
             ps.playerName = p.playerName;
             ps.playerClass = p.playerClass;
+            ps.gender = p.gender;
             ps.worldX = p.worldX;
             ps.worldY = p.worldY;
             ps.direction = p.direction;
@@ -114,6 +115,7 @@ public class SnapshotBuilder {
                 ms.isBoss = true;
                 ms.bossState = boss.bossState;
                 ms.bossStateTimer = boss.bossStateTimer;
+                ms.lastAttackWasSlam = boss.lastAttackWasSlam;
             }
             states[i] = ms;
         }

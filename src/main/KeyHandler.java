@@ -23,7 +23,7 @@ public class KeyHandler implements KeyListener {
     public StringBuilder chatInput = new StringBuilder();
 
     public int characterCreationStep = 0; // 0 = naming, 1 = class/gender select
-    public int selectedClassIndex = 0; // 0 = swordsman, 1 = mage
+    public int selectedClassIndex = 2; // Hunter, Mage, Warrior (default)
     public int selectedGenderIndex = 0; // 0 = male, 1 = female
 
     public KeyHandler(Gamepanel gp){
@@ -207,24 +207,26 @@ public class KeyHandler implements KeyListener {
         int maxCommandNum = 0;
         switch (gp.ui.subState){
             case 0 -> maxCommandNum = 5;
+            case 1 -> maxCommandNum = 3;
             case 3 -> maxCommandNum = 1;
         }
 
-        if(code == KeyEvent.VK_W){
+        if(code == KeyEvent.VK_W || code == KeyEvent.VK_UP){
             gp.ui.commandNum--;
             gp.playSE(8);
             if(gp.ui.commandNum < 0){
                 gp.ui.commandNum = maxCommandNum;
             }
         }
-        if(code == KeyEvent.VK_S){
+        if(code == KeyEvent.VK_S || code == KeyEvent.VK_DOWN){
             gp.ui.commandNum++;
             gp.playSE(8);
             if(gp.ui.commandNum > maxCommandNum){
                 gp.ui.commandNum = 0;
             }
         }
-        if(code == KeyEvent.VK_A){
+        if(code == KeyEvent.VK_A || code == KeyEvent.VK_LEFT){
+            gp.ui.adjustDisplaySelection(-1);
             if(gp.ui.subState == 0){
                 if(gp.ui.commandNum == 1 && gp.music.volumeScale > 0){
                     gp.music.volumeScale--;
@@ -239,7 +241,8 @@ public class KeyHandler implements KeyListener {
                 }
             }
         }
-        if(code == KeyEvent.VK_D){
+        if(code == KeyEvent.VK_D || code == KeyEvent.VK_RIGHT){
+            gp.ui.adjustDisplaySelection(1);
             if(gp.ui.subState == 0){
                 if(gp.ui.commandNum == 1 && gp.music.volumeScale < 5){
                     gp.music.volumeScale++;
@@ -299,10 +302,10 @@ public class KeyHandler implements KeyListener {
 
     private void characterCreationStep(int code){
         if(code == KeyEvent.VK_A){
-            selectedClassIndex = 1 - selectedClassIndex;
+            selectedClassIndex = Math.floorMod(selectedClassIndex - 1, entity.CharacterClass.values().length);
         }
         if(code == KeyEvent.VK_D){
-            selectedClassIndex = 1 - selectedClassIndex;
+            selectedClassIndex = (selectedClassIndex + 1) % entity.CharacterClass.values().length;
         }
         if(code == KeyEvent.VK_W || code == KeyEvent.VK_S){
             selectedGenderIndex = 1 - selectedGenderIndex;

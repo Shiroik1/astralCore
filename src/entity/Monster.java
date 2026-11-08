@@ -21,6 +21,12 @@ public class Monster extends Entity {
         type = type_monster;
     }
 
+    public boolean isBoss(){ return false; }
+    public boolean canDealContactDamage(){ return true; }
+
+    @Override
+    public boolean canBeKnockedBack(){ return !isBoss(); }
+
     @Override
     public void update(){
         if(dying){

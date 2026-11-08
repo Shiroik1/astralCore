@@ -20,9 +20,9 @@ public final class WeaponArt {
     public enum Kind {
         // front view chops from over the head DOWN toward the camera; back view chops UP and away from it
         NONE (0, 0, 0,    0, 0, 0,     25, -85,   0, 0),
-        SWORD(14, 8, 165,   28, -30, 120,   150, 300,   170, 15),
-        AXE  (12, 5, 170,   30, -40, 125,   150, 300,   175, 10),
-        STAFF(5, -10, 22,    10, 18, 42,    -140, -105,   -10, 22);
+        SWORD(0, 8, 165,   28, -30, 120,   150, 300,   170, 15),
+        AXE  (0, 5, 170,   30, -40, 125,   150, 300,   175, 10),
+        STAFF(0, -10, 22,    10, 18, 42,    -140, -105,   -10, 22);
 
         public final float restFront, windFront, strikeFront, restSide, windSide, strikeSide, windArm, strikeArm, windBack, strikeBack;
         Kind(float rf, float wf, float sf, float rs, float ws, float ss, float wa, float sa, float wb, float sb) {

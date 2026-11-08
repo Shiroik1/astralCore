@@ -134,20 +134,12 @@ public class GameServer {
         if(request.playerName != null && !request.playerName.isEmpty()){
             p.playerName = request.playerName;
         }
-        if(request.playerClass != null && !request.playerClass.isEmpty() && !request.playerClass.equals(p.playerClass)){
-            p.playerClass = request.playerClass;
-            if(p.playerClass.equals("mage")){
-                p.getMagePlayerImage();
-            } else {
-                p.getPlayerImage();
-            }
-            p.setDefaultValues();
-            p.setItems();
-            p.refreshWeaponAnimation();
-        }
-        if(request.gender != null && !request.gender.isEmpty()){
-            p.gender = request.gender;
-        }
+        String classId=request.playerClass!=null?request.playerClass:p.playerClass;
+        String genderId=request.gender!=null?request.gender:p.gender;
+        p.setCharacterDesign(classId,genderId);
+        p.setDefaultValues();
+        p.setItems();
+        p.refreshWeaponAnimation();
     }
 
     private int assignNextFreePlayerId(){
