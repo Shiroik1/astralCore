@@ -83,6 +83,9 @@ public class Gamepanel extends JPanel implements Runnable{
     private int shakeOffsetY = 0;
     public final java.util.concurrent.ConcurrentLinkedQueue<RawInput> inputQueue = new java.util.concurrent.ConcurrentLinkedQueue<>();
     public CommandProcessor commands = new CommandProcessor(this);
+    public final quest.QuestManager quests = new quest.QuestManager(this);
+
+    public final Merchant merchant=new Merchant(this);
 
     //MOUSE SETTING
     public MouseHandler mouseH = new MouseHandler(this);
@@ -120,8 +123,6 @@ public class Gamepanel extends JPanel implements Runnable{
     public final int playState = 1;
     public final int characterState = 4;
 
-    public int slimesKilled = 0;
-    private int pendingSlimeBosses = 0;
 
     //FPS
     int FPS = 60;
@@ -162,6 +163,12 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void preloadGameplayAssets(){
         MonsterType.preload(this);
+        quests.prepare();
+        merchant.prepare();
+        new object.OBJ_slimebolt(this,true);
+        for(object.ItemType type:object.ItemType.values())
+            if(type.name().startsWith("ROYAL_") || type.name().startsWith("HELL_") || type==object.ItemType.SLIME_ESSENCE)
+                object.ItemRegistry.create(type,this);
         new object.OBJ_slimebolt(this); // first boss spray already has its jelly frames
         for(object.ItemType type:new object.ItemType[]{object.ItemType.BRONZE_COIN,object.ItemType.HEART,
                 object.ItemType.CRYSTAL,object.ItemType.POTION_RED}){
@@ -265,7 +272,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 localInput.aimWorldX = mouseH.getScaledX() - local.screenX + local.worldX;
                 localInput.aimWorldY = mouseH.getScaledY() - local.screenY + local.worldY;
                 java.util.Arrays.fill(keyH.skillKeyPressed, false); // skill presses are one-shot: consumed at capture
-                if(inventoryOpen || optionsOpen || paused || keyH.enteringChat){
+                if(local.merchantOpen || inventoryOpen || optionsOpen || paused || keyH.enteringChat){
                     localInput.suppressGameplay();
                     mouseH.leftClicked = false;
                 }
@@ -293,10 +300,11 @@ public class Gamepanel extends JPanel implements Runnable{
             //PLAYER
             for(Player p : players){
                 if(p != null){
-                    p.update();
+                    quests.updatePlayer(p);
                 }
             }
 
+            quests.activateArea(quests.hasDungeonPlayers());
             updateHighlights();
 
             boolean simulateWorld = !isNetworked || isHost;
@@ -315,7 +323,9 @@ public class Gamepanel extends JPanel implements Runnable{
             //MONSTER
             for(int i = 0; i< monster.length; i++){
                 if(monster[i] != null){
-                    if(simulateWorld){
+                    if(quests.isBossIntro()){
+                        monster[i].updateAnimation();
+                    }else if(simulateWorld){
                         if(monster[i].alive){
                             monster[i].update();
                         }
@@ -328,7 +338,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
-            if(simulateWorld)spawnPendingSlimeBosses();
+            if(simulateWorld)quests.update();
 
             //PROJECTILE
             for(int i = 0; i< projectileList.size(); i++){
@@ -337,7 +347,7 @@ public class Gamepanel extends JPanel implements Runnable{
                         projectileList.get(i).update();
                     }
                     if(!projectileList.get(i).alive){
-                        projectileList.remove(i);
+                        projectileList.remove(i--);
                     }
                 }
             }
@@ -426,6 +436,7 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void drawToTempscreen() throws IOException {
 
+        quests.activateArea(localPlayer().inWell);
         g2.setColor(Color.black);
         g2.fillRect(0, 0, screenWidth, screenHeight);
 
@@ -463,11 +474,11 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
-            grass.drawBase(g2);
+            if(!quests.inDungeon())grass.drawBase(g2);
 
             //ADD ENTITIES TO THE LIST
             for(Player p : players){
-                if(p != null){
+                if(p != null && p.inWell==quests.inDungeon()){
                     entityList.add(p);
                 }
             }
@@ -507,7 +518,7 @@ public class Gamepanel extends JPanel implements Runnable{
             //DRAW ENTITIES
             for(int i = 0; i < entityList.size(); i++){
                 entityList.get(i).draw(g2);
-                grass.drawFront(g2, entityList.get(i));
+                if(!quests.inDungeon())grass.drawFront(g2, entityList.get(i));
             }
 
             //EMPTY ENTITY LIST
@@ -517,7 +528,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 ft.draw(g2);
             }
 
-            ambient.drawLeaves(g2);
+            if(!quests.inDungeon())ambient.drawLeaves(g2);
             grassEditor.drawBrush(g2);
 
             g2.translate(-shakeOffsetX, -shakeOffsetY);
@@ -623,14 +634,14 @@ public class Gamepanel extends JPanel implements Runnable{
         local.playerId = 0;
         local.isLocal = true;
         local.isDead = false;
-        local.inDialogue = false;
+        local.resetForSceneTransition();
         inventoryOpen = false;
         optionsOpen = false;
         paused = false;
         players[0] = local;
 
+        quests.reset();
         java.util.Arrays.fill(monster, null);
-        slimesKilled=0;pendingSlimeBosses=0;
         java.util.Arrays.fill(obj, null);
         java.util.Arrays.fill(npc, null);
         projectileList.clear();
@@ -671,6 +682,22 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void applyGameEventLocally(int playerId, GameEventType type, String ambientMessage, String personalMessage){
         if(type == null) return;
+        if(type==GameEventType.SKILL_EFFECT){
+            if(playerId>=0 && playerId<players.length && players[playerId]!=null){
+                Player caster=players[playerId];boolean previous=quests.inDungeon();quests.activateArea(caster.inWell);
+                caster.spawnWarriorSkillEffects(personalMessage);quests.activateArea(previous);
+            }
+            return;
+        }
+        if(type==GameEventType.SHOP){
+            if(playerId==localPlayerIndex && localPlayer()!=null)localPlayer().shopMessage=personalMessage;
+            return;
+        }
+
+        if(type == GameEventType.QUEST_INTRO){
+            Player participant=players[playerId];
+            if(participant!=null && (participant.isLocal || !isNetworked || isHost))quests.showBossIntro(participant);
+        }
 
         if(type == GameEventType.RESPAWN_REQUEST){
             if(!isNetworked || isHost){
@@ -694,7 +721,9 @@ public class Gamepanel extends JPanel implements Runnable{
         if(playerId == localPlayerIndex && personalMessage != null && type != GameEventType.LEVELUP){
             Player p = localPlayer();
             if(p != null){
-                p.showPersonalNotification(personalMessage);
+                if(p.inDialogue && quest.QuestManager.INTRO_TAG.equals(p.dialogueTag))
+                    ui.addMessage(personalMessage.replace('\n',' '));
+                else p.showPersonalNotification(personalMessage);
             }
         }
     }
@@ -722,10 +751,12 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void applyInventoryActionLocally(net.InventoryAction action){
-        if(action.actionType == null) return;
+        if(action.actionType == null || action.playerId<0 || action.playerId>=players.length) return;
         Player target = players[action.playerId];
         if(target == null) return;
 
+        boolean previousArea=quests.inDungeon();quests.activateArea(target.inWell);
+        try{
         switch(action.actionType){
             case EQUIP -> target.tryEquipFromBag(action.sourceIndex, action.slotType);
             case SWAP -> target.swapOrMergeBagSlots(action.sourceIndex, action.targetIndex);
@@ -734,7 +765,9 @@ public class Gamepanel extends JPanel implements Runnable{
             case DROP -> target.dropBagItemToWorld(action.sourceIndex);
             case USE -> target.useInventoryItem(action.sourceIndex);
             case UNDRESS -> target.undress();
+            case BUY,SELL,SHOP_CLOSE -> merchant.transact(target,action);
         }
+        }finally{quests.activateArea(previousArea);}
     }
 
     public void spawnFloatingText(int worldX, int worldY, String text, Color color){
@@ -781,20 +814,7 @@ public class Gamepanel extends JPanel implements Runnable{
         Monster defeated=monster[index];
         if(defeated==null || defeated.alive)return;
         defeated.checkDrop();monster[index]=null;
-        if(defeated instanceof monster.MON_GreenSlime){
-            slimesKilled++;
-            if(slimesKilled%5==0)pendingSlimeBosses++;
-        }
-    }
-
-    private void spawnPendingSlimeBosses(){
-        for(int i=0;i<monster.length && pendingSlimeBosses>0;i++){
-            if(monster[i]!=null)continue;
-            monster.MON_SlimeBoss boss=new monster.MON_SlimeBoss(this);
-            boss.worldX=tileSize*25;boss.worldY=tileSize*36;
-            monster[i]=boss;pendingSlimeBosses--;
-            ui.addMessage("The Slime King has awoken!",art.Palette.FOLIAGE_LIGHT);
-        }
+        quests.onMonsterDefeated(defeated);
     }
 
     private int findHoveredMonsterIndex(Player local){

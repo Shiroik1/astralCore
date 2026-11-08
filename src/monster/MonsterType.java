@@ -9,7 +9,8 @@ import java.util.function.Function;
 public enum MonsterType {
     GREEN_SLIME(MON_GreenSlime.class, MON_GreenSlime::new),
     SLIME_BOSS(MON_SlimeBoss.class, MON_SlimeBoss::new),
-    IMP(MON_Imp.class, MON_Imp::new);
+    IMP(MON_Imp.class, MON_Imp::new),
+    HELL_SLIME(MON_HellSlime.class,MON_HellSlime::new);
 
     private final Class<? extends Monster> monsterClass;
     private final Function<Gamepanel, Monster> factory;

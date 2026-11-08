@@ -141,6 +141,10 @@ public class KeyHandler implements KeyListener {
     }
 
     public void playState(int code){
+        if(gp.localPlayer()!=null && gp.localPlayer().merchantOpen){
+            if(code==KeyEvent.VK_ESCAPE)gp.merchant.close();
+            return;
+        }
         if(gp.grassEditor.active && gp.grassEditor.handleKey(code)) return; // brush keys are not skill keys
         if(code == KeyEvent.VK_T){
             showDebug = !showDebug;
@@ -335,7 +339,7 @@ public class KeyHandler implements KeyListener {
 
     private boolean canOpenChat(){
         return gp.gameState == gp.playState && !gp.optionsOpen && !gp.paused
-                && !enteringNetworkAddress && !enteringCharacterName;
+                && !enteringNetworkAddress && !enteringCharacterName && (gp.localPlayer()==null || !gp.localPlayer().merchantOpen);
     }
 
     public void beginChat(){

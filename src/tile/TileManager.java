@@ -105,6 +105,7 @@ public class TileManager implements GroundTiles.World {
 
     // the only terrain rule the rest of the game needs: outside the map and deep forest are walls
     public boolean isSolid(int col, int row){
+        if(gp.quests!=null && gp.quests.inDungeon())return gp.quests.isDungeonSolid(col,row);
         if(col < 0 || row < 0 || col >= gp.maxWorldCol || row >= gp.maxWorldRow) return true;
         return terrainGrid[col][row] == Terrain.DEEP;
     }
@@ -138,6 +139,7 @@ public class TileManager implements GroundTiles.World {
     }
 
     public void draw(Graphics2D g2){
+        if(gp.quests.inDungeon()){gp.quests.drawDungeon(g2);return;}
         Player camera = gp.localPlayer();
         int viewLeft = camera.worldX - camera.screenX;
         int viewTop = camera.worldY - camera.screenY;

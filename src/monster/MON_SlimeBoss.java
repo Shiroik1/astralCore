@@ -21,32 +21,37 @@ public class MON_SlimeBoss extends Monster {
     public int bossStateTimer = 0;
     public boolean lastAttackWasSlam = false;
 
-    private final int idleAttackDecisionInterval = 90; // ~1.5s of chasing before it decides to attack
+    protected final boolean hell;
+    private int hellAttackCycle;
+    private double chargeX,chargeY;
+    private final int idleAttackDecisionInterval = 75; // ~1.5s of chasing before it decides to attack
     private final int telegraphSlamDuration = 60;       // 1s warning before slam lands
     private final int telegraphSprayDuration = 40;
-    private final int cooldownDuration = 90;
-    private final int slamRadius = 120;                 // px
+    private final int cooldownDuration = 70;
+    private final int slamRadius;                 // px
     private final int sprayProjectileCount = 5;
     private final int sprayFanSpreadDegrees = 60;
 
-    public MON_SlimeBoss(Gamepanel gp) {
-        super(gp);
+    public MON_SlimeBoss(Gamepanel gp) {this(gp,false);}
 
-        name = "Slime King";
+    protected MON_SlimeBoss(Gamepanel gp,boolean hell) {
+        super(gp);this.hell=hell;slamRadius=hell?180:156;
+
+        name = hell?"Hell Slime":"Slime King";
         speed = 2;
-        maxHP = 60;
+        maxHP = hell?600:50;
         HP = maxHP;
-        attack = 8;
-        defense = 0;
-        exp = 30;
-        aggroRange = 8;
+        attack = hell?13:9;
+        defense = hell?2:1;
+        exp = hell?25:20;
+        aggroRange = 24;
 
-        int size = gp.tileSize * 3;
+        int size = gp.tileSize * 7 / 2;
 
-        solidArea.x = 6;
-        solidArea.y = 36;
-        solidArea.width = 84;
-        solidArea.height = 60;
+        solidArea.x = 0;
+        solidArea.y = 30;
+        solidArea.width = 96;
+        solidArea.height = 66;
         solidAreaDefaultX = solidArea.x;
         solidAreaDefaultY = solidArea.y;
 
@@ -56,23 +61,37 @@ public class MON_SlimeBoss extends Monster {
     public void getImage(int size){
         // Its collision box is centered 24px right of a normal tile center.
         // Convert that correction into the 64-unit slime design space.
-        SlimeArt.buildBossAnimations(sprites, size, 1.25f, 10.67f);
+        if(hell)SlimeArt.buildHellBossAnimations(sprites,size,1.25f,64f*24/size);
+        else SlimeArt.buildBossAnimations(sprites,size,1.25f,64f*24/size);
         down1 = sprites.get("idle_down").frames[0];
     }
 
+    public void resetEncounter(){
+        HP=maxHP;worldX=25*gp.tileSize;worldY=14*gp.tileSize;bossState="idle";bossStateTimer=0;
+        lastAttackWasSlam=false;hellAttackCycle=0;attackState=false;attacking=false;moving=false;
+        spriteNum=1;spriteCounter=0;invincible=false;invincibleCounter=0;flashing=false;knockbackActive=false;
+        statusEffects.clear();comboStacks=0;auraActive=false;
+    }
+
+    public double chargeX(){return chargeX;}
+    public double chargeY(){return chargeY;}
+    public void syncCharge(double x,double y){chargeX=x;chargeY=y;}
+    public int slamRadius(){return slamRadius;}
+    public boolean isHell(){return hell;}
+    @Override protected float spriteFootFraction(){return 62.3f/64;}
     @Override public boolean isBoss(){ return true; }
     @Override public boolean canDealContactDamage(){ return !bossState.equals("telegraph_slam"); }
 
     @Override
     public void update(){
         knockbackActive=false;knockbackRemaining=0;
-        if(!dying && (bossState.equals("telegraph_slam") || bossState.equals("telegraph_spray") || landing())){
+        if(!dying && (bossState.equals("telegraph_slam") || bossState.equals("telegraph_spray") || bossState.equals("burst") || bossState.equals("telegraph_charge") || bossState.equals("charge") || landing())){
             // Special attacks own their clock and cannot be interrupted by contact attacks.
             attackState=false;attacking=false;moving=false;speed=0;
             setAction();
             animState="idle";
             updateAnimation();updateStatusEffects();updateAura();
-            if(invincible && ++invincibleCounter>40){invincible=false;invincibleCounter=0;}
+            if(invincible && ++invincibleCounter>invincibilityDuration){invincible=false;invincibleCounter=0;}
             return;
         }
         super.update();
@@ -96,7 +115,7 @@ public class MON_SlimeBoss extends Monster {
         switch(bossState){
             case "idle" -> {
                 if(isPlayerInAggroRange()){
-                    speed=2;chasePlayer();
+                    speed=hell?3:2;chasePlayer();
                     bossStateTimer++;
                     if(bossStateTimer >= idleAttackDecisionInterval){
                         bossStateTimer = 0;
@@ -120,15 +139,27 @@ public class MON_SlimeBoss extends Monster {
                     spawnChargeParticles();
                 }
                 if(bossStateTimer >= telegraphSprayDuration){
-                    executeSpray();
-                    bossState = "cooldown";
+                    if(hell)executeRadialWave(0);else executeSpray();
+                    bossState = hell?"burst":"cooldown";
                     bossStateTimer = 0;
                 }
             }
-            case "cooldown" -> {
-                if(!landing() && isPlayerInAggroRange()){speed=2;chasePlayer();}
+            case "burst" -> {
                 bossStateTimer++;
-                if(bossStateTimer >= cooldownDuration){
+                if(bossStateTimer==18 || bossStateTimer==36)executeRadialWave(bossStateTimer/18);
+                if(bossStateTimer>=36){bossState="cooldown";bossStateTimer=0;}
+            }
+            case "telegraph_charge" -> {
+                if(++bossStateTimer>=42){bossState="charge";bossStateTimer=0;}
+            }
+            case "charge" -> {
+                moveCharge();
+                if(++bossStateTimer>=22){bossState="cooldown";bossStateTimer=0;}
+            }
+            case "cooldown" -> {
+                if(!landing() && isPlayerInAggroRange()){speed=hell?3:2;chasePlayer();}
+                bossStateTimer++;
+                if(bossStateTimer >= (hell?50:cooldownDuration)){
                     bossState = "idle";
                     bossStateTimer = 0;
                 }
@@ -137,18 +168,50 @@ public class MON_SlimeBoss extends Monster {
     }
 
     private void startRandomAttack(){
-        boolean useSlam = new Random().nextBoolean();
-        lastAttackWasSlam=useSlam;
-        bossState = useSlam ? "telegraph_slam" : "telegraph_spray";
-        bossStateTimer = 0;
-        speed=0;moving=false;
+        if(hell){
+            bossState=switch(hellAttackCycle++%3){case 0->"telegraph_slam";case 1->"telegraph_spray";default->"telegraph_charge";};
+            if(bossState.equals("telegraph_charge")){
+                Player target=findNearestPlayer();
+                double dx=target==null?0:target.worldX+target.solidArea.x+target.solidArea.width/2.0-(worldX+48);
+                double dy=target==null?1:target.worldY+target.solidArea.y+target.solidArea.height/2.0-(worldY+63);
+                double length=Math.max(1,Math.hypot(dx,dy));chargeX=dx/length;chargeY=dy/length;direction=radialDirection(dx,dy);
+            }
+        }else bossState=new Random().nextBoolean()?"telegraph_slam":"telegraph_spray";
+        lastAttackWasSlam=bossState.equals("telegraph_slam");bossStateTimer=0;speed=0;moving=false;
+    }
+
+    private void moveCharge(){
+        // Move each axis through the normal wall/scenery collision checks; never dash through pillars.
+        int oldX=worldX,oldY=worldY;
+        int dx=(int)Math.round(chargeX*10),dy=(int)Math.round(chargeY*10);
+        for(int axis=0;axis<2;axis++){
+            int step=axis==0?dx:dy;if(step==0)continue;
+            direction=axis==0?(step>0?"right":"left"):(step>0?"down":"up");
+            speed=Math.abs(step);collisionOn=false;gp.collisionChecker.checkTile(this);
+            if(!collisionOn){if(axis==0)worldX+=step;else worldY+=step;}
+        }
+        speed=0;moving=true;
+        for(Player p:gp.players)if(p!=null && p.inWell==gp.quests.inDungeon() && !p.isDead){
+            Rectangle body=new Rectangle(worldX+solidArea.x,worldY+solidArea.y,solidArea.width,solidArea.height);
+            if(body.intersects(new Rectangle(p.worldX+p.solidArea.x,p.worldY+p.solidArea.y,p.solidArea.width,p.solidArea.height)))damagePlayer(p,attack);
+        }
+        if(worldX==oldX && worldY==oldY)bossStateTimer=22;
+    }
+
+    private void executeRadialWave(int wave){
+        int cx=worldX+solidArea.x+solidArea.width/2,cy=worldY+solidArea.y+solidArea.height/2;
+        for(int i=0;i<16;i++){
+            OBJ_slimebolt bolt=new OBJ_slimebolt(gp,true);bolt.attack=8;
+            bolt.setAngled(cx-gp.tileSize/2,cy-gp.tileSize/2,2*Math.PI*i/16+wave*Math.PI/16,true,this);
+            gp.projectileList.add(bolt);
+        }gp.playSE(9);
     }
 
     private void executeSlam(){
         lastAttackWasSlam=true;
         String savedDirection = direction;
         for(Player p : gp.players){
-            if(p == null || p.isDead) continue;
+            if(p == null || p.isDead || p.inWell!=gp.quests.inDungeon()) continue;
             double dx = (p.worldX + p.solidArea.x + p.solidArea.width/2.0) - (worldX + solidArea.x + solidArea.width/2.0);
             double dy = (p.worldY + p.solidArea.y + p.solidArea.height/2.0) - (worldY + solidArea.y + solidArea.height/2.0);
             double dist = Math.sqrt(dx*dx + dy*dy);
@@ -182,7 +245,7 @@ public class MON_SlimeBoss extends Monster {
         for(int i = 0; i < sprayProjectileCount; i++){
             double angle = (sprayProjectileCount > 1) ? startAngle + step * i : baseAngle;
             OBJ_slimebolt droplet = new OBJ_slimebolt(gp);
-            droplet.setAngled((int)centerX, (int)centerY, angle, true, this);
+            droplet.setAngled((int)centerX-gp.tileSize/2, (int)centerY-gp.tileSize/2, angle, true, this);
             gp.projectileList.add(droplet);
         }
         gp.playSE(9);
@@ -211,6 +274,9 @@ public class MON_SlimeBoss extends Monster {
     }
 
     public void checkDrop(){
+        gp.quests.dropLoot(new object.OBJ_slimeessence(gp),worldX,worldY);
+        if(hell)for(Player member:gp.players)if(member!=null)
+            gp.quests.dropLoot(object.ItemRegistry.create(object.OBJ_rewardweapon.forClass(member.playerClass,true),gp),worldX,worldY);
         dropItem(new OBJ_bronzecoin(gp));
         dropItem(new OBJ_heart(gp));
         dropItem(new OBJ_crystal(gp));
@@ -220,7 +286,8 @@ public class MON_SlimeBoss extends Monster {
     protected SpriteAnimation getCurrentAnimation(){
         if(dying || attackState)return super.getCurrentAnimation();
         if(bossState.equals("telegraph_slam") || landing())return sprites.get("slam_"+direction);
-        if(bossState.equals("telegraph_spray"))return sprites.get("charge_"+direction);
+        if(bossState.equals("telegraph_spray") || bossState.equals("telegraph_charge") || bossState.equals("burst"))return sprites.get("charge_"+direction);
+        if(bossState.equals("charge"))return sprites.get("attack_"+direction);
         if(flashing)return sprites.get("hurt_"+direction);
         return super.getCurrentAnimation();
     }
@@ -236,7 +303,8 @@ public class MON_SlimeBoss extends Monster {
             return withPoseEffects(anim.frames[frame]);
         }
         if(landing())return withPoseEffects(anim.frames[Math.min(7,4+bossStateTimer/5)]);
-        if(bossState.equals("telegraph_spray"))return withPoseEffects(anim.frames[(bossStateTimer/5)%anim.frames.length]);
+        if(bossState.equals("telegraph_spray") || bossState.equals("telegraph_charge") || bossState.equals("burst"))return withPoseEffects(anim.frames[(bossStateTimer/5)%anim.frames.length]);
+        if(bossState.equals("charge"))return withPoseEffects(anim.frames[Math.min(anim.frames.length-1,3+bossStateTimer/4)]);
         if(flashing)return withPoseEffects(anim.frames[Math.min(anim.frames.length-1,flashCounter*anim.frames.length/Math.max(1,flashDuration))]);
         return super.getCurrentFrame();
     }
@@ -250,7 +318,16 @@ public class MON_SlimeBoss extends Monster {
     @Override
     public void draw(Graphics2D g2){
         if(!dying && bossState.equals("telegraph_slam"))drawSlamTelegraph(g2);
+        if(!dying && bossState.equals("telegraph_charge"))drawChargeTelegraph(g2);
         super.draw(g2);
+    }
+
+    private void drawChargeTelegraph(Graphics2D g){
+        Player camera=gp.localPlayer();if(camera==null)return;
+        int x=worldX+48-camera.worldX+camera.screenX,y=worldY+63-camera.worldY+camera.screenY;
+        Stroke saved=g.getStroke();g.setStroke(new BasicStroke(54,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
+        g.setColor(new Color(244,67,40,65));g.drawLine(x,y,x+(int)(chargeX*220),y+(int)(chargeY*220));
+        g.setStroke(new BasicStroke(3));g.setColor(new Color(255,166,91,210));g.drawLine(x,y,x+(int)(chargeX*220),y+(int)(chargeY*220));g.setStroke(saved);
     }
 
     private void drawSlamTelegraph(Graphics2D g2){

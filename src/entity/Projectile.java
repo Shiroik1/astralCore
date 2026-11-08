@@ -5,6 +5,10 @@ import main.Gamepanel;
 public class Projectile extends Entity{
 
     Entity user;
+    public boolean networkReplica;
+    public float replicaVelocityX,replicaVelocityY;
+    public float velocityX(){return useAngledMovement?vx:direction.equals("right")?speed:direction.equals("left")?-speed:0;}
+    public float velocityY(){return useAngledMovement?vy:direction.equals("down")?speed:direction.equals("up")?-speed:0;}
     private float vx, vy;
     private boolean useAngledMovement = false;
     public Entity target;
@@ -51,19 +55,22 @@ public class Projectile extends Entity{
     }
 
     public void update(){
+        if(!alive)return;
+        if(networkReplica){worldX+=replicaVelocityX;worldY+=replicaVelocityY;updateAnimation();return;}
 
         if(user.type == type_player){
             int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
             if(monsterIndex != 999){
                 if(((Player) user).canResolveWorldActions()){
-                    ((Player) user).damageMonster(monsterIndex, attack, empowered, direction);
+                    Player owner=(Player)user;
+                    if(owner.damageMonster(monsterIndex,attack,empowered,direction))owner.gainRuneChargeOnHit(empowered);
                 }
                 generateParticle(user.projectile, gp.monster[monsterIndex]);
                 alive = false;
             }
         }
         else {
-            Player contactedPlayer = gp.collisionChecker.checkPlayer(this);
+            Player contactedPlayer = hitPlayerAlongFlight();
             if(contactedPlayer != null && !contactedPlayer.invincible){
                 if(!gp.isNetworked || gp.isHost){
                     damagePlayer(contactedPlayer, attack);
@@ -102,6 +109,14 @@ public class Projectile extends Entity{
             spriteNum=spriteNum%frameCount+1;
             spriteCounter=0;
         }
+    }
+
+    private Player hitPlayerAlongFlight(){
+        int dx=useAngledMovement?(int)(worldX+vx)-worldX:direction.equals("right")?speed:direction.equals("left")?-speed:0;
+        int dy=useAngledMovement?(int)(worldY+vy)-worldY:direction.equals("down")?speed:direction.equals("up")?-speed:0;
+        java.awt.Rectangle swept=new java.awt.Rectangle(worldX+solidArea.x+Math.min(0,dx),worldY+solidArea.y+Math.min(0,dy),solidArea.width+Math.abs(dx),solidArea.height+Math.abs(dy));
+        for(Player p:gp.players)if(p!=null && p.inWell==gp.quests.inDungeon() && !p.isDead && !p.invincible && swept.intersects(p.worldX+p.solidArea.x,p.worldY+p.solidArea.y,p.solidArea.width,p.solidArea.height))return p;
+        return null;
     }
 
     private void moveToward(int targetX, int targetY){

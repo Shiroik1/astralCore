@@ -40,7 +40,7 @@ public class MON_Imp extends Monster {
 
     public void setAction(){
         if(isPlayerInAggroRange()){
-            chasePlayer();
+            speed=2;chasePlayer();
             actionLockCounter = 0;
         } else {
             actionLockCounter++;

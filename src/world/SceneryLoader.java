@@ -53,6 +53,7 @@ public class SceneryLoader {
     }
 
     public static boolean save(Gamepanel gp){
+        if(gp.quests.inDungeon())return false;
         List<WorldObject> sorted = new ArrayList<>(gp.worldObjects);
         sorted.sort(Comparator.comparingInt((WorldObject o) -> o.row).thenComparingInt(o -> o.col));
 

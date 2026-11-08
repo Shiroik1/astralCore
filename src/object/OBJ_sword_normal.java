@@ -10,8 +10,8 @@ public class OBJ_sword_normal extends Entity {
         type = type_sword;
         down1 = setup("/player/weapon/sword", gp.tileSize, gp.tileSize);
         attackValue = 1;
-        attackArea.width = 36;
-        attackArea.height = 36;
+        attackArea.width = 52;
+        attackArea.height = 52;
         description = "(" + name + ")\nAn old sword";
     }
 }

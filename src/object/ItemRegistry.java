@@ -20,6 +20,8 @@ public class ItemRegistry {
     }
 
     public static ItemType typeFor(Entity item){
+        if(item instanceof OBJ_supply supply)return supply.itemType;
+        if(item instanceof OBJ_rewardweapon reward)return reward.itemType;
         if(item instanceof OBJ_apparel apparel) return apparel.itemType;
         return (item != null) ? BY_CLASS.get(item.getClass()) : null;
     }

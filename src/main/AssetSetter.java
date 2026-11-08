@@ -28,15 +28,13 @@ public class AssetSetter {
         gp.npc[i].worldX = 27 * gp.tileSize;
         gp.npc[i].worldY = 23 * gp.tileSize;
         i++;
+        gp.npc[i]=new entity.NPC_merchant(gp);
+        gp.npc[i].worldX=29*gp.tileSize;gp.npc[i].worldY=23*gp.tileSize;
     }
 
     public void setMonster(){
-        int[][] spots = {{13, 33}, {18, 38}, {32, 33}, {37, 37}, {30, 38}};
-        for(int i = 0; i < spots.length; i++){
-            gp.monster[i] = new MON_GreenSlime(gp);
-            gp.monster[i].worldX = gp.tileSize * spots[i][0];
-            gp.monster[i].worldY = gp.tileSize * spots[i][1];
-        }
+        // Combat encounters live in the well. Refreshing the town must not create monsters.
+        if(!gp.quests.inDungeon())java.util.Arrays.fill(gp.monster,null);
     }
 
     public void setInteractiveTile(){

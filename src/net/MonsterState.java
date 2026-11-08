@@ -9,6 +9,7 @@ public class MonsterState {
     public boolean isBoss;
     public String bossState;
     public int bossStateTimer;
+    public double chargeX,chargeY;
     public boolean lastAttackWasSlam;
     public monster.MonsterType monsterType;
 }

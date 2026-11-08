@@ -69,7 +69,7 @@ public class MON_GreenSlime extends Monster {
     public void setAction(){
 
         if(isPlayerInAggroRange()){
-            chasePlayer();
+            speed=2;chasePlayer();
             actionLockCounter = 0; // so it doesn't immediately resume wandering the instant it loses aggro
         }
         else{

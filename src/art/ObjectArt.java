@@ -427,6 +427,26 @@ public class ObjectArt {
         return done("crate", s, 24, 42, -16, -12, 32, 12, true);
     }
 
+    public Sprite wellAltar(){
+        ArtKit.Surface s=begin(2,2);Graphics2D g=s.g;
+        shadow(g,48,83,36,8);
+        part(g,new RoundRectangle2D.Double(14,59,68,24,10,10),new Color(0x626774),OutlineStyle.INTERACTIVE,2,true);
+        part(g,new Ellipse2D.Double(11,46,74,30),new Color(0xA6A3A1),OutlineStyle.INTERACTIVE,2,true);
+        part(g,new Ellipse2D.Double(20,50,56,20),new Color(0x572D3C),OutlineStyle.INTERACTIVE,2,true);
+        g.setColor(new Color(0xF0A174));g.setStroke(new BasicStroke(2));
+        g.draw(new Ellipse2D.Double(32,52,32,15));g.drawLine(48,49,48,68);g.drawLine(29,59,67,59);
+        return done("well_altar",s,48,85,-35,-20,70,22,true);
+    }
+
+    public Sprite wellLadder(){
+        ArtKit.Surface s=begin(1,2);Graphics2D g=s.g;
+        shadow(g,25,89,18,4);
+        part(g,new RoundRectangle2D.Double(11,6,6,82,3,3),Palette.WOOD,OutlineStyle.INTERACTIVE,2,true);
+        part(g,new RoundRectangle2D.Double(32,6,6,82,3,3),Palette.WOOD,OutlineStyle.INTERACTIVE,2,true);
+        for(int y=15;y<84;y+=13)part(g,new RoundRectangle2D.Double(15,y,19,5,2,2),Palette.WOOD_LIGHT,OutlineStyle.INTERACTIVE,1,true);
+        return done("well_ladder",s,24,90,-15,-8,30,8,true);
+    }
+
     public Sprite chest(){
         ArtKit.Surface s = begin(1, 1);
         Graphics2D g = s.g;

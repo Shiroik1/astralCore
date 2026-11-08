@@ -22,8 +22,17 @@ public final class WeaponArt {
         NONE (0, 0, 0,    0, 0, 0,     25, -85,   0, 0),
         SWORD(0, 8, 165,   28, -30, 120,   150, 300,   170, 15),
         AXE  (0, 5, 170,   30, -40, 125,   150, 300,   175, 10),
-        STAFF(0, -10, 22,    10, 18, 42,    -140, -105,   -10, 22);
+        STAFF(0, -10, 22,    10, 18, 42,    -140, -105,   -10, 22),
+        DAGGERS(SWORD), ROYAL_SWORD(SWORD), ROYAL_DAGGER(SWORD), ROYAL_STAFF(STAFF),
+        HELL_SWORD(SWORD), HELL_DAGGER(SWORD), HELL_STAFF(STAFF);
 
+        public boolean isDaggers(){return this==DAGGERS || name().endsWith("_DAGGER");}
+        public boolean isStaff(){return this==STAFF || name().endsWith("_STAFF");}
+        public boolean isHell(){return name().startsWith("HELL_");}
+        Kind(Kind base){
+            this(base.restFront,base.windFront,base.strikeFront,base.restSide,base.windSide,base.strikeSide,
+                    base.windArm,base.strikeArm,base.windBack,base.strikeBack);
+        }
         public final float restFront, windFront, strikeFront, restSide, windSide, strikeSide, windArm, strikeArm, windBack, strikeBack;
         Kind(float rf, float wf, float sf, float rs, float ws, float ss, float wa, float sa, float wb, float sb) {
             restFront = rf; windFront = wf; strikeFront = sf; restSide = rs; windSide = ws; strikeSide = ss; windArm = wa; strikeArm = sa;
@@ -51,7 +60,7 @@ public final class WeaponArt {
             return s;
         }
         t = Math.max(0, Math.min(1, t));
-        if (k != Kind.STAFF) return meleeSwing(k, t);
+        if (!k.isStaff()) return meleeSwing(k, t);
         if (t < 0.35f) {
             float e = smooth(t / 0.35f);
             s.lift = e;
@@ -148,7 +157,7 @@ public final class WeaponArt {
             case SWORD -> sword(g, at);
             case AXE   -> axe(g, at);
             case STAFF -> staff(g, at);
-            default -> {}
+            default -> relic(g,at,kind);
         }
     }
 
@@ -157,7 +166,7 @@ public final class WeaponArt {
      * instead of orbiting around the character's weapon hand.
      */
     static void drawMeleeSmear(Graphics2D g, Kind kind, boolean side, boolean back, float t, float strength) {
-        if (kind == Kind.STAFF || strength <= 0.01f) return;
+        if (kind.isStaff() || strength <= 0.01f) return;
         float cx = 32, cy = side ? 39 : back ? 25 : 39;
         float rx = side ? 28 : 24, ry = side ? 20 : 22;
         if (kind == Kind.NONE) { rx *= 0.7f; ry *= 0.7f; }
@@ -199,6 +208,33 @@ public final class WeaponArt {
 
     private static void P(Graphics2D g, AffineTransform at, Shape s, Color c, int seed) {
         CharacterArt.softPart(g, at.createTransformedShape(s), c);
+    }
+
+    public static void shield(Graphics2D g,float x,float y,int style){
+        AffineTransform at=AffineTransform.getTranslateInstance(x,y);
+        Path2D shape=new Path2D.Float();shape.moveTo(-7,-9);shape.quadTo(0,-12,7,-9);shape.lineTo(6,3);shape.quadTo(3,8,0,10);shape.quadTo(-3,8,-6,3);shape.closePath();
+        P(g,at,shape,new Color(0xCDD2D2),81);
+        Path2D inner=new Path2D.Float();inner.moveTo(-5,-7);inner.lineTo(5,-7);inner.lineTo(4,2);inner.quadTo(1,6,0,7);inner.quadTo(-1,6,-4,2);inner.closePath();
+        P(g,at,inner,style==2?new Color(0x527AAB):new Color(0x946C4E),82);
+        P(g,at,new Ellipse2D.Float(-2,-3,4,4),new Color(0xECE0B9),83);
+    }
+
+    private static void relic(Graphics2D g,AffineTransform at,Kind kind){
+        Color gem=kind.isHell()?new Color(0xF05A3F):new Color(0x72C29A);
+        Color metal=kind.isHell()?new Color(0xB26960):new Color(0xD5E8CF);
+        if(kind.isStaff()){
+            staff(g,at);
+            P(g,at,new Ellipse2D.Float(-3.5f,-21.5f,7,7),gem,70);
+            P(g,at,new Rectangle2D.Float(-3,-15,6,2),GOLD,71);
+        }else{
+            boolean dagger=kind.isDaggers();
+            Path2D blade=new Path2D.Float();blade.moveTo(-2,-2);blade.lineTo(-3,dagger?-8:-12);
+            blade.lineTo(0,dagger?-14:-20);blade.lineTo(3,dagger?-8:-12);blade.lineTo(2,-2);blade.closePath();
+            P(g,at,blade,metal,72);
+            P(g,at,new RoundRectangle2D.Float(-1.4f,0,2.8f,7,1,1),LEATHER,73);
+            P(g,at,new RoundRectangle2D.Float(-5,-3,10,2,1,1),GOLD,74);
+            P(g,at,new Ellipse2D.Float(-1.8f,-6,3.6f,3.6f),gem,75);
+        }
     }
 
     private static void sword(Graphics2D g, AffineTransform at) {

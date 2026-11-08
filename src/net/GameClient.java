@@ -105,7 +105,26 @@ public class GameClient {
         }
     }
 
+    private final java.util.Map<Boolean,java.util.ArrayList<object.OBJ_slimebolt>> boltsByArea=new java.util.HashMap<>();
+    private void applySlimeProjectiles(SlimeProjectileState[] states){
+        if(states==null)return;
+        var replicatedSlimeBolts=boltsByArea.computeIfAbsent(gp.quests.inDungeon(),key->new java.util.ArrayList<>());
+        while(replicatedSlimeBolts.size()>states.length){
+            var removed=replicatedSlimeBolts.removeLast();gp.projectileList.remove(removed);
+        }
+        for(int i=0;i<states.length;i++){
+            SlimeProjectileState state=states[i];
+            if(i==replicatedSlimeBolts.size())replicatedSlimeBolts.add(new object.OBJ_slimebolt(gp,state.hell));
+            object.OBJ_slimebolt bolt=replicatedSlimeBolts.get(i);
+            if(bolt.hell!=state.hell){gp.projectileList.remove(bolt);bolt=new object.OBJ_slimebolt(gp,state.hell);replicatedSlimeBolts.set(i,bolt);}
+            bolt.replicaVelocityX=state.velocityX;bolt.replicaVelocityY=state.velocityY;
+            bolt.networkReplica=true;bolt.alive=true;bolt.worldX=state.worldX;bolt.worldY=state.worldY;bolt.direction=state.direction;bolt.spriteNum=state.frame;
+            if(!gp.projectileList.contains(bolt))gp.projectileList.add(bolt);
+        }
+    }
+
     private void applySnapshot(WorldSnapshot snapshot){
+        gp.quests.applySnapshot(snapshot.quest);
         for(PlayerState ps : snapshot.players){
             if(ps == null) continue;
             Player p = gp.players[ps.playerId];
@@ -116,6 +135,10 @@ public class GameClient {
                 gp.players[ps.playerId] = p;
             }
 
+            if(p.inWell!=ps.inWell)p.resetForSceneTransition();
+            p.inWell=ps.inWell;p.resolve=ps.resolve;
+            if(!p.isLocal || ps.ackTick>=p.shopChangedInputTick)p.merchantOpen=ps.merchantOpen;
+
             // Visual equipment must update for both the local player and remote players.
             boolean appearanceChanged=false;
             if(ps.playerClass!=null)p.playerClass=entity.CharacterClass.fromId(ps.playerClass).id;
@@ -124,7 +147,7 @@ public class GameClient {
                 p.currentWeapon=object.ItemRegistry.create(ps.weaponType,gp);p.attack=p.getAttack();appearanceChanged=true;
             }
             if(ps.shieldType!=null && object.ItemRegistry.typeFor(p.currentShield)!=ps.shieldType){
-                p.currentShield=object.ItemRegistry.create(ps.shieldType,gp);p.defense=p.getDefense();
+                p.currentShield=object.ItemRegistry.create(ps.shieldType,gp);p.defense=p.getDefense();appearanceChanged=true;
             }
             if(ps.apparelTypes!=null){
                 for(int i=0;i<p.apparelSlots.length && i<ps.apparelTypes.length;i++){
@@ -136,7 +159,9 @@ public class GameClient {
             if(appearanceChanged)p.refreshWeaponAnimation();
 
             if(p.isLocal){
+                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
                 p.reconcile(ps.worldX, ps.worldY, ps.direction, ps.HP, ps.maxHP, ps.MP, ps.maxMP, ps.isDead, ps.ackTick);
+                gp.quests.activateArea(activeArea);
                 for(int i = 0; i < ps.inventoryTypes.length; i++){
                     object.ItemType type = ps.inventoryTypes[i];
                     if(type == null){
@@ -195,6 +220,13 @@ public class GameClient {
             }
         }
 
+        applyArea(snapshot);
+        if(snapshot.otherArea!=null){gp.quests.activateArea(snapshot.otherArea.inWellArea);applyArea(snapshot.otherArea);}
+        if(gp.localPlayer()!=null)gp.quests.activateArea(gp.localPlayer().inWell);
+        gp.quests.ensureLocalIntro();
+    }
+
+    private void applyArea(WorldSnapshot snapshot){
         for(int i = 0; i < snapshot.monsters.length; i++){
             MonsterState ms = snapshot.monsters[i];
             if(ms == null || !ms.alive){
@@ -225,11 +257,14 @@ public class GameClient {
             m.dying = ms.dying;
 
             if(ms.isBoss && m instanceof MON_SlimeBoss boss){
+                boss.syncCharge(ms.chargeX,ms.chargeY);
                 boss.bossState = ms.bossState;
                 boss.bossStateTimer = ms.bossStateTimer;
                 boss.lastAttackWasSlam = ms.lastAttackWasSlam;
             }
         }
+
+        applySlimeProjectiles(snapshot.slimeProjectiles);
 
         for(int i = 0; i < snapshot.objects.length; i++){
             net.ObjectState os = snapshot.objects[i];

@@ -28,5 +28,8 @@ public class NetworkRegistration {
         kryo.register(object.ItemType[].class);
         kryo.register(monster.MonsterType.class);
         kryo.register(byte[].class);
+        kryo.register(QuestState.class);
+        kryo.register(SlimeProjectileState.class);
+        kryo.register(SlimeProjectileState[].class);
     }
 }

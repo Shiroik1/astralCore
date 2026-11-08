@@ -137,6 +137,9 @@ public class WorldObject extends Entity {
         String shown = (text != null && !text.isEmpty()) ? text : kind.defaultText;
 
         switch(kind.behavior){
+            case SUMMON_HELL -> gp.quests.summonHell(p);
+            case ENTER_WELL -> gp.quests.enterWell(p);
+            case EXIT_WELL -> gp.quests.leaveWell(p);
             case TEXT -> {
                 if(shown != null){
                     gp.broadcastPlayerEvent(p.playerId, GameEventType.INTERACT, null, shown);

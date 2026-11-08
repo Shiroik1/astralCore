@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 
 public class Skill {
     public String name;
+    public String description="";
     public int resourceCost;
     public int cooldownDuration; // ticks
     public int cooldownRemaining = 0;

@@ -22,14 +22,16 @@ public enum WorldObjectType {
     HOUSE_THATCH(a -> a.house("house_thatch", Palette.ROOF_THATCH, 2), null, true, Behavior.NONE, null),
     HOUSE_SLATE(a -> a.house("house_slate", Palette.ROOF_SLATE, 3), null, true, Behavior.NONE, null),
     LANTERN(a -> a.lantern(), null, false, Behavior.NONE, null),
-    WELL(a -> a.well(), null, false, Behavior.HEAL, null),
+    WELL(a -> a.well(), null, false, Behavior.ENTER_WELL, null),
     SIGN(a -> a.sign(), null, false, Behavior.TEXT, "Welcome to the village."),
     BARREL(a -> a.barrel(), null, false, Behavior.TEXT, "An old barrel.\nNothing useful inside."),
     CRATE(a -> a.crate(), null, false, Behavior.TEXT, "A wooden crate.\nIt is empty."),
-    CHEST(a -> a.chest(), a -> a.chestOpen(), false, Behavior.CHEST, null);
+    CHEST(a -> a.chest(), a -> a.chestOpen(), false, Behavior.CHEST, null),
+    WELL_LADDER(a -> a.wellLadder(), null, false, Behavior.EXIT_WELL, null),
+    WELL_ALTAR(a -> a.wellAltar(),null,false,Behavior.SUMMON_HELL,null);
 
 
-    public enum Behavior { NONE, TEXT, CHEST, HEAL }
+    public enum Behavior { NONE, TEXT, CHEST, HEAL, ENTER_WELL, EXIT_WELL, SUMMON_HELL }
 
     private final Function<ObjectArt, ObjectArt.Sprite> factory;
     private final Function<ObjectArt, ObjectArt.Sprite> altFactory;

@@ -157,7 +157,7 @@ public class CollisionChecker {
         Player contactedPlayer = null;
 
         for(Player p : gp.players){
-            if(p == null || p.isDead) continue;
+            if(p == null || p.isDead || p.inWell!=gp.quests.inDungeon()) continue;
 
             entity.solidArea.x += entity.worldX;
             entity.solidArea.y += entity.worldY;
@@ -193,6 +193,15 @@ public class CollisionChecker {
         Rectangle targetBounds = new Rectangle(target.worldX + target.solidArea.x, target.worldY + target.solidArea.y,
                 target.solidArea.width, target.solidArea.height);
         return sourceBounds.intersects(targetBounds);
+    }
+
+    public java.util.List<Integer> checkEntityMultiple(Rectangle bounds,Entity[] targets){
+        var hits=new java.util.ArrayList<Integer>();
+        for(int i=0;i<targets.length;i++){
+            Entity target=targets[i];
+            if(target!=null && target.alive && !target.dying && bounds.intersects(target.worldX+target.solidArea.x,target.worldY+target.solidArea.y,target.solidArea.width,target.solidArea.height))hits.add(i);
+        }
+        return hits;
     }
 
     public java.util.List<Integer> checkEntityMultiple(Entity entity, Entity[] target){

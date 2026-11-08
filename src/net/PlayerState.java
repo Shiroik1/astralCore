@@ -3,6 +3,9 @@ package net;
 import object.ItemType;
 
 public class PlayerState {
+    public boolean merchantOpen;
+    public boolean inWell;
+    public int resolve;
     public int playerId;
     public String playerName;
     public int worldX, worldY;

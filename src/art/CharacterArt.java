@@ -20,6 +20,7 @@ public final class CharacterArt {
         public Color eye  = new Color(0x56403F);
         public Color blush = new Color(0xF4A99A);
         public WeaponArt.Kind weapon = WeaponArt.Kind.NONE;   // held weapon
+        public int shieldStyle;
         public float weaponScale = 1f;      // >1 makes held weapons and their motion chunkier (used in pixel mode)
         public CharacterOutfit outfit = CharacterOutfit.BARE;
         public boolean shadow = true;   // set false when the game draws its own ground shadow
@@ -75,7 +76,7 @@ public final class CharacterArt {
         if (p.attacking) {
             WeaponArt.Swing attack = WeaponArt.swing(look.weapon, true, p.attack);
             squash = 0.025f * attack.reach
-                    - (look.weapon == WeaponArt.Kind.STAFF ? 0.012f * attack.lift : 0);
+                    - (look.weapon.isStaff() ? 0.012f * attack.lift : 0);
             bob = 0;
         }
 
@@ -87,7 +88,7 @@ public final class CharacterArt {
         g.translate(0, bob);
         g.translate(32, FOOT_Y); g.scale(1 + squash, (p.moving && !p.attacking ? 0.95f : 1) * (1 - squash)); g.translate(-32, -FOOT_Y);
 
-        if (p.attacking && look.weapon != WeaponArt.Kind.STAFF) {
+        if (p.attacking && !look.weapon.isStaff()) {
             float reach = WeaponArt.swing(look.weapon, true, p.attack).reach;
             float dx = dir == Dir.RIGHT ? 2.5f : dir == Dir.LEFT ? -2.5f : 0;
             float dy = dir == Dir.DOWN ? 1.2f : dir == Dir.UP ? -0.3f : 0;
@@ -113,9 +114,9 @@ public final class CharacterArt {
         float armDeg = pose.attacking ? sw.arm : -swing * 48f;
         int hs = back ? 1 : -1;
         float armS = (hs < 0 ? -swing : swing) * (running ? 3.2f : 0.8f);
-        float armLift = sw.lift * (look.weapon == WeaponArt.Kind.STAFF ? 2 : 8)
+        float armLift = sw.lift * (look.weapon.isStaff() ? 2 : 8)
                 + (back ? sw.reach * 4 : 0);
-        boolean melee = pose.attacking && look.weapon != WeaponArt.Kind.STAFF;
+        boolean melee = pose.attacking && !look.weapon.isStaff();
         float handX, handY, angle, previous;
         if (side) {
             double ar = Math.toRadians(armDeg);
@@ -134,11 +135,17 @@ public final class CharacterArt {
         }
         // Facing away: the character and outfit always occlude the held weapon.
         // Front and side views retain the wind-up / follow-through layering.
-        boolean weaponBehind = back || (pose.attacking && look.weapon != WeaponArt.Kind.STAFF
+        boolean weaponBehind = back || (pose.attacking && !look.weapon.isStaff()
                 && sw.lift > 0.65f && sw.reach < 0.5f);
         final float weaponX = handX, weaponY = handY;
         Runnable weapon = () -> WeaponArt.draw(g, look.weapon, weaponX, weaponY, angle,
                 side ? 1 : hs, sw.reach, sw.smear, previous, look.weaponScale);
+        Runnable offhand=()->{
+            float ox=side?27:(back?21:43),oy=45+step*1.5f;
+            if(look.shieldStyle>0)WeaponArt.shield(g,ox,oy,look.shieldStyle);
+            else if(look.weapon.isDaggers())WeaponArt.draw(g,look.weapon,ox,oy,pose.attacking?-sw.front:0,-1,sw.reach,sw.smear,0,look.weaponScale);
+        };
+        if(back)offhand.run();
         CharacterClothing.cloak(g, look.outfit, side, back, swing);
         if(!back)CharacterClothing.longHair(g,look.outfit,side,false,swing);
         if (weaponBehind) weapon.run();
@@ -212,6 +219,7 @@ public final class CharacterArt {
                     hs > 0 ? handX : 38 + (4.2f + rightS * 0.3f), hs > 0 ? handY : 45.5f + rightS);
         }
         if (back) CharacterClothing.cloak(g, look.outfit, false, true, swing);
+        if(!back)offhand.run();
         CharacterClothing.collar(g, look.outfit, side);
         fillSoft(g, ellipse(32, 33.9f, 4.5f, 1.4f), shade(look.skin, 0.97f));
         Path2D head = new Path2D.Float();

@@ -41,10 +41,27 @@ public enum ItemType {
     WARRIOR_BOOTS(art.CharacterOutfit.Slot.BOOTS, "Plate Greaves"),
     WARRIOR_GLOVES(art.CharacterOutfit.Slot.GLOVES, "Plate Gauntlets"),
     WARRIOR_CLOAK(art.CharacterOutfit.Slot.CLOAK, "Crimson Cape"),
-    MAGE_HAT(art.CharacterOutfit.Slot.HEADPIECE, "Mage Hat");
+    MAGE_HAT(art.CharacterOutfit.Slot.HEADPIECE, "Mage Hat"),
+    SLIME_ESSENCE(OBJ_slimeessence.class,OBJ_slimeessence::new),
+    ROYAL_SWORD(entity.CharacterClass.WARRIOR,false),
+    ROYAL_DAGGER(entity.CharacterClass.HUNTER,false),
+    ROYAL_STAFF(entity.CharacterClass.MAGE,false),
+    HELL_SWORD(entity.CharacterClass.WARRIOR,true),
+    HELL_DAGGER(entity.CharacterClass.HUNTER,true),
+    HELL_STAFF(entity.CharacterClass.MAGE,true),
+    POTION_MANA, POTION_GREATER,
+    DUAL_DAGGERS(OBJ_dualdaggers.class,OBJ_dualdaggers::new);
 
     final Class<? extends Entity> itemClass;
     final Function<Gamepanel, Entity> factory;
+
+    ItemType(){
+        this.itemClass=OBJ_supply.class;this.factory=gp -> new OBJ_supply(gp,this);
+    }
+    ItemType(entity.CharacterClass characterClass,boolean hell){
+        this.itemClass=OBJ_rewardweapon.class;
+        this.factory=gp -> new OBJ_rewardweapon(gp,this,characterClass,hell);
+    }
 
     ItemType(art.CharacterOutfit.Slot slot, String label){
         this.itemClass=OBJ_apparel.class;

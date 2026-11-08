@@ -164,6 +164,9 @@ public class UI {
             }
             gp.mouseH.leftClicked = false; // the options overlay swallows every click
         }
+        else if(local!=null && local.merchantOpen){
+            gp.merchant.update(mouseX,mouseY,clicked);gp.mouseH.leftClicked=false;
+        }
         else if(gp.inventoryOpen){
             updateInventoryDrag(mouseX, mouseY);
         }
@@ -218,6 +221,7 @@ public class UI {
 
             drawPlayerHP();
             drawBossHealth();
+            drawQuestTracker();
             Player local = gp.localPlayer();
             if(local != null){
                 drawStatusEffects(local);
@@ -231,6 +235,8 @@ public class UI {
                 drawCharacterScreen();
                 drawInventory();
             }
+
+            if(local!=null && local.merchantOpen)gp.merchant.draw(g2);
 
             if(local != null && local.isDead){
                 drawDeathScreen();
@@ -276,7 +282,7 @@ public class UI {
             if(equipmentBounds[i]==null)equipmentBounds[i]=new Rectangle();
             equipmentBounds[i].setBounds(x,y,slotIconSize,slotIconSize);
             g2.setFont(savedFont.deriveFont(11f));g2.setColor(Color.white);
-            g2.drawString(EQUIPMENT_LABELS[i],x,y-3);
+            g2.drawString(i==1 && gp.localPlayer().playerClass.equals("hunter")?"Paired blades":EQUIPMENT_LABELS[i],x,y-3);
             drawEquipSlot(equipmentBounds[i],draggingItem && dragSourceType==i+1 ? null : gp.localPlayer().equippedItem(i+1));
         }
         undressBounds.setBounds(equipX,frameY+windowPadding+equipmentRows*(slotIconSize+18)+6,equipmentWidth,24);
@@ -327,7 +333,7 @@ public class UI {
     }
 
     private void drawEquipSlot(Rectangle bounds, Entity equipped){
-        g2.setColor(new Color(255, 200, 0, 60));
+        g2.setColor(new Color(255,255,255,40));
         g2.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 8, 8);
         g2.setColor(Color.white);
         g2.setStroke(new BasicStroke(2));
@@ -391,7 +397,7 @@ public class UI {
         //Background only shows while actively interacting
         boolean boxVisible = hovering || chatActive || chatScrollOffset > 0;
         if(boxVisible){
-            g2.setColor(new Color(0, 0, 0, 80));
+            g2.setColor(Color.BLACK);
             g2.fillRoundRect(boxX, boxY, chatLogWidth, chatLogHeight, 12, 12);
         }
 
@@ -445,7 +451,7 @@ public class UI {
         textY += lineHeight;
         g2.drawString("HP", textX, textY);
         textY += lineHeight;
-        g2.drawString(gp.localPlayer().playerClass.equals("mage") ? "MP" : "Rage", textX, textY);
+        g2.drawString(gp.localPlayer().resourceName(), textX, textY);
         textY += lineHeight;
         g2.drawString("Strength", textX, textY);
         textY += lineHeight;
@@ -556,11 +562,28 @@ public class UI {
             if(monster==null || !monster.alive || monster.dying || !monster.isBoss())continue;
             int x=monster.worldX-camera.worldX+camera.screenX+monster.solidArea.x+monster.solidArea.width/2;
             int y=monster.worldY-camera.worldY+camera.screenY+monster.solidArea.y+monster.solidArea.height/2;
-            if(x<0 || x>gp.screenWidth || y<0 || y>gp.screenHeight)continue;
+            if(!gp.quests.inDungeon() && (x<0 || x>gp.screenWidth || y<0 || y>gp.screenHeight))continue;
             double distance=Math.hypot(x-gp.screenWidth/2.0,y-gp.screenHeight/2.0);
             if(distance<nearest){hudBoss=monster;nearest=distance;}
         }
         return hudBoss;
+    }
+
+    private void drawQuestTracker(){
+        int x=gp.screenWidth-340,y=110,w=316,h=108;
+        g2.setColor(Color.BLACK);g2.fillRoundRect(x,y,w,h,14,14);
+        g2.setColor(Color.WHITE);g2.setStroke(new BasicStroke(2));g2.drawRoundRect(x,y,w,h,14,14);
+        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,14f));g2.setColor(Color.WHITE);
+        g2.drawString(gp.quests.definition().title(),x+14,y+25);
+        g2.setFont(jetbrainsMono.deriveFont(Font.PLAIN,12f));g2.setColor(Color.WHITE);
+        String objective=gp.quests.objective();
+        if(g2.getFontMetrics().stringWidth(objective)>w-28){
+            int split=objective.lastIndexOf(' ',objective.length()/2+6);
+            g2.drawString(objective.substring(0,split),x+14,y+47);
+            g2.drawString(objective.substring(split+1),x+14,y+63);
+        }else g2.drawString(objective,x+14,y+51);
+        g2.setColor(new Color(169,192,198));
+        g2.drawString(gp.quests.inDungeon()?"Well Depths  |  Ladder: return [E]":"Astravale",x+14,y+88);
     }
 
     private void drawBossHealth(){
@@ -598,7 +621,12 @@ public class UI {
             drawArcaneCharge(local, barX + barWidth + 16, secondaryY, barHeight);
         } else {
             drawStatBar(barX, secondaryY, barWidth, barHeight, local.rage, local.maxRage,
-                    new Color(50, 15, 15), new Color(220, 60, 30), "RAGE");
+                    local.resourceBarBackground(), local.resourceBarColor(), local.resourceName().toUpperCase(java.util.Locale.ROOT));
+        }
+        if(local.playerClass.equals("warrior")){
+            g2.setFont(jetbrainsMono.deriveFont(11f));g2.setColor(Color.WHITE);g2.drawString("RESOLVE",barX,91);
+            if(new Rectangle(barX,78,200,18).contains(gp.mouseH.getScaledX(),gp.mouseH.getScaledY()))gp.merchant.tooltip(g2,java.util.List.of("Resolve","Shield-mitigated hits build Resolve.","At five, your next hit gains twice defense."),barX,105);
+            for(int i=0;i<local.maxResolve;i++){g2.setColor(i<local.resolve?Color.WHITE:Color.BLACK);g2.fillRect(barX+66+i*17,80,11,11);g2.setColor(Color.WHITE);g2.drawRect(barX+66+i*17,80,11,11);}
         }
     }
 
@@ -626,7 +654,7 @@ public class UI {
             if(p.playerClass.equals("mage")){
                 drawMiniStatBar(barX, secondY, barWidth, mpHeight, p.MP, p.maxMP, new Color(20, 30, 60), new Color(60, 130, 230));
             } else {
-                drawMiniStatBar(barX, secondY, barWidth, mpHeight, p.rage, p.maxRage, new Color(50, 15, 15), new Color(220, 60, 30));
+                drawMiniStatBar(barX, secondY, barWidth, mpHeight, p.rage, p.maxRage, p.resourceBarBackground(), p.resourceBarColor());
             }
 
             y += hpHeight + 3 + mpHeight + 14; // advance to the next player's row
@@ -787,7 +815,7 @@ public class UI {
     }
 
     public void drawSubWindow(int x, int y, int width, int height){
-        Color color = new Color(0,0,0, 200);
+        Color color = Color.BLACK;
         g2.setColor(color);
         g2.fillRoundRect(x, y, width, height, 35, 35);
 
@@ -1041,7 +1069,7 @@ public class UI {
             int x = startX + i * (slotSize + spacing);
 
             //SLOT BACKGROUND
-            g2.setColor(new Color(0, 0, 0, 150));
+            g2.setColor(Color.BLACK);
             g2.fillRoundRect(x, y, slotSize, slotSize, 8, 8);
 
             //ICON
@@ -1082,6 +1110,11 @@ public class UI {
             g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 12f));
             g2.drawString(String.valueOf(i + 1), x + 4, y + 14);
         }
+        int mx=gp.mouseH.getScaledX(),my=gp.mouseH.getScaledY();
+        for(int i=0;i<5;i++)if(new Rectangle(startX+i*(slotSize+spacing),y,slotSize,slotSize).contains(mx,my)){
+            Skill skill=gp.localPlayer().skills[i];if(skill==null)continue;
+            gp.merchant.tooltip(g2,java.util.List.of(skill.name,skill.resourceCost+(" "+gp.localPlayer().resourceName())+" | "+skill.cooldownDuration/60+"s cooldown",skill.description),mx+16,my-115);
+        }
     }
 
     private void drawStatusEffects(Player local){
@@ -1095,7 +1128,7 @@ public class UI {
         for(entity.StatusEffect effect : local.statusEffects){
             BufferedImage icon = local.statusEffectIcons.get(effect.type);
 
-            g2.setColor(new Color(0, 0, 0, 150));
+            g2.setColor(Color.BLACK);
             g2.fillRoundRect(x, y, iconSize, iconSize, 6, 6);
 
             if(icon != null){
@@ -1272,7 +1305,7 @@ public class UI {
     }
 
     private void drawDeathScreen(){
-        g2.setColor(new Color(0, 0, 0, 180));
+        g2.setColor(Color.BLACK);
         g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
 
         g2.setFont(jetbrainsMono.deriveFont(Font.BOLD, 60f));
@@ -1366,13 +1399,15 @@ public class UI {
         return creationPreviews.computeIfAbsent(key,k -> {
             art.CharacterArt.Look look=new art.CharacterArt.Look();
             look.outfit=choice.outfit(female);look.shadow=false;
+            look.weapon=choice==entity.CharacterClass.HUNTER?art.WeaponArt.Kind.DAGGERS:choice==entity.CharacterClass.MAGE?art.WeaponArt.Kind.STAFF:art.WeaponArt.Kind.SWORD;
+            look.shieldStyle=choice==entity.CharacterClass.WARRIOR?1:0;
             return art.CharacterArt.render(side?art.CharacterArt.Dir.RIGHT:art.CharacterArt.Dir.DOWN,
                     new art.CharacterArt.Pose(),look,144);
         });
     }
 
     private void drawClassGenderStep(){
-        g2.setColor(new Color(25,29,40));g2.fillRect(0,0,gp.screenWidth,gp.screenHeight);
+        g2.setColor(Color.BLACK);g2.fillRect(0,0,gp.screenWidth,gp.screenHeight);
         g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,30f));g2.setColor(Color.white);
         g2.drawString("Choose your class",getXforCenteredText("Choose your class"),70);
         g2.setFont(jetbrainsMono.deriveFont(14f));g2.setColor(new Color(180,185,199));
@@ -1387,12 +1422,12 @@ public class UI {
             Rectangle card=new Rectangle(x,top,cardWidth,cardHeight);
             if(clicked && card.contains(mx,my))gp.keyH.selectedClassIndex=choice.ordinal();
             boolean selected=gp.keyH.selectedClassIndex==choice.ordinal();
-            g2.setColor(selected?new Color(53,58,72):new Color(35,40,53));
+            g2.setColor(Color.BLACK);
             g2.fillRoundRect(x,top,cardWidth,cardHeight,20,20);
-            g2.setColor(selected?new Color(225,189,116):new Color(79,85,102));
+            g2.setColor(Color.WHITE);
             g2.setStroke(new BasicStroke(selected?3:1));g2.drawRoundRect(x,top,cardWidth,cardHeight,20,20);
             g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,24f));
-            g2.setColor(selected?new Color(225,189,116):new Color(225,228,237));
+            g2.setColor(Color.WHITE);
             g2.drawString(choice.label,x+(cardWidth-g2.getFontMetrics().stringWidth(choice.label))/2,top+43);
             int center=x+cardWidth/2;
             g2.drawImage(creationPreview(choice,female,false),center-144,top+73,null);
@@ -1402,7 +1437,7 @@ public class UI {
             g2.drawString(type,center-g2.getFontMetrics().stringWidth(type)/2,top+251);
             g2.setFont(jetbrainsMono.deriveFont(12f));g2.setColor(new Color(165,173,190));
             g2.drawString(choice.weaponLabel,center-g2.getFontMetrics().stringWidth(choice.weaponLabel)/2,top+281);
-            if(selected){g2.setColor(new Color(225,189,116));g2.drawString("SELECTED",center-g2.getFontMetrics().stringWidth("SELECTED")/2,top+312);}
+            if(selected){g2.setColor(Color.WHITE);g2.drawString("SELECTED",center-g2.getFontMetrics().stringWidth("SELECTED")/2,top+312);}
         }
         String[] labels={"Male / short hair","Female / long hair"};
         for(int i=0;i<2;i++){
@@ -1410,8 +1445,8 @@ public class UI {
             Rectangle box=new Rectangle(x,y,254,46);
             if(clicked && box.contains(mx,my))gp.keyH.selectedGenderIndex=i;
             boolean selected=gp.keyH.selectedGenderIndex==i;
-            g2.setColor(selected?new Color(88,74,57):new Color(35,40,53));g2.fillRoundRect(x,y,254,46,12,12);
-            g2.setFont(jetbrainsMono.deriveFont(15f));g2.setColor(selected?new Color(244,211,147):Color.lightGray);
+            g2.setColor(Color.BLACK);g2.fillRoundRect(x,y,254,46,12,12);
+            g2.setFont(jetbrainsMono.deriveFont(15f));g2.setColor(Color.WHITE);
             g2.drawString(labels[i],x+(254-g2.getFontMetrics().stringWidth(labels[i]))/2,y+29);
         }
         g2.setFont(jetbrainsMono.deriveFont(13f));g2.setColor(new Color(165,173,190));
@@ -1420,8 +1455,8 @@ public class UI {
         String note="Hair length only for now. More customization later.";
         g2.drawString(note,getXforCenteredText(note),621);
         Rectangle confirm=new Rectangle(gp.screenWidth/2-110,646,220,42);
-        g2.setColor(new Color(225,189,116));g2.fillRoundRect(confirm.x,confirm.y,220,42,12,12);
-        g2.setColor(new Color(25,29,40));g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,16f));
+        WindowStyle.draw(g2,confirm.x,confirm.y,220,42);
+        g2.setColor(Color.WHITE);g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,16f));
         g2.drawString("Create character",confirm.x+(220-g2.getFontMetrics().stringWidth("Create character"))/2,confirm.y+27);
         gp.mouseH.leftClicked=false;
         if(clicked && confirm.contains(mx,my)){
@@ -1543,7 +1578,7 @@ public class UI {
         int boxHeight = 30;
         int boxY = combatLogBounds.y - boxHeight - 6;
 
-        g2.setColor(new Color(0, 0, 0, 170));
+        g2.setColor(Color.BLACK);
         g2.fillRoundRect(boxX, boxY, chatLogWidth, boxHeight, 10, 10);
         g2.setColor(Color.white);
         g2.setStroke(new BasicStroke(1));

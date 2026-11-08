@@ -40,6 +40,7 @@ public class InputState {
         aimWorldX = newer.aimWorldX;
         aimWorldY = newer.aimWorldY;
         ePressed = ePressed || newer.ePressed;
+        escapePressed = escapePressed || newer.escapePressed;
         leftClicked = leftClicked || newer.leftClicked;
         for(int i = 0; i < skillKeyPressed.length; i++){
             skillKeyPressed[i] = skillKeyPressed[i] || newer.skillKeyPressed[i];

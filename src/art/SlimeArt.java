@@ -29,6 +29,26 @@ public final class SlimeArt {
     public static void buildBossAnimations(Map<String, SpriteAnimation> sprites, int size, float scale, float offset) {
         buildAnimations(sprites,size,scale,offset,true);
     }
+    private static final java.util.Map<BufferedImage,BufferedImage> HELL_FRAMES=new java.util.concurrent.ConcurrentHashMap<>();
+    /** Recolour the jelly, preserving the gold crown, jewel and dark facial details. Cached before play. */
+    public static BufferedImage hellFrame(BufferedImage source){
+        return HELL_FRAMES.computeIfAbsent(source,original->{
+            BufferedImage red=new BufferedImage(original.getWidth(),original.getHeight(),BufferedImage.TYPE_INT_ARGB);
+            for(int y=0;y<original.getHeight();y++)for(int x=0;x<original.getWidth();x++){
+                int pixel=original.getRGB(x,y);int r=(pixel>>>16)&255,g=(pixel>>>8)&255,b=pixel&255;
+                if(g>r && g>b){
+                    float[] hsb=Color.RGBtoHSB(r,g,b,null);
+                    pixel=(pixel&0xFF000000)|(Color.HSBtoRGB(.005f,hsb[1]<.2f?.3f:Math.max(.75f,hsb[1]),Math.min(1,hsb[2]*1.15f))&0xFFFFFF);
+                }red.setRGB(x,y,pixel);
+            }return red;
+        });
+    }
+    public static void buildHellBossAnimations(Map<String,SpriteAnimation> sprites,int size,float scale,float offset){
+        buildBossAnimations(sprites,size,scale,offset);
+        for(SpriteAnimation animation:sprites.values())for(int i=0;i<animation.frames.length;i++)
+            animation.frames[i]=hellFrame(animation.frames[i]);
+    }
+
     private static void buildAnimations(Map<String, SpriteAnimation> sprites,int size,float scale,float offset,boolean king) {
         AtlasKey key=new AtlasKey(size,scale,offset,king);
         Map<String,SpriteAnimation> atlas=ATLASES.computeIfAbsent(key,k -> {

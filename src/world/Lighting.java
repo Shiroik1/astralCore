@@ -210,13 +210,20 @@ public class Lighting {
 
         float need = Math.min(1f, aa / 140f);     // players carry a soft light that grows as the world darkens
         for(Player p : gp.players){
-            if(p == null || p.isDead || n >= MAX_LIGHTS) continue;
+            if(p == null || p.isDead || p.inWell!=gp.quests.inDungeon() || n >= MAX_LIGHTS) continue;
             sx[n] = p.worldX + gp.tileSize / 2f - camLeft;
             sy[n] = p.worldY + gp.tileSize / 3f - camTop;
             rad[n] = (float) (135 * s);
             pow[n] = 0.55f * need;
             warm[n] = 0;
             if(onScreen(n)) n++;
+        }
+        // Hell Slime glows through the dungeon darkness so its red body and charge remain readable.
+        for(entity.Monster monster:gp.monster)if(monster instanceof monster.MON_HellSlime hell && !hell.dying && n<MAX_LIGHTS){
+            sx[n]=hell.worldX+hell.solidArea.x+hell.solidArea.width/2f-camLeft;
+            sy[n]=hell.worldY+hell.solidArea.y-hell.slamHeight()-camTop;
+            rad[n]=(float)(150*s);pow[n]=.9f;warm[n]=.12f;
+            if(onScreen(n))n++;
         }
         return n;
     }

@@ -122,6 +122,7 @@ public class GameServer {
             JoinAccepted accepted = new JoinAccepted();
             accepted.assignedPlayerId = assignedId;
             conn.sendTCP(accepted);
+            gp.quests.onPlayerJoined(p);
         }
 
         Integer playerId;
@@ -140,6 +141,7 @@ public class GameServer {
         p.setDefaultValues();
         p.setItems();
         p.refreshWeaponAnimation();
+        gp.quests.onPlayerJoined(p);
     }
 
     private int assignNextFreePlayerId(){

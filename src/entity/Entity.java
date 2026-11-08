@@ -21,6 +21,7 @@ public class Entity {
     public int spriteCounter = 0;
     public int spriteNum = 1;
 
+    public int invincibilityDuration=40;
     public boolean invincible = false;
     public int invincibleCounter = 0;
     public boolean flashing = false;
@@ -217,7 +218,7 @@ public class Entity {
 
         if(invincible){
             invincibleCounter++;
-            if(invincibleCounter > 40){
+            if(invincibleCounter > invincibilityDuration){
                 invincible = false;
                 invincibleCounter = 0;
             }
@@ -270,12 +271,10 @@ public class Entity {
     }
 
     public void damagePlayer(Player target, int attack){
-        if(target.isDead) return;
+        if(target.isDead || target.inWell!=gp.quests.inDungeon()) return;
         if(!target.invincible){
-            int damage = attack - target.defense;
-            if(damage < 0){
-                damage = 0;
-            }
+            int damage = Math.max(1, attack - target.getEffectiveDefense());
+            target.recordShieldMitigation(attack,damage);
             target.HP -= damage;
             target.invincible = true;
             target.flashing = true;

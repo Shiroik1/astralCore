@@ -118,6 +118,7 @@ public class CommandProcessor {
         }
         for(entity.Entity npc : gp.npc){
             if(npc instanceof entity.NPC_oldman oldman) oldman.getImage();
+            if(npc instanceof entity.NPC_merchant merchant)merchant.getImage();
         }
         reply("Pixel mode: " + mode, INFO);
     }

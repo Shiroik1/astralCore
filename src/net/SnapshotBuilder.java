@@ -18,12 +18,32 @@ public class SnapshotBuilder {
     public static WorldSnapshot build(Gamepanel gp){
         WorldSnapshot snapshot = new WorldSnapshot();
         snapshot.tick = gp.currentTick;
+        snapshot.quest = gp.quests.snapshot();
         snapshot.players = buildPlayers(gp);
+        fillArea(snapshot,gp);
+        if(gp.quests.hasOtherScene()){
+            boolean current=gp.quests.inDungeon();gp.quests.activateArea(!current);
+            snapshot.otherArea=new WorldSnapshot();fillArea(snapshot.otherArea,gp);gp.quests.activateArea(current);
+        }
+        return snapshot;
+    }
+
+    private static void fillArea(WorldSnapshot snapshot,Gamepanel gp){
+        snapshot.inWellArea=gp.quests.inDungeon();
+        snapshot.slimeProjectiles=buildSlimeProjectiles(gp);
         snapshot.monsters = buildMonsters(gp);
         snapshot.objects = buildObjects(gp);
         snapshot.npcs = buildNpcs(gp);
         snapshot.sceneryState = buildScenery(gp);
-        return snapshot;
+    }
+
+    private static SlimeProjectileState[] buildSlimeProjectiles(Gamepanel gp){
+        List<SlimeProjectileState> states=new ArrayList<>();
+        for(Entity entity:gp.projectileList)if(entity instanceof object.OBJ_slimebolt bolt && bolt.alive){
+            SlimeProjectileState state=new SlimeProjectileState();state.worldX=bolt.worldX;state.worldY=bolt.worldY;
+            state.velocityX=bolt.velocityX();state.velocityY=bolt.velocityY();
+            state.direction=bolt.direction;state.hell=bolt.hell;state.frame=bolt.spriteNum;states.add(state);
+        }return states.toArray(SlimeProjectileState[]::new);
     }
 
     private static PlayerState[] buildPlayers(Gamepanel gp){
@@ -33,6 +53,7 @@ public class SnapshotBuilder {
 
             PlayerState ps = new PlayerState();
             ps.playerId = p.playerId;
+            ps.merchantOpen=p.merchantOpen;ps.inWell=p.inWell;ps.resolve=p.resolve;
             ps.playerName = p.playerName;
             ps.playerClass = p.playerClass;
             ps.gender = p.gender;
@@ -112,6 +133,7 @@ public class SnapshotBuilder {
             ms.alive = m.alive;
             ms.monsterType = MonsterType.of(m);
             if(m instanceof MON_SlimeBoss boss){
+                ms.chargeX=boss.chargeX();ms.chargeY=boss.chargeY();
                 ms.isBoss = true;
                 ms.bossState = boss.bossState;
                 ms.bossStateTimer = boss.bossStateTimer;

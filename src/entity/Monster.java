@@ -10,6 +10,8 @@ public class Monster extends Entity {
     protected int monsterAttackCooldown = 40; // ticks of rest between attack cycles
     protected int deathAnimFrameDelay = 6;
     protected int deathDuration = 65;
+    public String questId = "";
+    private final ai.Pathfinder pathfinder;
     public int aggroRange = 0; // tiles; 0 = chase disabled, subclasses override
 
     private int attackCooldownCounter = 0;
@@ -19,6 +21,7 @@ public class Monster extends Entity {
     public Monster(Gamepanel gp){
         super(gp);
         type = type_monster;
+        pathfinder=new ai.Pathfinder(gp);
     }
 
     public boolean isBoss(){ return false; }
@@ -65,7 +68,7 @@ public class Monster extends Entity {
 
             if(invincible){
                 invincibleCounter++;
-                if(invincibleCounter > 40){
+                if(invincibleCounter > invincibilityDuration){
                     invincible = false;
                     invincibleCounter = 0;
                 }
@@ -134,7 +137,7 @@ public class Monster extends Entity {
         Player nearest = null;
         int nearestDist = Integer.MAX_VALUE;
         for(Player p : gp.players){
-            if(p == null || p.isDead) continue;
+            if(p == null || p.isDead || p.inWell!=gp.quests.inDungeon()) continue;
             int dist = Math.abs(worldX - p.worldX) + Math.abs(worldY - p.worldY);
             if(dist < nearestDist){
                 nearestDist = dist;
@@ -159,13 +162,6 @@ public class Monster extends Entity {
         Player target = findNearestPlayer();
         if(target == null) return;
 
-        int xDist = target.worldX - worldX;
-        int yDist = target.worldY - worldY;
-
-        if(Math.abs(xDist) > Math.abs(yDist)){
-            direction = xDist > 0 ? "right" : "left";
-        } else {
-            direction = yDist > 0 ? "down" : "up";
-        }
+        pathfinder.chase(this,target);
     }
 }
