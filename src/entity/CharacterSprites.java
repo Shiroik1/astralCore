@@ -18,14 +18,12 @@ public final class CharacterSprites {
     public static boolean pixelMode = true;
 
     /** Hi-res size the vector art is drawn at before it is shrunk/stored. */
-    private static final int HI = 256;
+    private static final int HI = 144;
     /** Low-res canvas for pixel mode. Screen size / PIXEL_SCALE must equal this (see canvasSize). */
     public static final int LOW = 24;
     public static final int PIXEL_SCALE = 3;
 
     public static final int IDLE_FRAMES = 4, RUN_FRAMES = 8, ATTACK_FRAMES = 8;
-    /** arm lift per attack frame: wind-up 1-3, hit window 4-6 (matches Player.attackHitStart/EndFrame), recover 7-8 */
-    private static final float[] ATTACK_CURVE = {0.10f, 0.25f, 0.40f, 0.50f, 0.50f, 0.45f, 0.25f, 0.10f};
 
     /** Screen size (px) of the square canvas every body frame is drawn into. */
     public static int canvasSize() { return LOW * PIXEL_SCALE; }
@@ -38,6 +36,7 @@ public final class CharacterSprites {
 
     public static void build(Map<String, SpriteAnimation> sprites, CharacterArt.Look look) {
         look.shadow = false; // the game already draws its own ground shadow
+        look.weaponScale = pixelMode ? 1.6f : 1f;
         int size = canvasSize();
         for (int d = 0; d < 4; d++) {
             BufferedImage[] idle = new BufferedImage[IDLE_FRAMES];
@@ -48,11 +47,11 @@ public final class CharacterSprites {
                 run[i] = frame(DIRS[d], new CharacterArt.Pose().walk(i / (float) RUN_FRAMES), look);
             BufferedImage[] atk = new BufferedImage[ATTACK_FRAMES];
             for (int i = 0; i < ATTACK_FRAMES; i++)
-                atk[i] = frame(DIRS[d], new CharacterArt.Pose().attack(ATTACK_CURVE[i]), look);
+                atk[i] = frame(DIRS[d], new CharacterArt.Pose().attack(i / (float) (ATTACK_FRAMES - 1)), look);
 
             sprites.put("idle_" + NAMES[d], new SpriteAnimation(idle, size, size));
             SpriteAnimation r = new SpriteAnimation(run, size, size);
-            r.frameDelay = 5;
+            r.frameDelay = 4; // five ticks per frame: slightly quicker eight-frame run
             sprites.put("run_" + NAMES[d], r);
             sprites.put("attack_" + NAMES[d], new SpriteAnimation(atk, size, size));
         }

@@ -107,9 +107,9 @@ public class CommandProcessor {
     private void pixel(String[] args){
         String mode = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
         switch(mode){
-            case "on"   -> { entity.CharacterSprites.pixelMode = true;  gp.pixelBuffer = true; }
-            case "off"  -> { entity.CharacterSprites.pixelMode = false; gp.pixelBuffer = false; }
-            case "char" -> { entity.CharacterSprites.pixelMode = true;  gp.pixelBuffer = false; }
+            case "on"   -> { entity.CharacterSprites.pixelMode = true;  gp.setPixelBuffer(true); }
+            case "off"  -> { entity.CharacterSprites.pixelMode = false; gp.setPixelBuffer(false); }
+            case "char" -> { entity.CharacterSprites.pixelMode = true;  gp.setPixelBuffer(false); }
             default -> { reply("Usage: /pixel <on|off|char>", ERROR); return; }
         }
         for(entity.Player p : gp.players){

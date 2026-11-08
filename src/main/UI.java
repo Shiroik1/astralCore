@@ -52,8 +52,9 @@ public class UI {
     private int dragSourceIndex = -1;
     private Rectangle inventoryWindowBounds = new Rectangle();
     private Entity hoveredItem = null;
-    private Rectangle weaponSlotBounds = new Rectangle();
-    private Rectangle shieldSlotBounds = new Rectangle();
+    private final Rectangle[] equipmentBounds = new Rectangle[8];
+    private final Rectangle undressBounds = new Rectangle();
+    private static final String[] EQUIPMENT_LABELS = {"Weapon", "Shield", "Hair", "Tunic", "Pants", "Boots", "Gloves", "Cloak"};
 
     private final int slotIconSize = 48;      // visual size of one slot — currently matches gp.tileSize
     private final int slotSpacing = 3;        // gap between adjacent slot cells
@@ -250,9 +251,10 @@ public class UI {
         int bagRows = (int) Math.ceil((double) gp.localPlayer().inventorySlots.length / bagColumns);
         int bagGridWidth = bagColumns * slotStride - slotSpacing;
         int bagGridHeight = bagRows * slotStride - slotSpacing;
-        int equipColumnHeight = 2 * slotIconSize + equipSlotGap;
+        int equipColumnHeight = 4 * (slotIconSize + 18) + 32;
+        int equipmentWidth = 2 * slotIconSize + equipSlotGap;
 
-        int frameWidth = windowPadding + slotIconSize + equipBagGap + bagGridWidth + windowPadding;
+        int frameWidth = windowPadding + equipmentWidth + equipBagGap + bagGridWidth + windowPadding;
         int frameHeight = windowPadding + Math.max(equipColumnHeight, bagGridHeight) + windowPadding;
         int frameX = gp.screenWidth - frameWidth - screenRightMargin;
         int frameY = gp.tileSize;
@@ -262,17 +264,23 @@ public class UI {
 
         //EQUIPMENT PAPERDOLL
         int equipX = frameX + windowPadding;
-        int weaponSlotY = frameY + windowPadding;
-        int shieldSlotY = weaponSlotY + slotIconSize + equipSlotGap;
-
-        weaponSlotBounds.setBounds(equipX, weaponSlotY, slotIconSize, slotIconSize);
-        shieldSlotBounds.setBounds(equipX, shieldSlotY, slotIconSize, slotIconSize);
-
-        drawEquipSlot(weaponSlotBounds, (draggingItem && dragSourceType == Player.EQUIP_WEAPON) ? null : gp.localPlayer().currentWeapon);
-        drawEquipSlot(shieldSlotBounds, (draggingItem && dragSourceType == Player.EQUIP_SHIELD) ? null : gp.localPlayer().currentShield);
+        Font savedFont=g2.getFont();
+        for(int i=0;i<equipmentBounds.length;i++){
+            int x=equipX+(i%2)*(slotIconSize+equipSlotGap);
+            int y=frameY+windowPadding+(i/2)*(slotIconSize+18)+13;
+            if(equipmentBounds[i]==null)equipmentBounds[i]=new Rectangle();
+            equipmentBounds[i].setBounds(x,y,slotIconSize,slotIconSize);
+            g2.setFont(savedFont.deriveFont(11f));g2.setColor(Color.white);
+            g2.drawString(EQUIPMENT_LABELS[i],x,y-3);
+            drawEquipSlot(equipmentBounds[i],draggingItem && dragSourceType==i+1 ? null : gp.localPlayer().equippedItem(i+1));
+        }
+        undressBounds.setBounds(equipX,frameY+windowPadding+4*(slotIconSize+18)+6,equipmentWidth,24);
+        g2.setColor(new Color(100,65,65));g2.fillRoundRect(undressBounds.x,undressBounds.y,undressBounds.width,24,8,8);
+        g2.setColor(Color.white);g2.setFont(savedFont.deriveFont(12f));
+        g2.drawString("Undress",undressBounds.x+24,undressBounds.y+17);g2.setFont(savedFont);
 
         //BAG GRID
-        final int slotStartX = equipX + slotIconSize + equipBagGap;
+        final int slotStartX = equipX + equipmentWidth + equipBagGap;
         final int slotStartY = frameY + windowPadding;
         int slotX = slotStartX;
         int slotY = slotStartY;
@@ -1073,19 +1081,18 @@ public class UI {
         }
 
         if(gp.mouseH.leftPressed && !draggingItem){
-            if(weaponSlotBounds.contains(mouseX, mouseY) && gp.localPlayer().currentWeapon != null && !gp.localPlayer().currentWeapon.isPlaceholder){
-                draggingItem = true;
-                draggedItem = gp.localPlayer().currentWeapon;
-                dragSourceType = Player.EQUIP_WEAPON;
-                dragSourceIndex = -1;
+            if(undressBounds.contains(mouseX,mouseY)){
+                net.InventoryAction action=new net.InventoryAction();
+                action.playerId=gp.localPlayer().playerId;action.actionType=InventoryActionType.UNDRESS;
+                gp.requestInventoryAction(action);gp.mouseH.leftPressed=false;return;
             }
-            else if(shieldSlotBounds.contains(mouseX, mouseY) && gp.localPlayer().currentShield != null && !gp.localPlayer().currentShield.isPlaceholder){
-                draggingItem = true;
-                draggedItem = gp.localPlayer().currentShield;
-                dragSourceType = Player.EQUIP_SHIELD;
-                dragSourceIndex = -1;
+            for(int i=0;i<equipmentBounds.length;i++){
+                Entity item=gp.localPlayer().equippedItem(i+1);
+                if(equipmentBounds[i]!=null && equipmentBounds[i].contains(mouseX,mouseY) && item!=null && !item.isPlaceholder){
+                    draggingItem=true;draggedItem=item;dragSourceType=i+1;dragSourceIndex=-1;break;
+                }
             }
-            else {
+            if(!draggingItem){
                 for(int i = 0; i < inventorySlotBounds.length; i++){
                     if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY) && gp.localPlayer().inventorySlots[i] != null){
                         draggingItem = true;
@@ -1126,23 +1133,14 @@ public class UI {
         net.InventoryAction action = new net.InventoryAction();
         action.playerId = local.playerId;
 
-        if(weaponSlotBounds.contains(mouseX, mouseY)){
-            if(dragSourceType == SLOT_BAG){
-                action.actionType = InventoryActionType.EQUIP;
-                action.sourceIndex = dragSourceIndex;
-                action.slotType = Player.EQUIP_WEAPON;
-                gp.requestInventoryAction(action);
+        for(int i=0;i<equipmentBounds.length;i++){
+            if(equipmentBounds[i]!=null && equipmentBounds[i].contains(mouseX,mouseY)){
+                if(dragSourceType==SLOT_BAG){
+                    action.actionType=InventoryActionType.EQUIP;action.sourceIndex=dragSourceIndex;action.slotType=i+1;
+                    gp.requestInventoryAction(action);
+                }
+                return;
             }
-            return;
-        }
-        if(shieldSlotBounds.contains(mouseX, mouseY)){
-            if(dragSourceType == SLOT_BAG){
-                action.actionType = InventoryActionType.EQUIP;
-                action.sourceIndex = dragSourceIndex;
-                action.slotType = Player.EQUIP_SHIELD;
-                gp.requestInventoryAction(action);
-            }
-            return;
         }
 
         for(int i = 0; i < inventorySlotBounds.length; i++){
@@ -1174,11 +1172,11 @@ public class UI {
     }
 
     private Entity getItemAtPosition(int mouseX, int mouseY){
-        if(weaponSlotBounds.contains(mouseX, mouseY)){
-            return (gp.localPlayer().currentWeapon != null && !gp.localPlayer().currentWeapon.isPlaceholder) ? gp.localPlayer().currentWeapon : null;
-        }
-        if(shieldSlotBounds.contains(mouseX, mouseY)){
-            return (gp.localPlayer().currentShield != null && !gp.localPlayer().currentShield.isPlaceholder) ? gp.localPlayer().currentShield : null;
+        for(int i=0;i<equipmentBounds.length;i++){
+            if(equipmentBounds[i]!=null && equipmentBounds[i].contains(mouseX,mouseY)){
+                Entity item=gp.localPlayer().equippedItem(i+1);
+                return item!=null && !item.isPlaceholder ? item : null;
+            }
         }
         for(int i = 0; i < inventorySlotBounds.length; i++){
             if(inventorySlotBounds[i] != null && inventorySlotBounds[i].contains(mouseX, mouseY) && gp.localPlayer().inventorySlots[i] != null){

@@ -68,6 +68,8 @@ public class SnapshotBuilder {
             }
             ps.weaponType = ItemRegistry.typeFor(p.currentWeapon);
             ps.shieldType = ItemRegistry.typeFor(p.currentShield);
+            ps.apparelTypes = new ItemType[p.apparelSlots.length];
+            for(int i=0;i<ps.apparelTypes.length;i++)ps.apparelTypes[i]=ItemRegistry.typeFor(p.apparelSlots[i]);
 
             ps.skillCooldowns = new int[p.skills.length];
             for(int i = 0; i < p.skills.length; i++){

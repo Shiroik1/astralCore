@@ -87,6 +87,7 @@ public class Entity {
     public static final int type_consumable = 6;
     public static final int type_pickuponly = 7;
     public static final int type_staff = 8;
+    public static final int type_apparel = 9;
     public int type = type_none;
 
     //CHARACTER STATUS

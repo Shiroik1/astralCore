@@ -1,16 +1,10 @@
 package object;
 
-import entity.Entity;
+import art.CharacterOutfit;
 import main.Gamepanel;
 
-import javax.imageio.ImageIO;
-
-public class OBJ_boots extends Entity {
-
+public class OBJ_boots extends OBJ_apparel {
     public OBJ_boots(Gamepanel gp){
-        super(gp);
-        name = "Boots";
-
-        down1 = setup("/object/boots", gp.tileSize, gp.tileSize);
+        super(gp, ItemType.BOOTS, CharacterOutfit.Slot.BOOTS, "Leather Boots");
     }
 }

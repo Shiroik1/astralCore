@@ -15,6 +15,7 @@ public class PlayerState {
     public int[] inventoryStackCounts;
     public ItemType weaponType;
     public ItemType shieldType;
+    public ItemType[] apparelTypes;
     public boolean isDead;
     public String playerClass;
     public int level, exp, nextLevelExp;

@@ -76,6 +76,10 @@ public class Player extends Entity{
     public static final int EQUIP_WEAPON = 1;
     public static final int EQUIP_SHIELD = 2;
 
+    public static final int EQUIP_HAIR = 3, EQUIP_TORSO = 4, EQUIP_PANTS = 5,
+            EQUIP_BOOTS = 6, EQUIP_GLOVES = 7, EQUIP_CLOAK = 8;
+    public final Entity[] apparelSlots = new Entity[6];
+
     //SKILL PARAMETERS
     public Skill[] skills = new Skill[5];
     private boolean powerStrikePending = false;
@@ -107,6 +111,9 @@ public class Player extends Entity{
         solidArea.width = 32;
         solidArea.height = 32;
 
+        ItemType[] starterOutfit = {ItemType.HAIR, ItemType.TUNIC, ItemType.PANTS,
+                ItemType.BOOTS, ItemType.GLOVES, ItemType.CLOAK};
+        for(int i=0;i<apparelSlots.length;i++) apparelSlots[i]=ItemRegistry.create(starterOutfit[i],gp);
         setDefaultValues();
         if(playerClass.equals("mage")){
             getMagePlayerImage();
@@ -301,14 +308,78 @@ public class Player extends Entity{
     public static final boolean USE_GENERATED_BODY = true;
     private final art.CharacterArt.Look bodyLook = new art.CharacterArt.Look();
 
+    private BodyKey builtBodyKey;
+    private record BodyKey(art.WeaponArt.Kind weapon, boolean pixel, Color skin, Color eye,
+                           Color blush, art.CharacterOutfit outfit) {}
+    // Bounded because independent apparel slots allow many outfit combinations.
+    private static final java.util.Map<BodyKey, java.util.Map<String, SpriteAnimation>> BODY_CACHE =
+            new java.util.LinkedHashMap<>(16, 0.75f, true) {
+                protected boolean removeEldestEntry(java.util.Map.Entry<BodyKey, java.util.Map<String, SpriteAnimation>> e) {
+                    return size() > 16;
+                }
+            };
+
+    public art.CharacterOutfit currentOutfit(){
+        Color[] colors = new Color[6];
+        for(int i=0;i<colors.length;i++) if(apparelSlots[i] instanceof OBJ_apparel item) colors[i]=item.color;
+        return new art.CharacterOutfit(colors[0],colors[1],colors[2],colors[3],colors[4],colors[5]);
+    }
+
+    private art.WeaponArt.Kind weaponKind(){
+        if(currentWeapon == null || currentWeapon.isPlaceholder) return art.WeaponArt.Kind.NONE; // fists
+        return switch(currentWeapon.type){
+            case type_sword -> art.WeaponArt.Kind.SWORD;
+            case type_axe -> art.WeaponArt.Kind.AXE;
+            case type_staff -> art.WeaponArt.Kind.STAFF;
+            default -> art.WeaponArt.Kind.NONE;
+        };
+    }
+
     private void buildGeneratedBody(){
-        bodySize = CharacterSprites.canvasSize();
-        CharacterSprites.build(sprites, bodyLook);
-        down1 = sprites.get("idle_down").frames[0]; // title-screen portrait
+        art.CharacterOutfit outfit = currentOutfit();
+        BodyKey key = new BodyKey(weaponKind(), CharacterSprites.pixelMode, bodyLook.skin,
+                bodyLook.eye, bodyLook.blush, outfit);
+        if(key.equals(builtBodyKey) && sprites.containsKey("idle_down")) return;
+        java.util.Map<String, SpriteAnimation> generated;
+        synchronized(BODY_CACHE){
+            generated = BODY_CACHE.get(key);
+            if(generated == null){
+                art.CharacterArt.Look look = new art.CharacterArt.Look();
+                look.skin=key.skin();look.eye=key.eye();look.blush=key.blush();
+                look.weapon=key.weapon();look.outfit=outfit;
+                generated = new java.util.HashMap<>();
+                CharacterSprites.build(generated, look);
+                BODY_CACHE.put(key, generated);
+            }
+        }
+        bodySize=CharacterSprites.canvasSize();
+        sprites.putAll(generated);
+        down1=sprites.get("idle_down").frames[0];
+        builtBodyKey=key;
+    }
+
+    public Entity equippedItem(int slot){
+        if(slot==EQUIP_WEAPON) return currentWeapon;
+        if(slot==EQUIP_SHIELD) return currentShield;
+        return slot>=EQUIP_HAIR && slot<=EQUIP_CLOAK ? apparelSlots[slot-EQUIP_HAIR] : null;
+    }
+
+    private boolean fitsEquipment(Entity item, int slot){
+        if(item==null)return false;
+        if(slot==EQUIP_WEAPON)return item.type==type_sword || item.type==type_axe || item.type==type_staff;
+        if(slot==EQUIP_SHIELD)return item.type==type_shield;
+        return item instanceof OBJ_apparel clothing && slot==EQUIP_HAIR+clothing.slot.ordinal();
+    }
+
+    private void setEquipment(int slot, Entity item){
+        if(slot==EQUIP_WEAPON){currentWeapon=item!=null?item:new OBJ_fists(gp);attack=getAttack();}
+        else if(slot==EQUIP_SHIELD){currentShield=item!=null?item:new OBJ_no_shield(gp);defense=getDefense();}
+        else if(slot>=EQUIP_HAIR && slot<=EQUIP_CLOAK)apparelSlots[slot-EQUIP_HAIR]=item;
+        refreshWeaponAnimation();
     }
 
     public void getPlayerAttackImage(){
-        if(USE_GENERATED_BODY) return;
+        if(USE_GENERATED_BODY){ buildGeneratedBody(); return; }
         if(playerClass.equals("mage")) return;
         String weaponFolder = getWeaponFolder();
 
@@ -957,26 +1028,14 @@ public class Player extends Entity{
     }
 
     public void tryEquipFromBag(int bagIndex, int slotType){
+        if(bagIndex<0 || bagIndex>=inventorySlots.length)return;
         Entity item = inventorySlots[bagIndex];
         if(item == null) return;
 
-        boolean validForSlot = (slotType == EQUIP_WEAPON && (item.type == type_sword || item.type == type_axe || item.type == type_staff))
-                || (slotType == EQUIP_SHIELD && item.type == type_shield);
-        if(!validForSlot) return; // wrong item for this slot — leave it in the bag
-
-        Entity previous;
-        if(slotType == EQUIP_WEAPON){
-            previous = currentWeapon;
-            currentWeapon = item;
-            attack = getAttack();
-            getPlayerAttackImage();
-        } else {
-            previous = currentShield;
-            currentShield = item;
-            defense = getDefense();
-        }
-
-        inventorySlots[bagIndex] = previous; // the slot the new item left is guaranteed empty for the old one
+        if(!fitsEquipment(item, slotType)) return;
+        Entity previous=equippedItem(slotType);
+        setEquipment(slotType,item);
+        inventorySlots[bagIndex]=previous!=null && !previous.isPlaceholder ? previous : null;
         gp.playSE(3);
     }
 
@@ -1003,41 +1062,43 @@ public class Player extends Entity{
     }
 
     public void unequipToBagIndex(int slotType, int bagIndex){
-        Entity equipped = (slotType == EQUIP_WEAPON) ? currentWeapon : currentShield;
-        if(equipped == null || equipped.isPlaceholder) return;
-
-        Entity bagItem = inventorySlots[bagIndex];
-        boolean bagItemIsValidReplacement = bagItem != null &&
-                ((slotType == EQUIP_WEAPON && (bagItem.type == type_sword || bagItem.type == type_axe || bagItem.type == type_staff)) ||
-                        (slotType == EQUIP_SHIELD && bagItem.type == type_shield));
-
-        if(bagItemIsValidReplacement){
-            // swap: the bag item takes over the slot, the old equipped item goes into the bag
-            if(slotType == EQUIP_WEAPON){ currentWeapon = bagItem; attack = getAttack(); getPlayerAttackImage(); }
-            else { currentShield = bagItem; defense = getDefense(); }
-            inventorySlots[bagIndex] = equipped;
-            gp.playSE(3);
-            return;
-        }
-
-        if(bagItem != null) return; // slot occupied by something unrelated — invalid drop, revert silently
-
-        // empty bag slot — true unequip, fall back to placeholder so attack/defense math never sees null
-        inventorySlots[bagIndex] = equipped;
-        if(slotType == EQUIP_WEAPON){ currentWeapon = new object.OBJ_fists(gp); attack = getAttack(); getPlayerAttackImage(); }
-        else { currentShield = new object.OBJ_no_shield(gp); defense = getDefense(); }
+        if(bagIndex<0 || bagIndex>=inventorySlots.length)return;
+        Entity equipped=equippedItem(slotType);
+        if(equipped==null || equipped.isPlaceholder)return;
+        Entity replacement=inventorySlots[bagIndex];
+        if(replacement!=null && !fitsEquipment(replacement,slotType))return;
+        setEquipment(slotType,replacement);
+        inventorySlots[bagIndex]=equipped;
         gp.playSE(3);
     }
 
     public void unequipToWorld(int slotType){
-        Entity equipped = (slotType == EQUIP_WEAPON) ? currentWeapon : currentShield;
-        if(equipped == null || equipped.isPlaceholder) return;
+        Entity equipped=equippedItem(slotType);
+        if(equipped==null || equipped.isPlaceholder)return;
+        if(java.util.Arrays.stream(gp.obj).noneMatch(item -> item==null)){
+            gp.ui.addMessage("No room to drop equipment here.");return;
+        }
+        setEquipment(slotType,null);
+        dropItemAtPlayer(equipped);
+        gp.ui.addMessage("Dropped "+equipped.name+".");
+    }
 
-        if(slotType == EQUIP_WEAPON){ currentWeapon = new object.OBJ_fists(gp); attack = getAttack(); getPlayerAttackImage(); }
-        else { currentShield = new object.OBJ_no_shield(gp); defense = getDefense(); }
-
-        dropItemAtPlayer(equipped); // inherited from Entity — places it at the player's current worldX/worldY
-        gp.ui.addMessage("Dropped " + equipped.name + ".");
+    /** All-or-nothing: never delete or drop gear when the bag is full. */
+    public void undress(){
+        int count=0,free=0;
+        for(Entity item:inventorySlots)if(item==null)free++;
+        for(int slot=EQUIP_WEAPON;slot<=EQUIP_CLOAK;slot++){
+            Entity item=equippedItem(slot);if(item!=null && !item.isPlaceholder)count++;
+        }
+        if(free<count){gp.ui.addMessage("Make room for "+count+" items before undressing.");return;}
+        for(int slot=EQUIP_WEAPON;slot<=EQUIP_CLOAK;slot++){
+            Entity item=equippedItem(slot);if(item==null || item.isPlaceholder)continue;
+            addToInventory(item);
+            if(slot==EQUIP_WEAPON){currentWeapon=new OBJ_fists(gp);attack=getAttack();}
+            else if(slot==EQUIP_SHIELD){currentShield=new OBJ_no_shield(gp);defense=getDefense();}
+            else apparelSlots[slot-EQUIP_HAIR]=null;
+        }
+        refreshWeaponAnimation();gp.playSE(3);
     }
 
     public void dropBagItemToWorld(int index){
@@ -1680,6 +1741,7 @@ public class Player extends Entity{
     }
 
     public void refreshWeaponAnimation(){
+        if(USE_GENERATED_BODY){ buildGeneratedBody(); return; }
         if(!playerClass.equals("mage")){
             getPlayerAttackImage();
         } else {

@@ -406,9 +406,9 @@ public class Gamepanel extends JPanel implements Runnable{
         if(pixelBuf == null){
             pixelBuf = new BufferedImage(screenWidth / s, screenHeight / s, BufferedImage.TYPE_INT_ARGB);
             pixelG = pixelBuf.createGraphics();
-            pixelG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            pixelG.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            pixelG.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            pixelG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+            pixelG.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            pixelG.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
         }
         pixelG.setTransform(new java.awt.geom.AffineTransform());
         pixelG.setComposite(AlphaComposite.Src);
@@ -424,7 +424,11 @@ public class Gamepanel extends JPanel implements Runnable{
         g2 = screenG;
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         g2.drawImage(pixelBuf, 0, 0, screenWidth, screenHeight, null);
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+    }
+
+    public void setPixelBuffer(boolean on){
+        pixelBuffer = on;
+        lighting.setDivisor(on ? entity.CharacterSprites.PIXEL_SCALE : 2);
     }
 
     public void drawToTempscreen() throws IOException {
@@ -525,9 +529,12 @@ public class Gamepanel extends JPanel implements Runnable{
 
             g2.translate(-shakeOffsetX, -shakeOffsetY);
 
-            if(pixelBuffer) endPixelBuffer();
-
-            lighting.draw(g2, shakeOffsetX, shakeOffsetY);
+            if(pixelBuffer){
+                lighting.draw(g2, shakeOffsetX, shakeOffsetY);   // lit inside the small buffer
+                endPixelBuffer();
+            } else {
+                lighting.draw(g2, shakeOffsetX, shakeOffsetY);
+            }
 
             //UI
             ui.draw(g2);
@@ -723,6 +730,7 @@ public class Gamepanel extends JPanel implements Runnable{
             case UNEQUIP_TO_WORLD -> target.unequipToWorld(action.slotType);
             case DROP -> target.dropBagItemToWorld(action.sourceIndex);
             case USE -> target.useInventoryItem(action.sourceIndex);
+            case UNDRESS -> target.undress();
         }
     }
 

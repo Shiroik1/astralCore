@@ -22,7 +22,7 @@ public final class PixelFilter {
             }
             if (a <= 0) continue;
             r /= a; g /= a; b /= a; a /= n;
-            if (a < 0.5f) continue;                      // hard edge
+            if (a < 0.35f) continue;                     // hard edge (low threshold keeps thin blades and smears)
             out.setRGB(x, y, 0xFF000000 | (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b));
         }
         return out;

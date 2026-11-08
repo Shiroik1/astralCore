@@ -5,5 +5,5 @@ public class InventoryAction {
     public InventoryActionType actionType;
     public int sourceIndex;
     public int targetIndex;
-    public int slotType; // Player.EQUIP_WEAPON / Player.EQUIP_SHIELD, when relevant
+    public int slotType; // Player.EQUIP_* slot, including visual apparel
 }

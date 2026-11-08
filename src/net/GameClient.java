@@ -116,6 +116,23 @@ public class GameClient {
                 gp.players[ps.playerId] = p;
             }
 
+            // Visual equipment must update for both the local player and remote players.
+            boolean appearanceChanged=false;
+            if(ps.weaponType!=null && object.ItemRegistry.typeFor(p.currentWeapon)!=ps.weaponType){
+                p.currentWeapon=object.ItemRegistry.create(ps.weaponType,gp);p.attack=p.getAttack();appearanceChanged=true;
+            }
+            if(ps.shieldType!=null && object.ItemRegistry.typeFor(p.currentShield)!=ps.shieldType){
+                p.currentShield=object.ItemRegistry.create(ps.shieldType,gp);p.defense=p.getDefense();
+            }
+            if(ps.apparelTypes!=null){
+                for(int i=0;i<p.apparelSlots.length && i<ps.apparelTypes.length;i++){
+                    if(object.ItemRegistry.typeFor(p.apparelSlots[i])!=ps.apparelTypes[i]){
+                        p.apparelSlots[i]=object.ItemRegistry.create(ps.apparelTypes[i],gp);appearanceChanged=true;
+                    }
+                }
+            }
+            if(appearanceChanged)p.refreshWeaponAnimation();
+
             if(p.isLocal){
                 p.reconcile(ps.worldX, ps.worldY, ps.direction, ps.HP, ps.maxHP, ps.MP, ps.maxMP, ps.isDead, ps.ackTick);
                 for(int i = 0; i < ps.inventoryTypes.length; i++){
@@ -131,16 +148,6 @@ public class GameClient {
                     if(p.inventorySlots[i] != null){
                         p.inventorySlots[i].stackCount = ps.inventoryStackCounts[i];
                     }
-                }
-
-                if(ps.weaponType != null && object.ItemRegistry.typeFor(p.currentWeapon) != ps.weaponType){
-                    p.currentWeapon = object.ItemRegistry.create(ps.weaponType, gp);
-                    p.attack = p.getAttack();
-                    p.getPlayerAttackImage();
-                }
-                if(ps.shieldType != null && object.ItemRegistry.typeFor(p.currentShield) != ps.shieldType){
-                    p.currentShield = object.ItemRegistry.create(ps.shieldType, gp);
-                    p.defense = p.getDefense();
                 }
 
                 p.level = ps.level;

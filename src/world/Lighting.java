@@ -52,9 +52,11 @@ public class Lighting {
     public float leafLevel, flyLevel;          // 0..1, read by AmbientFX
 
     private final Gamepanel gp;
-    private final int lw, lh;
-    private final BufferedImage lightmap, vignette, cloudTile;
-    private final Graphics2D lg;
+    private int div = 2;   // screen pixels per lightmap pixel (3 in pixel mode)
+    private int lw, lh;
+    private BufferedImage lightmap, vignette;
+    private final BufferedImage cloudTile;
+    private Graphics2D lg;
     private final Map<Integer, BufferedImage> punchSprites = new HashMap<>();
     private final Map<Integer, BufferedImage> glowSprites = new HashMap<>();
 
@@ -68,13 +70,22 @@ public class Lighting {
 
     public Lighting(Gamepanel gp){
         this.gp = gp;
-        lw = gp.screenWidth / 2;
-        lh = gp.screenHeight / 2;
-        lightmap = new BufferedImage(lw, lh, BufferedImage.TYPE_INT_ARGB);
+        cloudTile = bakeClouds();
+        setDivisor(2);
+        setMood(Mood.GOLDEN, true);
+    }
+
+    // 2 = smooth mode, 3 = pixel mode (one lightmap pixel per buffer pixel)
+    public void setDivisor(int d){
+        div = d;
+        lw = gp.screenWidth / d;
+        lh = gp.screenHeight / d;
+        if(lg != null) lg.dispose();
+        lightmap = new BufferedImage(lw, lh, BufferedImage.TYPE_INT_ARGB_PRE); // premultiplied: much faster scaled blit
         lg = lightmap.createGraphics();
         vignette = bakeVignette();
-        cloudTile = bakeClouds();
-        setMood(Mood.GOLDEN, true);
+        punchSprites.clear();
+        glowSprites.clear();
     }
 
     public Mood mood(){
@@ -124,8 +135,8 @@ public class Lighting {
             lg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, clouds * 0.45f)));
             double cloudX = time * (0.16 + 0.30 * gp.ambient.wind);
             double cloudY = time * 0.06;
-            double ox = ((cloudX - camLeft) / 2.0) % CLOUD_TILE;
-            double oy = ((cloudY - camTop) / 2.0) % CLOUD_TILE;
+            double ox = ((cloudX - camLeft) / div) % CLOUD_TILE;
+            double oy = ((cloudY - camTop) / div) % CLOUD_TILE;
             if(ox < 0) ox += CLOUD_TILE;
             if(oy < 0) oy += CLOUD_TILE;
             for(int x = (int) ox - CLOUD_TILE; x < lw; x += CLOUD_TILE){
@@ -144,25 +155,26 @@ public class Lighting {
         for(int i = 0; i < n; i++){
             float a = Math.min(1f, pow[i]);
             if(a < 0.02f) continue;
-            int r = Math.max(4, Math.round(rad[i] / 2f));
+            int r = Math.max(4, Math.round(rad[i] / div));
             lg.setComposite(AlphaComposite.getInstance(AlphaComposite.DST_OUT, a));
-            lg.drawImage(punchSprite(r), Math.round(sx[i] / 2f) - r, Math.round(sy[i] / 2f) - r, null);
+            lg.drawImage(punchSprite(r), Math.round(sx[i] / div) - r, Math.round(sy[i] / div) - r, null);
         }
 
         //5. warm halo on top of the holes
         for(int i = 0; i < n; i++){
             float a = Math.min(1f, warm[i]);
             if(a < 0.02f) continue;
-            int r = Math.max(4, Math.round(rad[i] / 2f));
+            int r = Math.max(4, Math.round(rad[i] / div));
             lg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));
-            lg.drawImage(glowSprite(r), Math.round(sx[i] / 2f) - r, Math.round(sy[i] / 2f) - r, null);
+            lg.drawImage(glowSprite(r), Math.round(sx[i] / div) - r, Math.round(sy[i] / div) - r, null);
         }
 
         //6. one scaled blit over the world
         Composite oldComposite = g2.getComposite();
         Object oldInterp = g2.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         g2.setComposite(AlphaComposite.SrcOver);
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, div == 3
+                ? RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR : RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         g2.drawImage(lightmap, 0, 0, gp.screenWidth, gp.screenHeight, null);
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                 oldInterp != null ? oldInterp : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
