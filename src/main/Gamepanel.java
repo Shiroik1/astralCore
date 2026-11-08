@@ -86,6 +86,8 @@ public class Gamepanel extends JPanel implements Runnable{
     public final quest.QuestManager quests = new quest.QuestManager(this);
 
     public final Merchant merchant=new Merchant(this);
+    public final save.SaveStore saves=new save.SaveStore(this);
+    private volatile boolean closeRequested;
 
     //MOUSE SETTING
     public MouseHandler mouseH = new MouseHandler(this);
@@ -122,6 +124,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public final int titleState = 0;
     public final int playState = 1;
     public final int characterState = 4;
+    public final int characterSelectState = 5;
 
 
     //FPS
@@ -235,6 +238,18 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void update(){
 
+        if(closeRequested){
+            closeRequested=false;
+            if(saves.saveActive()){
+                shutdownNetwork();gameThread=null;
+                javax.swing.SwingUtilities.invokeLater(()->{
+                    display.restoreDesktop();soundEffect.close();music.close();
+                    if(Main.window!=null)Main.window.dispose();System.exit(0);
+                });
+            }else ui.showTitleMessage(saves.error());
+            return;
+        }
+
         currentTick++;
 
         processInput();
@@ -250,11 +265,14 @@ public class Gamepanel extends JPanel implements Runnable{
             // 1. Reconcile FIRST, using only inputs already buffered from previous ticks
             if(isNetworked && !isHost){
                 if(gameClient.pollHostLost()){
+                    gameClient.processPendingJoinAccepted();gameClient.applyPendingSnapshots();gameClient.applyPendingEvents();
+                    boolean saved=saves.saveActive();
+                    if(saved)saves.deactivate();else saves.detachAfterDisconnect();
                     shutdownNetwork();
                     resetAfterNetworkSession();
                     stopMusic();
                     gameState = titleState;
-                    ui.showTitleMessage("Disconnected from host.");
+                    ui.showTitleMessage(saved?"Disconnected from host. Character saved.":saves.error());
                     return;
                 }
                 gameClient.processPendingJoinAccepted();
@@ -396,6 +414,14 @@ public class Gamepanel extends JPanel implements Runnable{
             }
         }
         updateScreenShake();
+        saves.tick();
+    }
+
+    public void requestClose(){closeRequested=true;}
+
+    public boolean returnToTitle(){
+        if(!saves.saveActive())return false;
+        saves.deactivate();stopMusic();shutdownNetwork();resetAfterNetworkSession();gameState=titleState;return true;
     }
 
     // PIXEL BUFFER: world is drawn into a small image, then scaled up with nearest-neighbour
@@ -600,6 +626,11 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void joinGame(String hostAddress, int port) throws java.io.IOException {
         System.out.println("[CLIENT] joinGame() called, target=" + hostAddress + ":" + port);
+        if(!saves.saveActive())throw new java.io.IOException(saves.error());
+        net.PlayerState carried=save.CharacterState.capture(this,localPlayer());
+        resetAfterNetworkSession();save.CharacterState.apply(this,localPlayer(),carried);
+        localPlayer().setDefaultPosition();localPlayer().inWell=false;
+        saves.beginGuestSession();
         isNetworked = true;
         isHost = false;
         gameClient = new net.GameClient(this);

@@ -332,7 +332,7 @@ public class GrassLayer {
             String line = lines[r];
             for(int c = 0; c < cols && c < line.length(); c++){
                 char ch = line.charAt(c);
-                cells[c][r] = (byte) ((ch >= 'a' && ch <= 'l') ? ch - 'a' + 1 : 0);
+                cells[c][r] = (byte) ((gp.tileM.terrain(c,r) == Terrain.GRASS && ch >= 'a' && ch <= 'l') ? ch - 'a' + 1 : 0);
             }
         }
     }

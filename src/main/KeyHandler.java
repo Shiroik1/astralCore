@@ -22,7 +22,7 @@ public class KeyHandler implements KeyListener {
     public boolean enteringChat = false;
     public StringBuilder chatInput = new StringBuilder();
 
-    public int characterCreationStep = 0; // 0 = naming, 1 = class/gender select
+    public int characterCreationStep = 0; // 0 = naming, 1 = class/preset, 2 = hair customization
     public int selectedClassIndex = 2; // Hunter, Mage, Warrior (default)
     public int selectedGenderIndex = 0; // 0 = male, 1 = female
 
@@ -68,6 +68,7 @@ public class KeyHandler implements KeyListener {
     }
 
     void handleKeyPressed(int code){
+        if(gp.gameState==gp.characterSelectState){gp.ui.characterSlots.key(code);return;}
         if(enteringChat){
             handleChatKeyPress(code);
             return;
@@ -76,6 +77,8 @@ public class KeyHandler implements KeyListener {
             handleCharacterNameKeyPress(code);
             return;
         }
+
+        if(gp.gameState==gp.characterState && characterCreationStep==2){gp.ui.customization.key(code);return;}
 
         if(gp.gameState == gp.characterState && characterCreationStep == 1){
             characterCreationStep(code);
@@ -141,6 +144,10 @@ public class KeyHandler implements KeyListener {
     }
 
     public void playState(int code){
+        if(code==KeyEvent.VK_F5){
+            if(gp.saves.saveActive())gp.ui.addMessage("Character saved.",new java.awt.Color(150,220,170));
+            return;
+        }
         if(gp.localPlayer()!=null && gp.localPlayer().merchantOpen){
             if(code==KeyEvent.VK_ESCAPE)gp.merchant.close();
             return;
@@ -290,12 +297,9 @@ public class KeyHandler implements KeyListener {
     }
 
     private void handleCharacterNameKeyPress(int code){
+        if(code==KeyEvent.VK_ESCAPE){enteringCharacterName=false;gp.ui.characterSlots.open();return;}
         if(code == KeyEvent.VK_ENTER){
-            String name = characterNameInput.toString().trim();
-            if(name.isEmpty()) name = "Adventurer";
-            gp.ui.pendingCharacterName = name;
-            enteringCharacterName = false;
-            characterCreationStep = 1;
+            gp.ui.confirmCharacterName();
         }
         else if(code == KeyEvent.VK_BACK_SPACE){
             if(characterNameInput.length() > 0){
@@ -305,6 +309,7 @@ public class KeyHandler implements KeyListener {
     }
 
     private void characterCreationStep(int code){
+        if(code==KeyEvent.VK_ESCAPE){gp.ui.characterSlots.open();return;}
         if(code == KeyEvent.VK_A){
             selectedClassIndex = Math.floorMod(selectedClassIndex - 1, entity.CharacterClass.values().length);
         }
@@ -315,8 +320,7 @@ public class KeyHandler implements KeyListener {
             selectedGenderIndex = 1 - selectedGenderIndex;
         }
         if(code == KeyEvent.VK_ENTER){
-            characterCreationStep = 0;
-            gp.ui.confirmCharacterCreation(selectedClassIndex, selectedGenderIndex);
+            gp.ui.customization.open();
         }
     }
 

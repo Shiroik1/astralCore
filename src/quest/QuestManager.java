@@ -247,6 +247,20 @@ public final class QuestManager {
         };
     }
     public boolean hasOtherScene(){return inWell || wellScene!=null;}
+    public List<Entity> queuedLootForSave(){return List.copyOf(pendingLoot);}
+    public void restoreQueuedLoot(List<Entity> items){pendingLoot.clear();pendingLoot.addAll(items);}
+    public Point returnPositionForSave(int playerId){
+        Point p=returnPositions[playerId];return p==null?new Point(25*gp.tileSize,28*gp.tileSize):new Point(p);
+    }
+    /** Disk restore is authoritative; network snapshots continue to use applySnapshot(). */
+    public void restoreSavedProgress(QuestState saved,Point returnPosition){
+        stage=Stage.values()[saved.stage];kills=saved.kills;
+        areaVersion=saved.areaVersion;encounterVersion=saved.encounterVersion;seenIntroVersion=-1;
+        introPlayers=(stage==Stage.BOSS_INTRO || stage==Stage.HELL_INTRO)?1:0;
+        Arrays.fill(pendingRewards,null);
+        if(saved.pendingRewards!=null && saved.pendingRewards.length>0)pendingRewards[0]=saved.pendingRewards[0];
+        returnPositions[0]=new Point(returnPosition);
+    }
     public boolean hasDungeonPlayers(){return Arrays.stream(gp.players).anyMatch(p->p!=null && p.inWell);}
     public void updatePlayer(Player p){
         boolean previous=inWell;activateArea(p.inWell);

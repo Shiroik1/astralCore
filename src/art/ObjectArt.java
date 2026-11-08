@@ -388,6 +388,23 @@ public class ObjectArt {
         return done("well", s, 48, 82, -30, -24, 60, 24, true);
     }
 
+    /** A small bank-side resting stone; the lake itself belongs to the terrain. */
+    public Sprite pondStone(){
+        ArtKit.Surface s = begin(1, 1);
+        Graphics2D g = s.g;
+        shadow(g,24,40,18,4);
+        Shape stone = new RoundRectangle2D.Double(6,23,36,17,12,12);
+        part(g,stone,Palette.ROCK,OutlineStyle.SOFT,6,true);
+        Shape top = new Ellipse2D.Double(7,19,34,16);
+        part(g,top,ArtKit.light(Palette.ROCK),OutlineStyle.SOFT,4,true);
+        g.setPaint(new GradientPaint(15,21,new Color(0xE2F1DF),32,30,new Color(0xA0D2CF)));
+        g.fill(new Ellipse2D.Double(14,22,20,9));
+        g.setColor(new Color(255,255,255,200));
+        g.setStroke(new BasicStroke(1.2f,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
+        g.draw(new Arc2D.Double(17,24,11,3,180,160,Arc2D.OPEN));
+        return done("healing_pond",s,24,40,-15,-12,30,12,true);
+    }
+
     public Sprite sign(){
         ArtKit.Surface s = begin(1, 2);
         Graphics2D g = s.g;

@@ -53,7 +53,9 @@ Every download includes **Java, game assets, maps, and libraries**. No separate 
 
 Each class has **five skills**. Warrior's kit mixes Shield Bash, Bulwark, Retaliation, Shield Breaker, and Rally; Hunter emphasizes quick strikes and offensive buffs; Mage combines rune generation, detonation, haste, ignition, and shielding.
 
-Choose short or long hair at creation. Equipment layers—including clothing, boots, gloves, hair, cloaks, and Mage headwear—can be equipped and removed. Broader character customization is still in development.
+The published alpha offers short or long hair at creation. Equipment layers—including clothing, boots, gloves, hair, cloaks, and Mage headwear—can be equipped and removed.
+
+**Current source builds:** character creation now includes **40 reference-inspired vector hairstyles** and **20 muted hair colors**, with clickable choices and front/side/back previews. Hairstyle and color save with the character and synchronize in co-op. Both hairstyle collections work with every class and preset; equipped headwear remains a separate layer.
 
 ## Screenshots
 
@@ -85,6 +87,7 @@ Choose short or long hair at creation. Equipment layers—including clothing, bo
 ## What is in this alpha?
 
 - **A village hub:** the plaza, the old man's tutorial quest, a well entrance, and a merchant.
+- **A forest healing pond:** follow the west path north into the trees, then press **E** at the pale stone to restore HP.
 - **An underground dungeon:** ten quest slimes, live objective tracking, and a Slime King encounter with dialogue.
 - **A repeatable boss challenge:** offer one Slime Essence at the well altar to summon Hell Slime. It drops another essence and stronger class weapons.
 - **Three playable classes:** distinct equipment, resources, skills, and animated combat.
@@ -103,6 +106,7 @@ Choose short or long hair at creation. Equipment layers—including clothing, bo
 | **C** | Open equipment and inventory |
 | **Esc** | Close a shop/dialogue, or open options |
 | **P** | Pause in single-player |
+| **F5** | Save the active character (current source builds) |
 | **Enter** | Open chat |
 
 Hover shop items for descriptions and prices. Hover skill icons for their effects, costs, and cooldowns.
@@ -115,7 +119,9 @@ The host needs incoming **TCP port 5001** allowed through their firewall. Playin
 
 ## Before you start
 
-**Progress is session-based.** Character levels, quests, inventory, and boss progress are not saved between sessions in this alpha. Display and sound settings are saved separately.
+**Current source builds support five character saves.** Choose **PLAY**, **HOST GAME**, or **JOIN GAME**, then select a character slot to continue or create a new adventurer. Stats, inventory, equipment, location, quests, and dungeon progress save automatically every 30 seconds, with **F5** for a manual save and a save before returning to the title or closing the game. Guests keep their character gains; the host owns the session's world progress. See the [character save guide](docs/character-saves.md).
+
+The published **v0.1.0-alpha downloads remain session-based** until a new release is packaged. Display and sound settings are saved separately.
 
 The content is limited to the starter adventure, and balance and features are still changing. Hardware requirements and broader platform compatibility have not yet been established through wide playtesting.
 

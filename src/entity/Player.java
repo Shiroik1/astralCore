@@ -23,6 +23,7 @@ public class Player extends Entity{
     public String playerName = "";
     public String playerClass = "warrior";
     public String gender = "male";
+    public int hairStyle=-1,hairColor=-1;
 
     public boolean isLocal = true; // remote players (Step 3+) will explicitly set this false
     public int dialogueNpcIndex = -1;
@@ -335,6 +336,7 @@ public class Player extends Entity{
             };
 
     public void setCharacterDesign(String classId, String genderId){
+        hairStyle=-1;hairColor=-1;
         playerClass=CharacterClass.fromId(classId).id;
         gender="female".equals(genderId)?"female":"male";
         applyStarterAppearance();
@@ -365,8 +367,14 @@ public class Player extends Entity{
             colors[i]=item.color;if(i<themes.length)themes[i]=item.theme;
             if(i==0)longHair=item.longHair;
         }
-        return new art.CharacterOutfit(colors[0],colors[1],colors[2],colors[3],colors[4],colors[5],
+        art.CharacterOutfit outfit=new art.CharacterOutfit(colors[0],colors[1],colors[2],colors[3],colors[4],colors[5],
                 new art.CharacterOutfit.Details(themes[0],themes[1],themes[2],themes[3],themes[4],themes[5],longHair),colors[6]);
+        return art.Hairstyles.valid(hairStyle)&&art.Hairstyles.validColor(hairColor)?art.Hairstyles.outfit(outfit,hairStyle,hairColor):outfit;
+    }
+
+    public void customizeHair(int style,int color){
+        if(!art.Hairstyles.valid(style)||!art.Hairstyles.validColor(color))throw new IllegalArgumentException("Unknown hairstyle or hair color");
+        hairStyle=style;hairColor=color;refreshWeaponAnimation();
     }
 
     private art.WeaponArt.Kind weaponKind(){
@@ -1657,6 +1665,24 @@ public class Player extends Entity{
 
     public boolean canResolveWorldActions(){
         return !gp.isNetworked || gp.isHost;
+    }
+
+    public void captureSavedCombat(net.PlayerState state){
+        state.powerStrikePending=powerStrikePending;state.powerStrikeBonus=powerStrikeBonus;
+        state.rendPending=rendPending;state.armorBreakPending=armorBreakPending;state.auraTicks=auraDurationRemaining;
+        state.effectIntervals=statusEffects.stream().mapToInt(e->e.tickInterval).toArray();
+        state.effectCounters=statusEffects.stream().mapToInt(e->e.tickCounter).toArray();
+    }
+
+    public void restoreSavedCombat(net.PlayerState state){
+        powerStrikePending=state.powerStrikePending;powerStrikeBonus=state.powerStrikeBonus;
+        rendPending=state.rendPending;armorBreakPending=state.armorBreakPending;
+        auraDurationRemaining=Math.max(0,state.auraTicks);
+        for(int i=0;i<statusEffects.size();i++){
+            StatusEffect effect=statusEffects.get(i);
+            effect.tickInterval=state.effectIntervals!=null && i<state.effectIntervals.length?Math.max(0,state.effectIntervals[i]):0;
+            effect.tickCounter=state.effectCounters!=null && i<state.effectCounters.length?Math.max(0,state.effectCounters[i]):0;
+        }
     }
 
     private boolean isPredictedClient(){

@@ -44,7 +44,7 @@ public class WorldObject extends Entity {
         collision = blocks;
         blockRect = new Rectangle(worldX + solidArea.x, worldY + solidArea.y, solidArea.width, solidArea.height);
         reachRect = new Rectangle(blockRect);
-        reachRect.grow(6, 6);
+        reachRect.grow(6, kind == WorldObjectType.HEALING_POND ? gp.tileSize / 2 : 6);
     }
 
     public boolean isInteractive(){
@@ -161,18 +161,17 @@ public class WorldObject extends Entity {
                         "You found a Red Potion\nand 5 coins!");
             }
             case HEAL -> {
-                if(p.isDead) return;
-                int healed = p.maxHP - p.HP;
+                if(p.isDead || p.inWell || !p.canResolveWorldActions()) return;
+                int healed = Math.max(0, p.maxHP - p.HP);
                 p.HP = p.maxHP;
-                p.MP = p.maxMP;
                 gp.playSE(2);
                 gp.broadcastPlayerEvent(p.playerId, GameEventType.HEAL,
-                        "Player " + (p.playerId + 1) + " drank from the well and was fully healed!",
-                        "You drink the clear water.\nYour wounds have been fully healed!");
+                        healed > 0 ? "Player " + (p.playerId + 1) + " rested at the forest pond." : null,
+                        healed > 0 ? "The pond's cool water soothes your wounds.\nYour HP is fully restored."
+                                : "The forest pond is peaceful.\nYour HP is already full.");
                 if(healed > 0 && p == gp.localPlayer()){
                     gp.spawnFloatingText(p.worldX + gp.tileSize / 2, p.worldY, "+" + healed, new Color(120, 220, 120));
                 }
-                gp.assetSetter.setMonster(); // temporary: refills the slimes until real respawns exist
             }
             default -> { }
         }

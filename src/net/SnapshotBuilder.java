@@ -46,7 +46,7 @@ public class SnapshotBuilder {
         }return states.toArray(SlimeProjectileState[]::new);
     }
 
-    private static PlayerState[] buildPlayers(Gamepanel gp){
+    public static PlayerState[] buildPlayers(Gamepanel gp){
         List<PlayerState> states = new ArrayList<>();
         for(Player p : gp.players){
             if(p == null) continue;
@@ -57,6 +57,7 @@ public class SnapshotBuilder {
             ps.playerName = p.playerName;
             ps.playerClass = p.playerClass;
             ps.gender = p.gender;
+            ps.hairStyle=p.hairStyle;ps.hairColor=p.hairColor;
             ps.worldX = p.worldX;
             ps.worldY = p.worldY;
             ps.direction = p.direction;
@@ -111,6 +112,7 @@ public class SnapshotBuilder {
                 ps.effectValues[i] = e.value;
             }
             ps.auraRgb = (p.auraActive && p.auraColor != null) ? (p.auraColor.getRGB() & 0xFFFFFF) : -1;
+            p.captureSavedCombat(ps);
 
             states.add(ps);
         }

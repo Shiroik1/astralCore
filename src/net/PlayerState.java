@@ -22,6 +22,7 @@ public class PlayerState {
     public boolean isDead;
     public String playerClass;
     public String gender;
+    public int hairStyle=-1,hairColor=-1;
     public int level, exp, nextLevelExp;
     public int strength, dexterity, intelligence;
     public int coin;
@@ -34,4 +35,8 @@ public class PlayerState {
     public int[] effectDurations;
     public int[] effectValues;
     public int auraRgb = -1; // -1 = no aura
+    public int auraTicks;
+    public int[] effectIntervals,effectCounters;
+    public boolean powerStrikePending,rendPending,armorBreakPending;
+    public int powerStrikeBonus;
 }

@@ -62,15 +62,10 @@ public class GameServer {
                     }
                 }
                 if(object instanceof JoinRequest request){
-                    Integer existingId = connectionToPlayerId.get(connection.getID());
-                    if(existingId != null){
-                        Player p = gp.players[existingId];
-                        if(p != null){
-                            applyJoinRequestToPlayer(p, request);
-                        }
-                    } else {
-                        pendingJoinRequests.put(connection.getID(), request);
-                    }
+                    if(connectionToPlayerId.containsKey(connection.getID()))return;
+                    try{if(request.characterState!=null)save.CharacterState.validate(request.characterState);}
+                    catch(IllegalArgumentException invalid){connection.close();return;}
+                    pendingJoinRequests.putIfAbsent(connection.getID(),request);
                 }
             }
 
@@ -78,6 +73,7 @@ public class GameServer {
             public void disconnected(Connection connection){
                 System.out.println("[HOST] disconnected() fired for connection id=" + connection.getID());
                 Integer playerId = connectionToPlayerId.remove(connection.getID());
+                pendingConnectionObjects.remove(connection.getID());pendingJoinRequests.remove(connection.getID());
                 if(playerId != null){
                     pendingDisconnections.add(playerId);
                 }
@@ -95,8 +91,12 @@ public class GameServer {
     public void processConnectionEvents(){
         Integer connId;
         while((connId = pendingConnections.poll()) != null){
-            Connection conn = pendingConnectionObjects.remove(connId);
+            Connection conn = pendingConnectionObjects.get(connId);
             if(conn == null) continue;
+            // Wait for the character before publishing a player or sending any snapshots.
+            JoinRequest pendingRequest=pendingJoinRequests.remove(connId);
+            if(pendingRequest==null){pendingConnections.add(connId);break;}
+            pendingConnectionObjects.remove(connId);
 
             int assignedId = assignNextFreePlayerId();
             if(assignedId == -1){
@@ -110,10 +110,7 @@ public class GameServer {
             p.isLocal = false;
             gp.players[assignedId] = p;
 
-            JoinRequest pendingRequest = pendingJoinRequests.remove(connId);
-            if(pendingRequest != null){
-                applyJoinRequestToPlayer(p, pendingRequest);
-            }
+            applyJoinRequestToPlayer(p, pendingRequest);
             if(p.playerName == null || p.playerName.isEmpty()){
                 p.playerName = "Player " + (assignedId + 1);
             }
@@ -122,7 +119,6 @@ public class GameServer {
             JoinAccepted accepted = new JoinAccepted();
             accepted.assignedPlayerId = assignedId;
             conn.sendTCP(accepted);
-            gp.quests.onPlayerJoined(p);
         }
 
         Integer playerId;
@@ -132,6 +128,10 @@ public class GameServer {
     }
 
     private void applyJoinRequestToPlayer(Player p, JoinRequest request){
+        if(request.characterState!=null){
+            save.CharacterState.apply(gp,p,request.characterState);
+            p.inWell=false;p.setDefaultPosition();gp.quests.onPlayerJoined(p);return;
+        }
         if(request.playerName != null && !request.playerName.isEmpty()){
             p.playerName = request.playerName;
         }
@@ -177,11 +177,18 @@ public class GameServer {
     }
 
     public void broadcastSnapshot(WorldSnapshot snapshot){
-        server.sendToAllTCP(snapshot);
+        sendToJoinedPlayers(snapshot);
     }
 
     public void broadcastEvent(GameEvent event){
-        server.sendToAllTCP(event);
+        sendToJoinedPlayers(event);
+    }
+
+    private void sendToJoinedPlayers(Object message){
+        // Pending connections still own their local character; never send a host snapshot
+        // until their character is installed and JoinAccepted is queued first.
+        for(Connection connection:server.getConnections())
+            if(connectionToPlayerId.containsKey(connection.getID()))connection.sendTCP(message);
     }
 
     public void relayPendingClientEvents(){

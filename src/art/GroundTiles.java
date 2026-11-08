@@ -34,11 +34,13 @@ public class GroundTiles {
     }
 
     private final int size;
+    private final LakeTiles lakes;
     private final BufferedImage[] cobble = new BufferedImage[COBBLE_VARIANTS];
     private final Map<Integer, BufferedImage> blobCache = new HashMap<>();
 
     public GroundTiles(int size){
         this.size = size;
+        this.lakes = new LakeTiles(size);
         for(int v = 0; v < COBBLE_VARIANTS; v++){
             cobble[v] = cobbleTile(5000L + v);
         }
@@ -92,6 +94,12 @@ public class GroundTiles {
         if(t == Terrain.PATH){
             int m = mask((c, r) -> pathLike(w, c, r), col, row);
             g.drawImage(pathOverlay(m, pathVariant(col, row)), px, py, null);
+        } else if(t == Terrain.WATER) {
+            int m = mask((c, r) -> w.terrain(c, r) == Terrain.WATER, col, row);
+            double variation = ArtKit.hash01(32, col, row);
+            g.drawImage(lakes.tile(m, variation < 0.64 ? 0 : variation < 0.86 ? 1 : 2), px, py, null);
+            if(m == FULL && ArtKit.hash01(57, col, row) < 0.18)
+                g.drawImage(lakes.lilyPad(ArtKit.hash01(58, col, row) < 0.4), px, py, null);
         }
     }
 

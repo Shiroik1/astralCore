@@ -147,6 +147,29 @@ public class TownMapGenerator {
                 out.add(new Obj(kind + (1 + rnd.nextInt(2)), c, r, null));
             }
         }
+        forestPond(t, level, out);
+    }
+
+    /** Local addition after scatter, preserving the rest of the town's seeded layout. */
+    private static void forestPond(Terrain[][] t, int[][] level, List<Obj> out){
+        for(int c=4;c<=11;c++)for(int r=14;r<=23;r++){
+            t[c][r]=Terrain.GRASS;level[c][r]=3;
+        }
+        for(int c=5;c<=9;c++)for(int r=16;r<=20;r++){
+            if((c==5 || c==9) && (r==16 || r==20))continue;
+            t[c][r]=Terrain.WATER;
+        }
+        for(int r=22;r<=25;r++)t[7][r]=Terrain.PATH;
+        // Clear the lake, banks and approach, then frame them with a deliberate tree line.
+        out.removeIf(o -> o.col()>=3 && o.col()<=12 && o.row()>=13 && o.row()<=25);
+        int[][] trees={{4,13},{7,13},{10,13},{12,14},{3,16},{12,17},{3,19},{12,20},{3,22},{12,23},{4,25}};
+        for(int i=0;i<trees.length;i++)out.add(new Obj(i%2==0?"pine_1":"oak_2",trees[i][0],trees[i][1],null));
+        out.add(new Obj("healing_pond",7,21,null));
+        out.add(new Obj("flower_bush",10,21,null));
+        out.add(new Obj("rock_small",4,21,null));
+        out.add(new Obj("sign",9,23,"FOREST POND\nRest at the pale stone by the water to restore HP."));
+        out.removeIf(o -> o.col()==9 && o.row()==27 && o.type().equals("sign"));
+        out.add(new Obj("sign",9,27,"FOREST POND\nFollow the west path, then north into the trees."));
     }
 
     //HELPERS
@@ -239,6 +262,7 @@ public class TownMapGenerator {
                     case PATH -> '=';
                     case COBBLE -> '#';
                     case DEEP -> 'X';
+                    case WATER -> '~';
                     default -> '.';
                 });
             }

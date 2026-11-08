@@ -24,6 +24,7 @@ public class GameClient {
     private boolean warnedSceneryMismatch = false;
 
     private volatile boolean hostLost = false;
+    private boolean joinComplete;
 
     public GameClient(Gamepanel gp){
         this.gp = gp;
@@ -68,6 +69,7 @@ public class GameClient {
         request.playerName = gp.localPlayer().playerName;
         request.playerClass = gp.localPlayer().playerClass;
         request.gender = gp.localPlayer().gender;
+        request.characterState=save.CharacterState.capture(gp,gp.localPlayer());
         client.sendTCP(request);
 
         System.out.println("[CLIENT] JoinRequest sent");
@@ -89,11 +91,13 @@ public class GameClient {
             gp.localPlayerIndex = assigned;
             existingLocal.playerId = assigned;
             gp.players[assigned] = existingLocal;
+            joinComplete=true;
             gp.ui.addMessage("Joined as player " + assigned + ".", java.awt.Color.green);
         }
     }
 
     public void applyPendingSnapshots(){
+        if(!joinComplete)return;
         WorldSnapshot latest = null;
         WorldSnapshot next;
         while((next = pendingSnapshots.poll()) != null){
@@ -141,6 +145,9 @@ public class GameClient {
 
             // Visual equipment must update for both the local player and remote players.
             boolean appearanceChanged=false;
+            if(p.hairStyle!=ps.hairStyle || p.hairColor!=ps.hairColor){
+                p.hairStyle=ps.hairStyle;p.hairColor=ps.hairColor;appearanceChanged=true;
+            }
             if(ps.playerClass!=null)p.playerClass=entity.CharacterClass.fromId(ps.playerClass).id;
             if(ps.gender!=null)p.gender="female".equals(ps.gender)?"female":"male";
             if(ps.weaponType!=null && object.ItemRegistry.typeFor(p.currentWeapon)!=ps.weaponType){
@@ -220,6 +227,7 @@ public class GameClient {
             }
         }
 
+        for(PlayerState ps:snapshot.players)if(ps!=null)gp.players[ps.playerId].restoreSavedCombat(ps);
         applyArea(snapshot);
         if(snapshot.otherArea!=null){gp.quests.activateArea(snapshot.otherArea.inWellArea);applyArea(snapshot.otherArea);}
         if(gp.localPlayer()!=null)gp.quests.activateArea(gp.localPlayer().inWell);

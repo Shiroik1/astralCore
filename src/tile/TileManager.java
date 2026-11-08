@@ -69,6 +69,7 @@ public class TileManager implements GroundTiles.World {
             case '=' -> Terrain.PATH;
             case '#' -> Terrain.COBBLE;
             case 'X' -> Terrain.DEEP;
+            case '~' -> Terrain.WATER;
             default -> Terrain.GRASS;
         };
     }
@@ -103,11 +104,11 @@ public class TileManager implements GroundTiles.World {
         return levelGrid[Math.max(0, Math.min(gp.maxWorldCol - 1, col))][Math.max(0, Math.min(gp.maxWorldRow - 1, row))];
     }
 
-    // the only terrain rule the rest of the game needs: outside the map and deep forest are walls
+    // Outside the map, deep forest, and pond water block movement.
     public boolean isSolid(int col, int row){
         if(gp.quests!=null && gp.quests.inDungeon())return gp.quests.isDungeonSolid(col,row);
         if(col < 0 || row < 0 || col >= gp.maxWorldCol || row >= gp.maxWorldRow) return true;
-        return terrainGrid[col][row] == Terrain.DEEP;
+        return terrainGrid[col][row] == Terrain.DEEP || terrainGrid[col][row] == Terrain.WATER;
     }
 
     //BAKING: the ground never changes, so draw it once into 16x16-tile images

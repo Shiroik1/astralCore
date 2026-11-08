@@ -27,6 +27,9 @@ public class UI {
     public boolean messageOn = false;
     public boolean gameFinished = false;
     public String pendingCharacterName = "";
+    public final CharacterSlots characterSlots;
+    public final CharacterCustomization customization;
+    private String creationError;
     public int commandNum = 0;
 
     private Rectangle[] inventorySlotBounds = new Rectangle[20];
@@ -92,6 +95,8 @@ public class UI {
 
     public UI(Gamepanel gp){
         this.gp = gp;
+        characterSlots=new CharacterSlots(gp);
+        customization=new CharacterCustomization(gp);
 
         try{
             InputStream is = getClass().getResourceAsStream("/font/SolomonsKey.ttf");
@@ -124,6 +129,19 @@ public class UI {
     }
 
     public void update(int mouseX, int mouseY, boolean clicked){
+        if(gp.gameState==gp.characterState){
+            int step=gp.keyH.characterCreationStep;
+            if(gp.keyH.characterCreationStep==2)customization.update(mouseX,mouseY,clicked);
+            else if(gp.keyH.characterCreationStep==0 && clicked){
+                if(nameNext().contains(mouseX,mouseY))confirmCharacterName();
+                else if(nameBack().contains(mouseX,mouseY)){gp.keyH.enteringCharacterName=false;characterSlots.open();}
+            }
+            if(step!=1)gp.mouseH.leftClicked=false;
+            return;
+        }
+        if(gp.gameState==gp.characterSelectState){
+            characterSlots.update(mouseX,mouseY,clicked);gp.mouseH.leftClicked=false;return;
+        }
         if(gp.gameState == gp.playState){
             playTime += 1.0 / 60;
             updateCombatLog(mouseX, mouseY);
@@ -186,11 +204,10 @@ public class UI {
         joinStatusMessage = null;
         if(index == 0 || index == 1 || index == 2){
             pendingTitleAction = index;
-            gp.gameState = gp.characterState;
-            gp.keyH.beginEnteringCharacterName();
+            characterSlots.open();
         }
         if(index == 3){
-            System.exit(0);
+            gp.requestClose();
         }
     }
 
@@ -210,6 +227,7 @@ public class UI {
         if(gp.gameState == gp.characterState){
             drawCharacterCreationScreen();
         }
+        if(gp.gameState==gp.characterSelectState)characterSlots.draw(g2,jetbrainsMono);
 
         //PLAY STATE
         if(gp.gameState == gp.playState){
@@ -726,7 +744,7 @@ public class UI {
 
         g2.setFont(jetbrainsMono.deriveFont(Font.PLAIN, 30F));
 
-        text = "NEW GAME";
+        text = "PLAY";
         x = getXforCenteredText(text);
         y += gp.tileSize * 5;
         drawMenuButton(titleButtons[0], text, x, y, commandNum == 0);
@@ -925,7 +943,7 @@ public class UI {
         int textX = frameX + gp.tileSize;
         int textY = frameY + gp.tileSize*3;
 
-        String message = "Quit the game and\nreturn to the title\nscreen?";
+        String message = "Save your character\nand return to the\ntitle screen?";
         for(String line: message.split("\n")){
             g2.drawString(line, textX, textY);
             textY += 40;
@@ -1324,6 +1342,15 @@ public class UI {
     }
 
     public void confirmCharacterCreation(int classIndex, int genderIndex){
+        if(characterSlots.creationSlot>=0){
+            try{
+                gp.saves.create(characterSlots.creationSlot,pendingCharacterName,classIndex,genderIndex,customization.style,customization.color);
+                characterSlots.creationSlot=-1;creationError=null;startSelectedCharacter();
+            }catch(Exception e){
+                creationError="Could not create character: "+e.getMessage();gp.keyH.characterCreationStep=2;
+            }
+            return;
+        }
         Player local = gp.localPlayer();
         local.playerName = pendingCharacterName;
         local.setCharacterDesign(entity.CharacterClass.at(classIndex).id, genderIndex == 1 ? "female" : "male");
@@ -1337,6 +1364,10 @@ public class UI {
         local.setItems();
         local.refreshWeaponAnimation();
 
+        startSelectedCharacter();
+    }
+
+    public void startSelectedCharacter(){
         switch(pendingTitleAction){
             case 0 -> {
                 gp.gameState = gp.playState;
@@ -1354,14 +1385,21 @@ public class UI {
         pendingTitleAction = -1;
     }
 
+    public void clearCreationError(){creationError=null;}
+
     private void drawCharacterCreationScreen(){
         g2.setColor(Color.black);
         g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
 
         if(gp.keyH.characterCreationStep == 0){
             drawNameEntryStep();
-        } else {
+        } else if(gp.keyH.characterCreationStep==1) {
             drawClassGenderStep();
+        } else customization.draw(g2,jetbrainsMono);
+        if(creationError!=null){
+            g2.setColor(new Color(245,160,150));g2.setFont(jetbrainsMono.deriveFont(12f));
+            String text=creationError;while(text.length()>4 && g2.getFontMetrics().stringWidth(text)>gp.screenWidth-48)text=text.substring(0,text.length()-4)+"...";
+            g2.drawString(text,24,gp.screenHeight-10);
         }
     }
 
@@ -1387,9 +1425,21 @@ public class UI {
         g2.drawString(display, boxX + 12, boxY + 26);
 
         g2.setFont(jetbrainsMono.deriveFont(14f));
-        String hint = "Press ENTER to confirm";
+        String hint = "Type a name, then choose Next";
         x = getXforCenteredText(hint);
         g2.drawString(hint, x, boxY + boxHeight + 40);
+        drawCreationButton(nameNext(),"Next");drawCreationButton(nameBack(),"Back");
+    }
+
+    private Rectangle nameNext(){return new Rectangle(gp.screenWidth/2+10,400,160,44);}
+    private Rectangle nameBack(){return new Rectangle(gp.screenWidth/2-170,400,160,44);}
+    private void drawCreationButton(Rectangle r,String label){
+        WindowStyle.draw(g2,r.x,r.y,r.width,r.height);g2.setColor(Color.WHITE);g2.setFont(jetbrainsMono.deriveFont(15f));
+        g2.drawString(label,r.x+(r.width-g2.getFontMetrics().stringWidth(label))/2,r.y+28);
+    }
+    public void confirmCharacterName(){
+        String name=gp.keyH.characterNameInput.toString().trim();pendingCharacterName=name.isEmpty()?"Adventurer":name;
+        gp.keyH.enteringCharacterName=false;gp.keyH.characterCreationStep=1;
     }
 
     private final java.util.Map<String, BufferedImage> creationPreviews = new java.util.HashMap<>();
@@ -1439,30 +1489,32 @@ public class UI {
             g2.drawString(choice.weaponLabel,center-g2.getFontMetrics().stringWidth(choice.weaponLabel)/2,top+281);
             if(selected){g2.setColor(Color.WHITE);g2.drawString("SELECTED",center-g2.getFontMetrics().stringWidth("SELECTED")/2,top+312);}
         }
-        String[] labels={"Male / short hair","Female / long hair"};
+        String[] labels={"Male preset","Female preset"};
         for(int i=0;i<2;i++){
             int x=gp.screenWidth/2-264+i*274,y=505;
             Rectangle box=new Rectangle(x,y,254,46);
             if(clicked && box.contains(mx,my))gp.keyH.selectedGenderIndex=i;
             boolean selected=gp.keyH.selectedGenderIndex==i;
             g2.setColor(Color.BLACK);g2.fillRoundRect(x,y,254,46,12,12);
+            g2.setColor(selected?new Color(0xD9B77D):Color.WHITE);g2.drawRoundRect(x,y,254,46,12,12);
             g2.setFont(jetbrainsMono.deriveFont(15f));g2.setColor(Color.WHITE);
             g2.drawString(labels[i],x+(254-g2.getFontMetrics().stringWidth(labels[i]))/2,y+29);
         }
         g2.setFont(jetbrainsMono.deriveFont(13f));g2.setColor(new Color(165,173,190));
-        String hint="A/D: class   W/S: male / female   ENTER: confirm";
+        String hint="Click a class and preset, then customize your hair";
         g2.drawString(hint,getXforCenteredText(hint),594);
-        String note="Hair length only for now. More customization later.";
+        String note="All 40 hairstyles are available with either preset.";
         g2.drawString(note,getXforCenteredText(note),621);
         Rectangle confirm=new Rectangle(gp.screenWidth/2-110,646,220,42);
         WindowStyle.draw(g2,confirm.x,confirm.y,220,42);
         g2.setColor(Color.WHITE);g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,16f));
-        g2.drawString("Create character",confirm.x+(220-g2.getFontMetrics().stringWidth("Create character"))/2,confirm.y+27);
+        g2.drawString("Customize hair",confirm.x+(220-g2.getFontMetrics().stringWidth("Customize hair"))/2,confirm.y+27);
+        Rectangle back=new Rectangle(40,646,160,42);drawCreationButton(back,"Back");
         gp.mouseH.leftClicked=false;
         if(clicked && confirm.contains(mx,my)){
-            gp.keyH.characterCreationStep=0;
-            confirmCharacterCreation(gp.keyH.selectedClassIndex,gp.keyH.selectedGenderIndex);
+            customization.open();
         }
+        if(clicked && back.contains(mx,my)){gp.keyH.characterCreationStep=0;gp.keyH.enteringCharacterName=true;}
     }
 
     private String capitalize(String s){
@@ -1495,6 +1547,12 @@ public class UI {
 
     public void showTitleMessage(String message){
         joinStatusMessage = message;
+    }
+
+    public void showSaveError(String message){
+        joinStatusMessage=message;characterSlots.showMessage(message);
+        if(gp.gameState==gp.characterState)creationError=message;
+        addMessage(message,Color.RED);
     }
 
     public void openOptions(){
@@ -1535,11 +1593,7 @@ public class UI {
             case 2 -> { subState = 0; commandNum = 3; }
             case 3 -> {
                 if(index == 0){
-                    closeOptions();
-                    gp.stopMusic();
-                    gp.shutdownNetwork();
-                    gp.resetAfterNetworkSession();
-                    gp.gameState = gp.titleState;
+                    if(gp.returnToTitle())closeOptions();
                 } else {
                     subState = 0;
                     commandNum = 4;

@@ -222,6 +222,24 @@ public final class CharacterArt {
         if(!back)offhand.run();
         CharacterClothing.collar(g, look.outfit, side);
         fillSoft(g, ellipse(32, 33.9f, 4.5f, 1.4f), shade(look.skin, 0.97f));
+        drawHead(g,side,back,look);
+        // Long back hair overlays the cape, collar, and head before the short crown layer.
+        if(back)CharacterClothing.longHair(g,look.outfit,false,true,swing);
+        CharacterClothing.hair(g, look.outfit, side, back);
+        if (side) {
+            softPart(g, handArm(32.5f, 38, handX, handY), lighten(look.skin, 0.10f));
+            CharacterClothing.arm(g, look.outfit, 32.5f, 38, handX, handY);
+        }
+        if (!weaponBehind) weapon.run();
+        // Upward swings pass above the crown, so their impact must remain visible over the head.
+        if (melee) WeaponArt.drawMeleeSmear(g, look.weapon, side, back, pose.attack, sw.smear);
+        // Headgear is the final character layer, above hair, limbs, weapons, and effects.
+        CharacterClothing.headpiece(g,look.outfit);
+        g.setTransform(saved);
+    }
+
+    /** Shared head layer for body sprites and uncluttered hair-selection thumbnails. */
+    static void drawHead(Graphics2D g,boolean side,boolean back,Look look){
         Path2D head = new Path2D.Float();
         head.moveTo(32, 2);
         head.curveTo(20, 2, 14.5, 8.5, 14.5, 18.5);
@@ -253,19 +271,6 @@ public final class CharacterArt {
             g.fill(new RoundRectangle2D.Float(23, 22, 3.6f, 7.3f, 3.6f, 3.6f));
             g.fill(new RoundRectangle2D.Float(37.4f, 22, 3.6f, 7.3f, 3.6f, 3.6f));
         }
-        // Long back hair overlays the cape, collar, and head before the short crown layer.
-        if(back)CharacterClothing.longHair(g,look.outfit,false,true,swing);
-        CharacterClothing.hair(g, look.outfit, side, back);
-        if (side) {
-            softPart(g, handArm(32.5f, 38, handX, handY), lighten(look.skin, 0.10f));
-            CharacterClothing.arm(g, look.outfit, 32.5f, 38, handX, handY);
-        }
-        if (!weaponBehind) weapon.run();
-        // Upward swings pass above the crown, so their impact must remain visible over the head.
-        if (melee) WeaponArt.drawMeleeSmear(g, look.weapon, side, back, pose.attack, sw.smear);
-        // Headgear is the final character layer, above hair, limbs, weapons, and effects.
-        CharacterClothing.headpiece(g,look.outfit);
-        g.setTransform(saved);
     }
 
     /** Continuous interpolation keeps the eight authored poses seamless at the loop boundary. */
@@ -307,11 +312,31 @@ public final class CharacterArt {
         g.setStroke(saved);
     }
 
-    private static void fillSoft(Graphics2D g, Shape shape, Color skin) {
+    /** Shade each fill gently from screen top-left, including mirrored and rotated parts. */
+    static void fillSoft(Graphics2D g, Shape shape, Color color) {
         Paint saved = g.getPaint();
-        g.setPaint(new GradientPaint(19, 8, lighten(skin, 0.15f), 47, 60, skin));
-        g.fill(shape);
-        g.setPaint(saved);
+        try {
+            AffineTransform transform = g.getTransform();
+            Rectangle2D bounds = transform.createTransformedShape(shape.getBounds2D()).getBounds2D();
+            if (bounds.isEmpty()) return;
+            AffineTransform inverse = transform.createInverse();
+            Point2D light = inverse.transform(new Point2D.Double(bounds.getMinX(), bounds.getMinY()), null);
+            Point2D shade = inverse.transform(new Point2D.Double(bounds.getMaxX(), bounds.getMaxY()), null);
+            // A white sheen fades out near the top-left without adding another alpha layer.
+            Color highlight = withAlpha(lighten(color, 0.30f), color.getAlpha());
+            Color softHighlight = withAlpha(lighten(color, 0.10f), color.getAlpha());
+            Color shadow = new Color(Math.round(color.getRed() * 0.95f),
+                    Math.round(color.getGreen() * 0.95f), Math.round(color.getBlue() * 0.95f), color.getAlpha());
+            g.setPaint(new LinearGradientPaint(light, shade, new float[]{0, 0.24f, 0.52f, 1},
+                    new Color[]{highlight, softHighlight, color, shadow}));
+            g.fill(shape);
+        } catch (NoninvertibleTransformException ignored) {
+            // A collapsed transform has no visible area; retain a safe flat fill.
+            g.setColor(color);
+            g.fill(shape);
+        } finally {
+            g.setPaint(saved);
+        }
     }
 
     // ------------------------------------------------------------ shapes

@@ -121,6 +121,11 @@ final class CharacterClothing {
     }
 
     static void longHair(Graphics2D g, CharacterOutfit o, boolean side, boolean back, float swing){
+        HairArt.rear(g,o,side,back,swing);
+    }
+
+    /** Authoring only: older save appearances are exported alongside custom hairstyles. */
+    static void legacyLongHair(Graphics2D g, CharacterOutfit o, boolean side, boolean back, float swing){
         if(o.hair()==null || !o.longHair())return;
         float flow=Math.abs(swing)*1.5f;
         Path2D p=new Path2D.Float();
@@ -138,6 +143,10 @@ final class CharacterClothing {
     }
 
     static void hair(Graphics2D g, CharacterOutfit o, boolean side, boolean back) {
+        HairArt.crown(g,o,side,back);
+    }
+
+    static void legacyHair(Graphics2D g, CharacterOutfit o, boolean side, boolean back) {
         if(o.hair()==null)return;
         Path2D p=new Path2D.Float();
         p.moveTo(14,17);p.lineTo(11,15);p.lineTo(18,5);

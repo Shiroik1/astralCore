@@ -8,7 +8,10 @@ public record CharacterOutfit(Color hair, Color torso, Color pants, Color boots,
     public enum Slot { HAIR, TORSO, PANTS, BOOTS, GLOVES, CLOAK, HEADPIECE }
     public enum Theme { LEATHER, CASTER, ARMOR }
     public record Details(Theme hair, Theme torso, Theme pants, Theme boots, Theme gloves,
-                          Theme cloak, boolean longHair) {
+                          Theme cloak, boolean longHair, int hairStyle) {
+        public Details(Theme hair,Theme torso,Theme pants,Theme boots,Theme gloves,Theme cloak,boolean longHair){
+            this(hair,torso,pants,boots,gloves,cloak,longHair,-1);
+        }
         public static Details uniform(Theme theme, boolean longHair) {
             return new Details(theme, theme, theme, theme, theme, theme, longHair);
         }

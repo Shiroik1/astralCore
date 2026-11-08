@@ -28,7 +28,8 @@ public enum WorldObjectType {
     CRATE(a -> a.crate(), null, false, Behavior.TEXT, "A wooden crate.\nIt is empty."),
     CHEST(a -> a.chest(), a -> a.chestOpen(), false, Behavior.CHEST, null),
     WELL_LADDER(a -> a.wellLadder(), null, false, Behavior.EXIT_WELL, null),
-    WELL_ALTAR(a -> a.wellAltar(),null,false,Behavior.SUMMON_HELL,null);
+    WELL_ALTAR(a -> a.wellAltar(),null,false,Behavior.SUMMON_HELL,null),
+    HEALING_POND(a -> a.pondStone(),null,false,Behavior.HEAL,null);
 
 
     public enum Behavior { NONE, TEXT, CHEST, HEAL, ENTER_WELL, EXIT_WELL, SUMMON_HELL }

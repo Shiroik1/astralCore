@@ -14,7 +14,7 @@ public class Main {
         SwingUtilities.invokeLater(()->{
             try{
                 com.esotericsoftware.minlog.Log.set(com.esotericsoftware.minlog.Log.LEVEL_WARN);
-                window=new JFrame("AstralCore v"+AppInfo.VERSION);window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                window=new JFrame("AstralCore v"+AppInfo.VERSION);window.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
                 window.setResizable(false);
                 Gamepanel gamePanel=new Gamepanel();window.add(gamePanel);
                 gamePanel.config.loadConfig();
@@ -23,7 +23,7 @@ public class Main {
                 gamePanel.display.apply(gamePanel.fullScreenOn,gamePanel.display.selected());
                 window.addWindowListener(new WindowAdapter(){
                     @Override public void windowClosing(WindowEvent e){
-                        gamePanel.display.restoreDesktop();gamePanel.soundEffect.close();gamePanel.music.close();
+                        gamePanel.requestClose();
                     }
                 });
                 gamePanel.startGameThread();
