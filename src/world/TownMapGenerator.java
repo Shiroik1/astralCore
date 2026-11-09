@@ -148,6 +148,32 @@ public class TownMapGenerator {
             }
         }
         forestPond(t, level, out);
+        eastTerraces(t, level, out);
+    }
+
+    private static void eastTerraces(Terrain[][] terrain, int[][] levels, List<Obj> objects) {
+        terrace(terrain, levels, 34, 12, 43, 21, 40, 1);
+        terrace(terrain, levels, 37, 13, 41, 17, 39, 2);
+        terrain[40][22] = Terrain.PATH;
+        terrain[40][23] = Terrain.PATH;
+        objects.removeIf(o -> o.col() >= 34 && o.col() <= 43 && o.row() >= 12 && o.row() <= 21
+                || o.col() == 40 && (o.row() == 22 || o.row() == 23));
+        objects.add(new Obj("oak_1", 35, 15, null));
+        objects.add(new Obj("flower_bush", 38, 14, null));
+        objects.add(new Obj("rock_small", 40, 14, null));
+        objects.add(new Obj("bush", 42, 19, null));
+    }
+
+    private static void terrace(Terrain[][] terrain, int[][] levels, int left, int top,
+                                int right, int bottom, int stairCol, int level) {
+        for (int col = left; col <= right; col++) {
+            for (int row = top; row <= bottom; row++) {
+                levels[col][row] = level;
+                if (row == bottom) terrain[col][row] = col == stairCol ? Terrain.STEPS : Terrain.LEDGE;
+                else if (row == top || col == left || col == right) terrain[col][row] = Terrain.RIM;
+                else terrain[col][row] = Terrain.TERRACE;
+            }
+        }
     }
 
     /** Local addition after scatter, preserving the rest of the town's seeded layout. */
@@ -263,6 +289,10 @@ public class TownMapGenerator {
                     case COBBLE -> '#';
                     case DEEP -> 'X';
                     case WATER -> '~';
+                    case TERRACE -> 'T';
+                    case RIM -> 'R';
+                    case LEDGE -> '^';
+                    case STEPS -> '+';
                     default -> '.';
                 });
             }

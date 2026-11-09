@@ -2,12 +2,16 @@ package art;
 
 import art.ArtKit.OutlineStyle;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.geom.*;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.Random;
 
-// Flat, outlined world objects drawn in code. All art is designed on a 48-unit tile and scaled to `size`.
+// World object art is designed on a 48-unit tile and scaled to `size`.
 // Every sprite carries a foot point (its base-centre) and a collision box relative to it, for the entity phase.
 public class ObjectArt {
 
@@ -47,9 +51,14 @@ public class ObjectArt {
 
     private Sprite done(String name, ArtKit.Surface s, double footX, double footY,
                         double colLeft, double colTop, double colW, double colH, boolean interactive){
+        return sprite(name, s.finish(), footX, footY, colLeft, colTop, colW, colH, interactive);
+    }
+
+    private Sprite sprite(String name, BufferedImage image, double footX, double footY,
+                          double colLeft, double colTop, double colW, double colH, boolean interactive){
         Rectangle col = new Rectangle((int) Math.round(colLeft * k), (int) Math.round(colTop * k),
                 (int) Math.round(colW * k), (int) Math.round(colH * k));
-        return new Sprite(name, s.finish(), (int) Math.round(footX * k), (int) Math.round(footY * k), col, interactive);
+        return new Sprite(name, image, (int) Math.round(footX * k), (int) Math.round(footY * k), col, interactive);
     }
 
     private static void shadow(Graphics2D g, double cx, double cy, double rx, double ry){
@@ -115,98 +124,41 @@ public class ObjectArt {
         return path;
     }
 
-    //TREES AND PLANTS (non-interactive: soft outline)
-    public Sprite oak(long seed){
-        Random rnd = new Random(seed);
-        ArtKit.Surface s = begin(3, 4);
-        Graphics2D g = s.g;
-        double cx = 72;
-
-        shadow(g, cx + 8, 176, 42, 9);
-
-        Path2D.Double trunk = new Path2D.Double();
-        trunk.moveTo(cx - 9, 96);
-        trunk.lineTo(cx + 9, 96);
-        trunk.lineTo(cx + 13, 178);
-        trunk.lineTo(cx - 13, 178);
-        trunk.closePath();
-        part(g, trunk, Palette.TRUNK, OutlineStyle.SOFT, 4, false);
-
-        double[][] blobs = {{0, 66, 40}, {-30, 84, 28}, {30, 84, 28}, {-4, 38, 30}, {-26, 54, 24}, {26, 56, 24}};
-        Area canopy = new Area();
-        for(double[] b : blobs){
-            canopy.add(new Area(circle(cx + b[0] + (rnd.nextDouble() - 0.5) * 6,
-                    b[1] + (rnd.nextDouble() - 0.5) * 6, b[2] + (rnd.nextDouble() - 0.5) * 5)));
-        }
-        paint(g, canopy, Palette.FOLIAGE, 7, true);
-
-        // flat leaf clumps: lighter on the sunny side, darker low on the shaded side
-        Shape oldClip = g.getClip();
-        g.setClip(canopy);
-        g.setColor(Palette.FOLIAGE_LIGHT);
-        for(int i = 0; i < 4; i++){
-            g.fill(circle(cx - 34 + rnd.nextDouble() * 40, 22 + rnd.nextDouble() * 46, 7 + rnd.nextDouble() * 5));
-        }
-        g.setColor(Palette.FOLIAGE_DARK);
-        for(int i = 0; i < 3; i++){
-            g.fill(circle(cx + 2 + rnd.nextDouble() * 36, 66 + rnd.nextDouble() * 38, 8 + rnd.nextDouble() * 5));
-        }
-        g.setClip(oldClip);
-        stroke(g, canopy, Palette.FOLIAGE, OutlineStyle.SOFT);
-
-        return done("oak", s, cx, 178, -11, -10, 22, 10, false);
+    // Foliage is exported separately and shared by WorldObjectType.
+    public Sprite oak(int variant){
+        String name = "oak_" + variant;
+        return sprite(name, foliagePng(name), 72, 178, -11, -10, 22, 10, false);
     }
 
-    public Sprite pine(long seed){
-        Random rnd = new Random(seed);
-        ArtKit.Surface s = begin(2, 4);
-        Graphics2D g = s.g;
-
-        shadow(g, 54, 180, 30, 8);
-        part(g, new RoundRectangle2D.Double(42, 138, 12, 42, 4, 4), Palette.TRUNK, OutlineStyle.SOFT, 3, false);
-
-        Color[] tierColors = {
-                Palette.FOLIAGE_DARK,
-                ArtKit.mix(Palette.FOLIAGE_DARK, Palette.FOLIAGE, 0.3f),
-                ArtKit.mix(Palette.FOLIAGE_DARK, Palette.FOLIAGE, 0.6f)
-        };
-        double[][] tiers = {{70, 150, 42}, {40, 112, 34}, {10, 72, 26}}; // apex y, base y, half width
-        for(int t = 0; t < 3; t++){
-            double apex = tiers[t][0], base = tiers[t][1], hw = tiers[t][2] + (rnd.nextDouble() - 0.5) * 4;
-            Path2D.Double p = new Path2D.Double();
-            p.moveTo(48, apex);
-            p.lineTo(48 + hw, base - 4);
-            p.quadTo(48, base + 8, 48 - hw, base - 4);
-            p.closePath();
-            part(g, p, tierColors[t], OutlineStyle.SOFT, 5, true);
-        }
-        return done("pine", s, 48, 180, -7, -10, 14, 10, false);
+    public Sprite pine(int variant){
+        String name = "pine_" + variant;
+        return sprite(name, foliagePng(name), 48, 180, -7, -10, 14, 10, false);
     }
 
-    public Sprite bush(long seed, boolean flowers){
-        Random rnd = new Random(seed);
-        ArtKit.Surface s = begin(2, 1);
-        Graphics2D g = s.g;
+    public Sprite bush(boolean flowers){
+        String name = flowers ? "flower_bush" : "bush";
+        return sprite(name, foliagePng(name), 48, 44, -20, -12, 40, 12, false);
+    }
 
-        shadow(g, 52, 44, 34, 5);
-        Area a = new Area();
-        double[][] blobs = {{28, 30, 16}, {48, 27, 19}, {68, 31, 15}};
-        for(double[] b : blobs){
-            a.add(new Area(circle(b[0] + (rnd.nextDouble() - 0.5) * 4, b[1] + (rnd.nextDouble() - 0.5) * 3,
-                    b[2] + (rnd.nextDouble() - 0.5) * 3)));
+    private BufferedImage foliagePng(String name){
+        String path = "/scenery/foliage/" + name + ".png";
+        try(InputStream stream = ObjectArt.class.getResourceAsStream(path)){
+            if(stream == null) throw new IOException("Missing foliage sprite " + path);
+            BufferedImage image = ImageIO.read(stream);
+            if(image == null) throw new IOException("Invalid foliage sprite " + path);
+            if(size == GroundTiles.ART_TILE_SIZE) return image;
+
+            int width = (int) Math.round(image.getWidth() * k);
+            int height = (int) Math.round(image.getHeight() * k);
+            BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = scaled.createGraphics();
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            graphics.drawImage(image, 0, 0, width, height, null);
+            graphics.dispose();
+            return scaled;
+        } catch(IOException e){
+            throw new UncheckedIOException(e);
         }
-        paint(g, a, Palette.FOLIAGE, 4, true);
-        if(flowers){
-            Shape oldClip = g.getClip();
-            g.setClip(a);
-            for(int i = 0; i < 9; i++){
-                g.setColor(Palette.FLOWERS[rnd.nextInt(Palette.FLOWERS.length)]);
-                g.fill(circle(18 + rnd.nextDouble() * 60, 12 + rnd.nextDouble() * 28, 2.4));
-            }
-            g.setClip(oldClip);
-        }
-        stroke(g, a, Palette.FOLIAGE, OutlineStyle.SOFT);
-        return done(flowers ? "flower_bush" : "bush", s, 48, 44, -20, -12, 40, 12, false);
     }
 
     //ROCKS AND STUMP

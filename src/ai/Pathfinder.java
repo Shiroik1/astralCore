@@ -48,9 +48,7 @@ public final class Pathfinder {
     }
     private boolean walkable(Monster m,int x,int y,List<WorldObject> scenery){
         int left=x+m.solidArea.x,top=y+m.solidArea.y,right=left+m.solidArea.width,bottom=top+m.solidArea.height;
-        for(int row=Math.floorDiv(top,gp.tileSize);row<=Math.floorDiv(bottom,gp.tileSize);row++)
-            for(int col=Math.floorDiv(left,gp.tileSize);col<=Math.floorDiv(right,gp.tileSize);col++)
-                if(gp.tileM.isSolid(col,row))return false;
+        if(gp.tileM.blocksMovement(left,top,right,bottom))return false;
         for(WorldObject o:scenery!=null?scenery:gp.worldObjects)if(o.blocks && o.blockRect.intersects(left,top,right-left,bottom-top))return false;
         for(var tile:gp.interactable)if(tile!=null && tile.collision && new Rectangle(tile.worldX+tile.solidArea.x,tile.worldY+tile.solidArea.y,tile.solidArea.width,tile.solidArea.height).intersects(left,top,right-left,bottom-top))return false;
         return true;

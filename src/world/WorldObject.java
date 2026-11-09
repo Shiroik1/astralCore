@@ -8,6 +8,7 @@ import net.GameEventType;
 import object.OBJ_potion_red;
 
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 
 public class WorldObject extends Entity {
@@ -114,7 +115,18 @@ public class WorldObject extends Entity {
             drawOutline(g2, getFlashVersion(img), sx, sy);
         }
         changeAlpha(g2, alpha);
-        g2.drawImage(img, sx, sy, null);
+        if(kind.swaysInWind()){
+            // The shear tapers to zero at the trunk base, keeping the tree rooted to its collision box.
+            double sway = gp.ambient.treeSway(worldX, worldY);
+            AffineTransform lean = new AffineTransform(1, 0, -sway, 1, sx + sway * sprite.footY, sy);
+            Object interpolation = g2.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2.drawImage(img, lean, null);
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, interpolation == null
+                    ? RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR : interpolation);
+        } else {
+            g2.drawImage(img, sx, sy, null);
+        }
         changeAlpha(g2, 1f);
 
         if(highlighted && isInteractive()){

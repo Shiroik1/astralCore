@@ -11,8 +11,8 @@ public enum WorldObjectType {
     OAK_2(a -> a.oak(2), null, true, Behavior.NONE, null),
     PINE_1(a -> a.pine(1), null, true, Behavior.NONE, null),
     PINE_2(a -> a.pine(2), null, true, Behavior.NONE, null),
-    BUSH(a -> a.bush(1, false), null, false, Behavior.NONE, null),
-    FLOWER_BUSH(a -> a.bush(2, true), null, false, Behavior.NONE, null),
+    BUSH(a -> a.bush(false), null, false, Behavior.NONE, null),
+    FLOWER_BUSH(a -> a.bush(true), null, false, Behavior.NONE, null),
     ROCK_SMALL(a -> a.rockSmall(1), null, false, Behavior.NONE, null),
     ROCK_LARGE(a -> a.rockLarge(1), null, false, Behavior.NONE, null),
     STUMP(a -> a.stump(), null, false, Behavior.NONE, null),
@@ -74,6 +74,13 @@ public enum WorldObjectType {
             if(t.name().equalsIgnoreCase(name)) return t;
         }
         return null;
+    }
+
+    public boolean swaysInWind(){
+        return switch(this){
+            case OAK_1, OAK_2, PINE_1, PINE_2 -> true;
+            default -> false;
+        };
     }
 
     private static final double[][] NO_LIGHTS = {};

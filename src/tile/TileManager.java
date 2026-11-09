@@ -70,6 +70,10 @@ public class TileManager implements GroundTiles.World {
             case '#' -> Terrain.COBBLE;
             case 'X' -> Terrain.DEEP;
             case '~' -> Terrain.WATER;
+            case 'T' -> Terrain.TERRACE;
+            case 'R' -> Terrain.RIM;
+            case '^' -> Terrain.LEDGE;
+            case '+' -> Terrain.STEPS;
             default -> Terrain.GRASS;
         };
     }
@@ -104,11 +108,45 @@ public class TileManager implements GroundTiles.World {
         return levelGrid[Math.max(0, Math.min(gp.maxWorldCol - 1, col))][Math.max(0, Math.min(gp.maxWorldRow - 1, row))];
     }
 
-    // Outside the map, deep forest, and pond water block movement.
+    // Coarse tile query for spawn placement. Movement uses the partial terrace boundaries below.
     public boolean isSolid(int col, int row){
         if(gp.quests!=null && gp.quests.inDungeon())return gp.quests.isDungeonSolid(col,row);
         if(col < 0 || row < 0 || col >= gp.maxWorldCol || row >= gp.maxWorldRow) return true;
-        return terrainGrid[col][row] == Terrain.DEEP || terrainGrid[col][row] == Terrain.WATER;
+        return switch (terrainGrid[col][row]) {
+            case DEEP, WATER, RIM, LEDGE -> true;
+            default -> false;
+        };
+    }
+
+    public boolean blocksMovement(int left, int top, int right, int bottom){
+        int ts = gp.tileSize;
+        boolean dungeon = gp.quests != null && gp.quests.inDungeon();
+        int inset = ts * GroundTiles.GRASS_INSET / GroundTiles.ART_TILE_SIZE;
+        for (int row = Math.floorDiv(top, ts); row <= Math.floorDiv(bottom, ts); row++) {
+            for (int col = Math.floorDiv(left, ts); col <= Math.floorDiv(right, ts); col++) {
+                if (!isSolid(col, row)) continue;
+                if (dungeon || col < 0 || row < 0 || col >= gp.maxWorldCol || row >= gp.maxWorldRow) return true;
+
+                int x = col * ts;
+                int y = row * ts;
+                if (terrainGrid[col][row] == Terrain.LEDGE) {
+                    // The grassy upper half is walkable. The face and exposed ends stop movement.
+                    if (bottom >= y + ts / 2) return true;
+                    int joins = GroundTiles.ledgeConnections(this, col, row);
+                    if (left < x + inset && (joins & GroundTiles.LEDGE_LEFT) == 0
+                            || right >= x + ts - inset && (joins & GroundTiles.LEDGE_RIGHT) == 0) return true;
+                } else if (terrainGrid[col][row] == Terrain.RIM) {
+                    int level = levelGrid[col][row];
+                    if (left < x + inset && !GroundTiles.joinsRaised(this, col - 1, row, level)
+                            || right >= x + ts - inset && !GroundTiles.joinsRaised(this, col + 1, row, level)
+                            || top < y + inset && !GroundTiles.joinsRaised(this, col, row - 1, level)
+                            || bottom >= y + ts - inset && !GroundTiles.joinsRaised(this, col, row + 1, level)) return true;
+                } else {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     //BAKING: the ground never changes, so draw it once into 16x16-tile images

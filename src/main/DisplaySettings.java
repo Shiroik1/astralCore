@@ -22,6 +22,8 @@ public final class DisplaySettings {
     private volatile Resolution nativeResolution;
     private volatile Resolution selected;
     private volatile List<Resolution> resolutions;
+    private static final int MAX_RENDER_FPS = 120;
+    private volatile int renderFps = MAX_RENDER_FPS;
     private final AtomicInteger revision=new AtomicInteger();
     private BufferedImage presentation;
     private final GpuFramePresenter presenter = new GpuFramePresenter();
@@ -40,7 +42,13 @@ public final class DisplaySettings {
         desktopMode=device.getDisplayMode();
         nativeResolution=new Resolution(desktopMode.getWidth(),desktopMode.getHeight());
         resolutions=supportedResolutions(device.getDisplayModes(),nativeResolution);
+        updateRenderRate(desktopMode);
     }
+    private void updateRenderRate(DisplayMode mode){
+        int refreshRate = mode.getRefreshRate();
+        renderFps = refreshRate > 0 ? Math.min(MAX_RENDER_FPS, refreshRate) : MAX_RENDER_FPS;
+    }
+    int renderFps(){ return renderFps; }
     public static List<Resolution> supportedResolutions(DisplayMode[] modes,Resolution nativeResolution){
         TreeSet<Resolution> sorted=new TreeSet<>(Comparator.comparingLong((Resolution r)->(long)r.width*r.height)
                 .thenComparingInt(Resolution::width).thenComparingInt(Resolution::height));
@@ -95,6 +103,7 @@ public final class DisplaySettings {
             window.setLocation(bounds.x+(bounds.width-window.getWidth())/2,bounds.y+(bounds.height-window.getHeight())/2);
             window.setVisible(true);
         }
+        updateRenderRate(device.getDisplayMode());
         window.validate();panel.requestFocusInWindow();
     }
     public static DisplayMode chooseMode(DisplayMode[] modes,Resolution resolution,DisplayMode desktop){

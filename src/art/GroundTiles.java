@@ -3,8 +3,6 @@ package art;
 import java.awt.*;
 import java.awt.geom.*;
 import java.awt.image.BufferedImage;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
 import java.util.function.BiPredicate;
 
@@ -17,13 +15,9 @@ public class GroundTiles {
     public static final int UP_RIGHT = 16, DOWN_RIGHT = 32, DOWN_LEFT = 64, UP_LEFT = 128;
     public static final int FULL = 255;
 
-    private static final int U = 48;            // art is designed on a 48-unit tile, then scaled to `size`
-    private static final double INSET = 6;      // gap between a shape's edge and the tile edge
-    private static final double RADIUS = 15;    // roundness of outer corners
-    // the dirt trail uses tighter corners and a slightly wobbly edge, so it reads as a worn track, not a pipe
-    private static final double PATH_INSET = 7;
-    private static final double PATH_RADIUS = 5;
-    private static final double PATH_FILLET = 4;
+    public static final int ART_TILE_SIZE = 48;
+    public static final int GRASS_INSET = 6;
+    public static final int LEDGE_LEFT = 1, LEDGE_RIGHT = 2;
     public static final int PATH_VARIANTS = 3;
     private static final double[] LEVEL_THRESHOLDS = {0.42, 0.52, 0.60}; // noise cut-offs between tones
 
@@ -34,16 +28,10 @@ public class GroundTiles {
     }
 
     private final int size;
-    private final LakeTiles lakes;
-    private final BufferedImage[] cobble = new BufferedImage[COBBLE_VARIANTS];
-    private final Map<Integer, BufferedImage> blobCache = new HashMap<>();
+    private final GroundTextures textures = new GroundTextures();
 
     public GroundTiles(int size){
         this.size = size;
-        this.lakes = new LakeTiles(size);
-        for(int v = 0; v < COBBLE_VARIANTS; v++){
-            cobble[v] = cobbleTile(5000L + v);
-        }
     }
 
     // large smooth regions of lighter and darker tone
@@ -56,19 +44,37 @@ public class GroundTiles {
         return level;
     }
 
-    public BufferedImage cobble(int variant){ return cobble[variant]; }
+    public BufferedImage cobble(int variant){ return textures.tile("cobble", variant); }
     public BufferedImage levelOverlay(int level, int mask){
-        return blob(level, 0, Palette.GROUND[level], mask, INSET, RADIUS, INSET, false);
+        return textures.tile("grass-edge-" + level, mask & 255);
     }
     public BufferedImage pathOverlay(int mask, int variant){
-        return blob(9, variant, Palette.PATH, mask, PATH_INSET, PATH_RADIUS, PATH_FILLET, true);
+        return textures.tile("path-" + variant, mask & 255);
     }
 
     //DRAWING ONE CELL
     public void drawCell(Graphics2D g, World w, int col, int row, int px, int py){
         Terrain t = w.terrain(col, row);
         if(t == Terrain.COBBLE){
-            g.drawImage(cobble[cobbleVariant(col, row)], px, py, null);
+            draw(g, cobble(cobbleVariant(col, row)), px, py);
+            return;
+        }
+
+        if (t == Terrain.LEDGE || t == Terrain.STEPS) {
+            draw(g, textures.tile("grass", Math.max(0, w.level(col, row) - 1)), px, py);
+            if (t == Terrain.STEPS) {
+                draw(g, textures.tile("steps", w.level(col, row)), px, py);
+            } else {
+                int connections = ledgeConnections(w, col, row);
+                draw(g, textures.tile("ledge", w.level(col, row) * 4 + connections), px, py);
+            }
+            return;
+        }
+        if (t == Terrain.TERRACE || t == Terrain.RIM) {
+            int level = w.level(col, row);
+            int neighbors = mask((c, r) -> joinsRaised(w, c, r, level), col, row);
+            draw(g, textures.tile("grass", Math.max(0, level - 1)), px, py);
+            draw(g, level == 0 ? textures.tile("grass", 0) : levelOverlay(level, neighbors), px, py);
             return;
         }
 
@@ -85,27 +91,27 @@ public class GroundTiles {
                 break;
             }
         }
-        g.setColor(Palette.GROUND[startK]);
-        g.fillRect(px, py, size, size);
+        draw(g, textures.tile("grass", startK), px, py);
         for(int k = startK + 1; k <= level; k++){
-            g.drawImage(levelOverlay(k, masks[k]), px, py, null);
+            draw(g, levelOverlay(k, masks[k]), px, py);
         }
 
         if(t == Terrain.PATH){
             int m = mask((c, r) -> pathLike(w, c, r), col, row);
-            g.drawImage(pathOverlay(m, pathVariant(col, row)), px, py, null);
+            draw(g, pathOverlay(m, pathVariant(col, row)), px, py);
         } else if(t == Terrain.WATER) {
             int m = mask((c, r) -> w.terrain(c, r) == Terrain.WATER, col, row);
             double variation = ArtKit.hash01(32, col, row);
-            g.drawImage(lakes.tile(m, variation < 0.64 ? 0 : variation < 0.86 ? 1 : 2), px, py, null);
+            int variant = variation < 0.64 ? 0 : variation < 0.86 ? 1 : 2;
+            draw(g, textures.tile("water-" + variant, m), px, py);
             if(m == FULL && ArtKit.hash01(57, col, row) < 0.18)
-                g.drawImage(lakes.lilyPad(ArtKit.hash01(58, col, row) < 0.4), px, py, null);
+                draw(g, textures.tile("lilies", ArtKit.hash01(58, col, row) < 0.4 ? 1 : 0), px, py);
         }
     }
 
     private static boolean pathLike(World w, int col, int row){
         Terrain t = w.terrain(col, row);
-        return t == Terrain.PATH || t == Terrain.COBBLE; // paths run into the plaza
+        return t == Terrain.PATH || t == Terrain.COBBLE || t == Terrain.STEPS; // paths run into the plaza
     }
 
     private static int mask(BiPredicate<Integer, Integer> same, int col, int row){
@@ -129,26 +135,31 @@ public class GroundTiles {
         return (int) (ArtKit.hash01(11, col, row) * PATH_VARIANTS) % PATH_VARIANTS;
     }
 
-    //ROUNDED SHAPE AUTOTILE
-    private BufferedImage blob(int kind, int variant, Color color, int mask, double inset, double radius, double fillet, boolean wobble){
-        int key = (kind * 8 + variant) * 256 + (mask & 255);
-        BufferedImage img = blobCache.get(key);
-        if(img == null){
-            ArtKit.Surface s = new ArtKit.Surface(size, size);
-            s.g.scale(size / (double) U, size / (double) U);
-            s.g.setColor(color);
-            s.g.fill(blobShape(mask, inset, radius, fillet, wobble ? variant : -1));
-            img = s.finish();
-            blobCache.put(key, img);
-        }
-        return img;
+    private void draw(Graphics2D g, BufferedImage image, int x, int y) {
+        g.drawImage(image, x, y, size, size, null);
+    }
+
+    private static boolean ledgeLike(Terrain terrain) {
+        return terrain == Terrain.LEDGE || terrain == Terrain.STEPS;
+    }
+
+    public static int ledgeConnections(World w, int col, int row) {
+        int connections = ledgeLike(w.terrain(col - 1, row)) ? LEDGE_LEFT : 0;
+        if (ledgeLike(w.terrain(col + 1, row))) connections |= LEDGE_RIGHT;
+        return connections;
+    }
+
+    public static boolean joinsRaised(World w, int col, int row, int level) {
+        Terrain terrain = w.terrain(col, row);
+        return w.level(col, row) >= level
+                && (ledgeLike(terrain) || terrain == Terrain.TERRACE || terrain == Terrain.RIM);
     }
 
     // A rounded square, inset from the tile edge, with an arm toward every connected neighbour. Outer corners
     // are rounded with `radius`, inner corners with `fillet`. wobbleVariant >= 0 adds small bumps and dents
     // along the straight edges (never near the tile border, so neighbouring tiles still join).
     public static Area blobShape(int mask, double inset, double radius, double fillet, int wobbleVariant){
-        double i = inset, r = radius, f = fillet, u = U, ext = 3;
+        double i = inset, r = radius, f = fillet, u = ART_TILE_SIZE, ext = 3;
         boolean up = (mask & UP) != 0, right = (mask & RIGHT) != 0, down = (mask & DOWN) != 0, left = (mask & LEFT) != 0;
 
         Area shape = new Area(new Rectangle2D.Double(i, i, u - 2 * i, u - 2 * i));
@@ -195,14 +206,14 @@ public class GroundTiles {
             if((mask & bits[side]) != 0) continue; // this side has an arm, so no straight edge here
             int count = 1 + rnd.nextInt(2);
             for(int n = 0; n < count; n++){
-                double along = margin + rnd.nextDouble() * (U - 2 * margin);
+                double along = margin + rnd.nextDouble() * (ART_TILE_SIZE - 2 * margin);
                 double rad = 1.4 + rnd.nextDouble() * 1.4;
                 boolean outward = rnd.nextBoolean();
                 double cx, cy;
                 switch(side){
                     case 0 -> { cx = along; cy = inset; }
-                    case 1 -> { cx = U - inset; cy = along; }
-                    case 2 -> { cx = along; cy = U - inset; }
+                    case 1 -> { cx = ART_TILE_SIZE - inset; cy = along; }
+                    case 2 -> { cx = along; cy = ART_TILE_SIZE - inset; }
                     default -> { cx = inset; cy = along; }
                 }
                 Area bump = new Area(new Ellipse2D.Double(cx - rad, cy - rad, rad * 2, rad * 2));
@@ -226,36 +237,4 @@ public class GroundTiles {
         return a;
     }
 
-    //COBBLESTONE: flat stones on flat mortar. Row widths add up to exactly one tile, so it repeats seamlessly.
-    private BufferedImage cobbleTile(long seed){
-        ArtKit.Surface s = new ArtKit.Surface(size, size);
-        Graphics2D g = s.g;
-        g.scale(size / (double) U, size / (double) U);
-        Random rnd = new Random(seed);
-
-        g.setColor(Palette.MORTAR);
-        g.fill(new Rectangle2D.Double(-1, -1, U + 2, U + 2));
-
-        int rows = 3;
-        double rowH = U / (double) rows;
-        double gap = 1.6;
-        for(int r = 0; r < rows; r++){
-            int stones = 2 + rnd.nextInt(2);
-            double[] w = new double[stones];
-            double total = 0;
-            for(int i = 0; i < stones; i++){
-                w[i] = 0.7 + rnd.nextDouble() * 0.6;
-                total += w[i];
-            }
-            double x = 0;
-            for(int i = 0; i < stones; i++){
-                double sw = w[i] / total * U;
-                g.setColor(Palette.STONES[rnd.nextInt(Palette.STONES.length)]);
-                double arc = Math.min(sw, rowH) * 0.5;
-                g.fill(new RoundRectangle2D.Double(x + gap / 2, r * rowH + gap / 2, sw - gap, rowH - gap, arc, arc));
-                x += sw;
-            }
-        }
-        return s.finish();
-    }
 }

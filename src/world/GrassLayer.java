@@ -72,7 +72,7 @@ public class GrassLayer {
             cells[col][row] = 0;
             return;
         }
-        if(gp.tileM.terrain(col, row) != Terrain.GRASS) return; // no grass on roads, plazas or the deep forest
+        if(!supportsGrass(col, row)) return;
         cells[col][row] = (byte) ((type - 1) * 4 + density);
     }
 
@@ -332,9 +332,14 @@ public class GrassLayer {
             String line = lines[r];
             for(int c = 0; c < cols && c < line.length(); c++){
                 char ch = line.charAt(c);
-                cells[c][r] = (byte) ((gp.tileM.terrain(c,r) == Terrain.GRASS && ch >= 'a' && ch <= 'l') ? ch - 'a' + 1 : 0);
+                cells[c][r] = (byte) ((supportsGrass(c, r) && ch >= 'a' && ch <= 'l') ? ch - 'a' + 1 : 0);
             }
         }
+    }
+
+    private boolean supportsGrass(int col, int row){
+        Terrain terrain = gp.tileM.terrain(col, row);
+        return terrain == Terrain.GRASS || terrain == Terrain.TERRACE;
     }
 
     // the starting meadow: patches from noise, tall grass toward the forest, flower clumps here and there
@@ -345,7 +350,7 @@ public class GrassLayer {
         }
         for(int c = 0; c < cols; c++){
             for(int r = 0; r < rows; r++){
-                if(gp.tileM.terrain(c, r) != Terrain.GRASS || taken[c][r]) continue;
+                if(!supportsGrass(c, r) || taken[c][r]) continue;
                 int edge = Math.min(Math.min(c, r), Math.min(cols - 1 - c, rows - 1 - r));
                 double n = ArtKit.fbm(c * 0.16, r * 0.16, 211);
                 if(edge < 14) n += 0.12;              // the forest edge is grassier

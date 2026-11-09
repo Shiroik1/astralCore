@@ -13,47 +13,19 @@ public class CollisionChecker {
         this.gp = gp;
     }
 
-    private boolean isSolidTile(int col, int row){
-        return gp.tileM.isSolid(col, row);
-    }
-
     public void checkTile(Entity entity){
-        int entityLeftWorldX = entity.worldX + entity.solidArea.x;
-        int entityRightWorldX = entity.worldX + entity.solidArea.x + entity.solidArea.width;
-        int entityTopWorldY = entity.worldY + entity.solidArea.y;
-        int entityBotWorldY = entity.worldY + entity.solidArea.y + entity.solidArea.height;
-
-        int entityLeftCol = Math.floorDiv(entityLeftWorldX, gp.tileSize);
-        int entityRightCol = Math.floorDiv(entityRightWorldX, gp.tileSize);
-        int entityTopRow = Math.floorDiv(entityTopWorldY, gp.tileSize);
-        int entityBotRow = Math.floorDiv(entityBotWorldY, gp.tileSize);
-
-        switch (entity.direction){
-            case "up" -> {
-                entityTopRow = Math.floorDiv(entityTopWorldY - entity.speed, gp.tileSize);
-                if(isSolidTile(entityLeftCol, entityTopRow) || isSolidTile(entityRightCol, entityTopRow)){
-                    entity.collisionOn = true;
-                }
-            }
-            case "down" -> {
-                entityBotRow = Math.floorDiv(entityBotWorldY + entity.speed, gp.tileSize);
-                if(isSolidTile(entityLeftCol, entityBotRow) || isSolidTile(entityRightCol, entityBotRow)){
-                    entity.collisionOn = true;
-                }
-            }
-            case "left" -> {
-                entityLeftCol = Math.floorDiv(entityLeftWorldX - entity.speed, gp.tileSize);
-                if(isSolidTile(entityLeftCol, entityTopRow) || isSolidTile(entityLeftCol, entityBotRow)){
-                    entity.collisionOn = true;
-                }
-            }
-            case "right" -> {
-                entityRightCol = Math.floorDiv(entityRightWorldX + entity.speed, gp.tileSize);
-                if(isSolidTile(entityRightCol, entityTopRow) || isSolidTile(entityRightCol, entityBotRow)){
-                    entity.collisionOn = true;
-                }
-            }
-        }
+        int left = entity.worldX + entity.solidArea.x;
+        int right = left + entity.solidArea.width;
+        int top = entity.worldY + entity.solidArea.y;
+        int bottom = top + entity.solidArea.height;
+        boolean blocked = switch (entity.direction) {
+            case "up" -> gp.tileM.blocksMovement(left, top - entity.speed, right, top);
+            case "down" -> gp.tileM.blocksMovement(left, bottom, right, bottom + entity.speed);
+            case "left" -> gp.tileM.blocksMovement(left - entity.speed, top, left, bottom);
+            case "right" -> gp.tileM.blocksMovement(right, top, right + entity.speed, bottom);
+            default -> false;
+        };
+        if (blocked) entity.collisionOn = true;
 
         checkScenery(entity);
     }

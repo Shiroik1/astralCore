@@ -26,8 +26,8 @@ public class ObjectPreview {
         list.add(a.oak(2));
         list.add(a.pine(1));
         list.add(a.pine(2));
-        list.add(a.bush(1, false));
-        list.add(a.bush(2, true));
+        list.add(a.bush(false));
+        list.add(a.bush(true));
         list.add(a.rockSmall(1));
         list.add(a.rockLarge(1));
         list.add(a.stump());
@@ -102,7 +102,7 @@ public class ObjectPreview {
         Graphics2D g = img.createGraphics();
 
         ObjectArt.Sprite oak1 = art.oak(1), oak2 = art.oak(2), pine1 = art.pine(1), pine2 = art.pine(2);
-        ObjectArt.Sprite bush = art.bush(1, false), flowerBush = art.bush(2, true);
+        ObjectArt.Sprite bush = art.bush(false), flowerBush = art.bush(true);
         ObjectArt.Sprite rock = art.rockSmall(1), bigRock = art.rockLarge(1), stump = art.stump();
         ObjectArt.Sprite fenceH = art.fenceH(), fenceV = art.fenceV();
         ObjectArt.Sprite coral = art.house("house_coral", Palette.ROOF_CORAL, 1);

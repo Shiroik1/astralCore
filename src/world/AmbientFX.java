@@ -65,6 +65,13 @@ public class AmbientFX {
         return min + m;
     }
 
+    // A gentle breeze moves across the map, so nearby trees lean with slightly different timing.
+    double treeSway(int x, int y){
+        double phase = time * 0.035 - x * 0.011 - y * 0.007;
+        return (0.009 + 0.009 * wind) * Math.sin(phase)
+                + 0.004 * Math.sin(time * 0.017 + x * 0.003);
+    }
+
     public void update(){
         time++;
         Player cam = gp.localPlayer();

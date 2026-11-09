@@ -15,6 +15,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.concurrent.locks.LockSupport;
 import world.SceneryLoader;
 import world.WorldObject;
 import world.AmbientFX;
@@ -74,7 +75,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public GrassLayer grass = new GrassLayer(this);
     public GrassEditor grassEditor = new GrassEditor(this);
     Config config = new Config(this);
-    Thread gameThread;
+    private volatile Thread gameThread;
     public int hitStopCounter = 0;
     public int screenShakeCounter = 0;
     public int screenShakeIntensity = 0;
@@ -127,8 +128,9 @@ public class Gamepanel extends JPanel implements Runnable{
     public final int characterSelectState = 5;
 
 
-    //FPS
-    int FPS = 60;
+    private static final long NANOS_PER_SECOND = 1_000_000_000L;
+    private static final long TICK_INTERVAL = NANOS_PER_SECOND / 60;
+    private static final long MAX_TICK_BACKLOG = 3 * TICK_INTERVAL;
     int fpsCounter = 0;
 
     public Gamepanel() throws IOException {
@@ -181,57 +183,56 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void setFullScreen(){ display.apply(true,display.selected()); }
 
-    public void startGameThread(){
-        gameThread = new Thread(this);
+    public synchronized void startGameThread(){
+        if(gameThread != null) return;
+        gameThread = new Thread(this, "AstralCore game loop");
         gameThread.start();
     }
 
     @Override
     public void run() {
+        Thread running = Thread.currentThread();
+        long sampledAt = System.nanoTime();
+        long fpsSample = sampledAt;
+        long nextFrame = sampledAt + TICK_INTERVAL;
+        long pending = 0;
 
-        double drawInterval = 1000000000.0/FPS;
-        double delta = 0;
-        long lastTime = System.nanoTime();
-        long currentTime;
+        try {
+            while(gameThread == running && !running.isInterrupted()){
+                long now = System.nanoTime();
+                // Drop excess time after a stall so the world cannot replay a long burst of updates.
+                pending = Math.min(pending + (now - sampledAt), MAX_TICK_BACKLOG);
+                sampledAt = now;
+                while(pending >= TICK_INTERVAL && gameThread == running && !running.isInterrupted()){
+                    update();
+                    pending -= TICK_INTERVAL;
+                }
+                if(gameThread != running || running.isInterrupted()) break;
 
-        //FPS Setting
-        long timer = 0;
-
-        while(gameThread != null){
-            currentTime = System.nanoTime();
-            delta += (currentTime - lastTime) / drawInterval;
-            timer += (currentTime - lastTime);
-            lastTime = currentTime;
-
-            if(delta >= 1) {
-                //Update information such as player position
-                update();
-                //Draw update data on the screen
-                try {
+                now = System.nanoTime();
+                if(now - nextFrame >= 0){
+                    long frameInterval = NANOS_PER_SECOND / display.renderFps();
+                    nextFrame += frameInterval;
+                    if(now - nextFrame >= 0) nextFrame = now + frameInterval;
                     drawToTempscreen();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    drawToScreen();
                 }
-                drawToScreen();
 
-                delta--;
-            }
-            else {
-                long remaining = (long)((1 - delta) * drawInterval); // ns until the next tick is due
-                if(remaining > 2_000_000){
-                    try{
-                        Thread.sleep(1);
-                    } catch(InterruptedException e){
-                        break;
-                    }
-                } else {
-                    Thread.onSpinWait(); // spin the last 2 ms so frame timing stays accurate
+                now = System.nanoTime();
+                if(now - fpsSample >= NANOS_PER_SECOND){
+                    fpsCounter = (int)Math.round(paintedFrames.getAndSet(0) * (double)NANOS_PER_SECOND / (now - fpsSample));
+                    fpsSample = now;
                 }
+                long untilTick = TICK_INTERVAL - pending - (now - sampledAt);
+                long untilFrame = nextFrame - now;
+                long wait = Math.min(untilTick, untilFrame);
+                if(wait > 0) LockSupport.parkNanos(wait);
             }
-
-            if(timer >= 1000000000){
-                fpsCounter = (int)Math.round(paintedFrames.getAndSet(0)*1_000_000_000.0/timer);
-                timer = 0;
+        } catch(IOException e){
+            throw new RuntimeException(e);
+        } finally {
+            synchronized(this){
+                if(gameThread == running) gameThread = null;
             }
         }
     }
@@ -415,6 +416,8 @@ public class Gamepanel extends JPanel implements Runnable{
         }
         updateScreenShake();
         saves.tick();
+        // Keep the local scene active between updates, including when a frame is skipped.
+        quests.activateArea(localPlayer().inWell);
     }
 
     public void requestClose(){closeRequested=true;}
@@ -461,8 +464,6 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void drawToTempscreen() throws IOException {
-
-        quests.activateArea(localPlayer().inWell);
         g2.setColor(Color.black);
         g2.fillRect(0, 0, screenWidth, screenHeight);
 
