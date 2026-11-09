@@ -27,6 +27,7 @@ public final class DisplaySettings {
     private final AtomicInteger revision=new AtomicInteger();
     private BufferedImage presentation;
     private final GpuFramePresenter presenter = new GpuFramePresenter();
+    private final GpuFramePresenter interfacePresenter = new GpuFramePresenter();
 
     public DisplaySettings(Gamepanel panel){
         this.panel=panel;
@@ -140,6 +141,18 @@ public final class DisplaySettings {
         return content.width>=panel.screenWidth?new Resolution(panel.screenWidth,panel.screenHeight)
                 :new Resolution(content.width,content.height);
     }
+    Resolution interfaceResolution(){
+        Viewport view=gameViewport(panel.getWidth(),panel.getHeight());
+        GraphicsConfiguration configuration=panel.getGraphicsConfiguration();
+        var transform=configuration==null?null:configuration.getDefaultTransform();
+        double sx=transform==null?1:transform.getScaleX(),sy=transform==null?1:transform.getScaleY();
+        // Keep the world staging buffer fixed. The separate UI layer can use up to twice its pixel density.
+        double scale=Math.min(2,Math.min(view.width*sx/panel.screenWidth,view.height*sy/panel.screenHeight));
+        if(panel.getWidth()<=0 || panel.getHeight()<=0)scale=1;
+        return new Resolution(Math.max(1,(int)Math.round(panel.screenWidth*scale)),
+                Math.max(1,(int)Math.round(panel.screenHeight*scale)));
+    }
+
     public BufferedImage renderFrame(BufferedImage canvas){
         Resolution r=frameResolution();
         if(presentation==null || presentation.getWidth()!=r.width || presentation.getHeight()!=r.height)
@@ -155,6 +168,10 @@ public final class DisplaySettings {
         paintFrame(target,frame,width,height,-1);
     }
     public void paintFrame(Graphics2D target,BufferedImage frame,int width,int height,long sequence){
+        paintFrame(target,frame,null,width,height,sequence);
+    }
+
+    void paintFrame(Graphics2D target,BufferedImage frame,BufferedImage overlay,int width,int height,long sequence){
         Viewport view=gameViewport(width,height);
         target.setColor(Color.black);
         target.fillRect(0,0,width,view.y);
@@ -163,6 +180,10 @@ public final class DisplaySettings {
         target.fillRect(view.x+view.width,view.y,width-view.x-view.width,view.height);
         target.setRenderingHint(RenderingHints.KEY_INTERPOLATION,interpolation());
         presenter.draw(target,frame,sequence,view.x,view.y,view.width,view.height);
+        if(overlay!=null){
+            target.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            interfacePresenter.draw(target,overlay,sequence,view.x,view.y,view.width,view.height);
+        }
     }
     private Object interpolation(){
         return entity.CharacterSprites.pixelMode?RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR

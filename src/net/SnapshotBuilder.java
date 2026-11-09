@@ -1,6 +1,7 @@
 package net;
 
 import entity.Entity;
+import entity.Monster;
 import entity.Player;
 import entity.StatusEffect;
 import main.Gamepanel;
@@ -31,6 +32,14 @@ public class SnapshotBuilder {
     private static void fillArea(WorldSnapshot snapshot,Gamepanel gp){
         snapshot.inWellArea=gp.quests.inDungeon();
         snapshot.slimeProjectiles=buildSlimeProjectiles(gp);
+        List<RangerEffectState> rangerEffects=new ArrayList<>();
+        List<MageEffectState> mageEffects=new ArrayList<>();
+        for(Entity projectile:gp.projectileList){
+            if(projectile instanceof entity.RangerEffect effect && effect.alive)rangerEffects.add(effect.snapshot());
+            else if(projectile instanceof entity.MageEffect effect && effect.alive)mageEffects.add(effect.snapshot());
+        }
+        snapshot.rangerEffects=rangerEffects.toArray(RangerEffectState[]::new);
+        snapshot.mageEffects=mageEffects.toArray(MageEffectState[]::new);
         snapshot.monsters = buildMonsters(gp);
         snapshot.objects = buildObjects(gp);
         snapshot.npcs = buildNpcs(gp);
@@ -79,6 +88,33 @@ public class SnapshotBuilder {
             ps.rage = p.rage;
             ps.maxRage = p.maxRage;
             ps.arcaneCharge = p.arcaneCharge;
+            if(p.usesMana()){
+                ps.mageKit=p.isMage();ps.mageCastTicks=p.mage.castTicks();ps.mageCastLength=p.mage.castLength();
+                ps.mageFrame=p.spriteNum;ps.mageHeading=p.mage.heading();
+            }
+            if(p.attacking && p.usesMeleeSlash()){
+                ps.meleeFrame=p.spriteNum;ps.meleeFrameTicks=p.attackFrameTicks();
+            }
+            if(p.isPaladin()){
+                p.paladin.snapshot(ps);
+            }
+            if(p.isBerserker()){
+                ps.berserkerAction=p.berserker.action();ps.berserkerAge=p.berserker.age();ps.berserkerSerial=p.berserker.serial();
+                ps.berserkerHeading=p.berserker.heading();ps.berserkerWaveStopped=p.berserker.waveStopped();
+            }
+            if(p.isPriest())ps.priestBeaconId=p.priest.beaconId();
+            if(p.isRanger()){
+                ps.rangerFrame=p.spriteNum;ps.rangerMarkIndex=p.ranger.markIndex();
+                ps.rangerMarkTicks=p.ranger.markTicks();ps.rangerDraw=p.ranger.drawTicks();
+                ps.rangerDeadeye=p.ranger.deadeyeTicks();ps.rangerHeading=p.ranger.heading();
+                ps.rangerHopAge=p.ranger.hopAge();ps.rangerRecovery=p.ranger.recoveryTicks();
+            }
+
+            if(p.isAssassin()){
+                ps.assassinKit=true;ps.assassinAction=p.assassin.action();ps.assassinAge=p.assassin.age();
+                ps.assassinFrame=p.spriteNum;ps.assassinHeading=p.assassin.heading();
+                ps.assassinCrit=p.assassin.critTicks();ps.assassinCritHeading=p.assassin.critHeading();
+            }
 
             ps.inventoryTypes = new ItemType[p.inventorySlots.length];
             ps.inventoryStackCounts = new int[p.inventorySlots.length];
@@ -122,7 +158,7 @@ public class SnapshotBuilder {
     private static MonsterState[] buildMonsters(Gamepanel gp){
         MonsterState[] states = new MonsterState[gp.monster.length];
         for(int i = 0; i < gp.monster.length; i++){
-            Entity m = gp.monster[i];
+            Monster m = gp.monster[i];
             if(m == null) continue;
 
             MonsterState ms = new MonsterState();
@@ -131,7 +167,16 @@ public class SnapshotBuilder {
             ms.direction = m.direction;
             ms.HP = m.HP;
             ms.maxHP = m.maxHP;
+            ms.comboStacks = m.comboStacks;
+            ms.assassinPairMask=m.assassinPairMask();
+            ms.hitSequence = m.hitSequence;
+            ms.criticalHitRgb = m.criticalHitRgb;
+            ms.hitDirection = m.hitDirection;
             ms.dying = m.dying;
+            ms.rangerPinned=m.hasStatusEffect("rangerSlow");
+            ms.assassinBleeding=m.hasAssassinBleed();
+            ms.berserkerSundered=m.hasBerserkerSunder();
+            ms.paladinChallenged=m.isChallenged();
             ms.alive = m.alive;
             ms.monsterType = MonsterType.of(m);
             if(m instanceof MON_SlimeBoss boss){

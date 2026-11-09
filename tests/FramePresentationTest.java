@@ -52,6 +52,30 @@ public class FramePresentationTest {
         }
         producer.join();if(failure.get()!=null)throw new AssertionError(failure.get());
         require(panel.isDoubleBuffered(),"Swing double buffering stays enabled");
+
+        var selected=DisplaySettings.class.getDeclaredField("selected");selected.setAccessible(true);
+        int width=panel.screenWidth*2,height=panel.screenHeight*2;
+        selected.set(panel.display,new DisplaySettings.Resolution(width,height));
+        SwingUtilities.invokeAndWait(()->panel.setSize(width,height));
+        panel.gameState=panel.playState;
+        fill(source,Color.green);
+        var present=Gamepanel.class.getDeclaredMethod("presentGameFrame");present.setAccessible(true);
+        var bufferField=Gamepanel.class.getDeclaredField("frames");bufferField.setAccessible(true);
+        var buffers=(FrameBuffer)bufferField.get(panel);
+        entity.CharacterSprites.pixelMode=true;
+        try{
+            present.invoke(panel);
+            try(var frame=buffers.acquire()){
+                var uiLayer=frame.getClass().getDeclaredMethod("overlay");uiLayer.setAccessible(true);
+                BufferedImage layer=(BufferedImage)uiLayer.invoke(frame);
+                require(frame.image().getWidth()==panel.screenWidth && layer.getWidth()==width,
+                        "high-resolution UI is rasterized separately from the fixed world buffer");
+                require((layer.getRGB(width/2,height/2)>>>24)==0,"the HUD is transparent between widgets");
+            }
+            var large=new BufferedImage(width,height,BufferedImage.TYPE_INT_RGB);
+            require(paintCentre(panel,large)==Color.green.getRGB(),"transparent HUD preserves the world");
+            require(large.getRGB(65,67)!=Color.green.getRGB(),"HUD still paints over the pixel-filtered world");
+        }finally{entity.CharacterSprites.pixelMode=false;}
         System.out.println("PASS: no live graphics drawing, complete-frame publication, stable previous frame, concurrent repainting and resize stress.");
     }
 }

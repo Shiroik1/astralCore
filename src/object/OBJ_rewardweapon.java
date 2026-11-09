@@ -14,11 +14,13 @@ public final class OBJ_rewardweapon extends Entity {
     private static final java.util.Map<ItemType,BufferedImage> ICONS=new java.util.EnumMap<>(ItemType.class);
     public OBJ_rewardweapon(Gamepanel gp,ItemType itemType,CharacterClass characterClass,boolean hell){
         super(gp);this.itemType=itemType;
-        String weapon=switch(characterClass){case HUNTER->"Dagger";case MAGE->"Staff";case WARRIOR->"Sword";};
+        String weapon=switch(characterClass){case HUNTER->"Dagger";case RANGER,PRIEST,BERSERKER,PALADIN->throw new IllegalArgumentException("This class uses its own gear tiers");case MAGE->"Staff";case WARRIOR->"Sword";};
         name=(hell?"Hellfire ":"Royal Slime ")+weapon;
         kind=WeaponArt.Kind.valueOf((hell?"HELL_":"ROYAL_")+weapon.toUpperCase(java.util.Locale.ROOT));
         type=characterClass==CharacterClass.MAGE?type_staff:type_sword;
-        attackValue=hell?7:4;attackArea.width=characterClass==CharacterClass.HUNTER?28:characterClass==CharacterClass.WARRIOR?60:40;attackArea.height=attackArea.width;
+        attackValue=hell?7:4;
+        attackArea.width=switch(characterClass){case HUNTER,RANGER->60;case WARRIOR,BERSERKER,PALADIN->68;case MAGE,PRIEST->40;};
+        attackArea.height=characterClass==CharacterClass.WARRIOR?66:attackArea.width;
         if(characterClass==CharacterClass.HUNTER)name+="s";
         description="("+name+")\nAttack x"+attackValue+"\n"+(hell?"Forged in the well's hellfire.":"A reward for clearing the well.");
         synchronized(ICONS){down1=ICONS.computeIfAbsent(itemType,key->{
@@ -29,7 +31,11 @@ public final class OBJ_rewardweapon extends Entity {
     }
     public static ItemType forClass(String classId,boolean hell){
         return switch(CharacterClass.fromId(classId)){
+            case RANGER -> hell?ItemType.SUNCREST_BOW:ItemType.MOONBOUGH_BOW;
             case HUNTER -> hell?ItemType.HELL_DAGGER:ItemType.ROYAL_DAGGER;
+            case PALADIN -> hell?ItemType.CITADEL_BLADE:ItemType.DAWNWARD_SWORD;
+            case BERSERKER -> hell?ItemType.FAULTLINE_GREATSWORD:ItemType.CINDERMAW;
+            case PRIEST -> hell?ItemType.HEARTHCROWN_STAFF:ItemType.DAWNRING_STAFF;
             case MAGE -> hell?ItemType.HELL_STAFF:ItemType.ROYAL_STAFF;
             case WARRIOR -> hell?ItemType.HELL_SWORD:ItemType.ROYAL_SWORD;
         };

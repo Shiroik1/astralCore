@@ -57,6 +57,7 @@ public class NavigationCombatMerchantTest {
         // An invulnerable party member must not shield another overlapping player from a droplet.
         p.invincible=true;Player other=new Player(g,g.keyH);other.playerId=1;other.isLocal=false;other.worldX=p.worldX;other.worldY=p.worldY;g.players[1]=other;
         var bolt=new OBJ_slimebolt(g);bolt.setAngled(p.worldX,p.worldY,Math.PI/4,true,new MON_SlimeBoss(g));int hp=other.HP;bolt.update();require(other.HP<hp,"invulnerable player does not swallow another player's hit");g.players[1]=null;
+        p.setCharacterDesign("warrior","male");
         p.setDefaultValues();p.grantExperience(29);require(p.level==1,"no level in first 29 XP");p.grantExperience(1);require(p.level==2 && p.nextLevelExp==60,"new first threshold");
         p.setDefaultValues();p.grantExperience(30+20+15);require(p.level==3,"tutorial ends around level three");p.grantExperience(25);require(p.level==3,"one Hell kill does not grant another level");
         var hell=new MON_HellSlime(g);require(hell.maxHP>=300 && hell.attack==13 && hell.exp==25,"stronger Hell with reduced XP reward");

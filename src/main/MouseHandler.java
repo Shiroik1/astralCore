@@ -76,6 +76,7 @@ public class MouseHandler implements MouseListener, MouseMotionListener, MouseWh
             }
         }
         if(button == MouseEvent.BUTTON3){
+            rightPressed = true;
             rightClicked = true;
         }
     }

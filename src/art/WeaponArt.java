@@ -11,6 +11,11 @@ import java.awt.geom.*;
 public final class WeaponArt {
     private WeaponArt() {}
 
+    static final float HELD_SWORD_HIT=3/7f;
+    public static final int DAGGER_FIRST_HIT_FRAME = 4;
+    public static final int DAGGER_SECOND_HIT_FRAME = 6;
+    enum DaggerHand { MAIN, OFF, NONE }
+
     /**
      * Swing keyframes in degrees.
      * front*: weapon angle seen from front/back (0 = straight up, + = clockwise on screen)
@@ -23,9 +28,89 @@ public final class WeaponArt {
         SWORD(0, 8, 165,   28, -30, 120,   150, 300,   170, 15),
         AXE  (0, 5, 170,   30, -40, 125,   150, 300,   175, 10),
         STAFF(0, -10, 22,    10, 18, 42,    -140, -105,   -10, 22),
-        DAGGERS(SWORD), ROYAL_SWORD(SWORD), ROYAL_DAGGER(SWORD), ROYAL_STAFF(STAFF),
-        HELL_SWORD(SWORD), HELL_DAGGER(SWORD), HELL_STAFF(STAFF);
+        DAGGERS(148, 8, 165, -148, -30, 120, 150, 300, 170, 15),
+        ROYAL_SWORD(SWORD), ROYAL_DAGGER(SWORD), ROYAL_STAFF(STAFF),
+        HELL_SWORD(SWORD), HELL_DAGGER(SWORD), HELL_STAFF(STAFF),
+        BRIAR_DAGGER(DAGGERS), ASH_DAGGER(DAGGERS), MOON_DAGGER(DAGGERS), GLOAM_DAGGER(DAGGERS),
+        RIMEGLASS_STAFF(STAFF), PRISMWEAVE_STAFF(STAFF), STARWARD_STAFF(STAFF), ASTRAL_CROWN_STAFF(STAFF),
+        WAYLIGHT_STAFF(STAFF), GREENBOUGH_STAFF(STAFF), VESPER_STAFF(STAFF), DAWNRING_STAFF(STAFF), HEARTHCROWN_STAFF(STAFF),
+        FIELDBREAKER(SWORD), IRONWAKE(SWORD), RIDGECLEAVER(SWORD), CINDERMAW(SWORD), FAULTLINE(SWORD),
+        GATEKEEPER(SWORD), WAYGUARD(SWORD), VOWSTEEL(SWORD), DAWNWARD(SWORD), CITADEL(SWORD);
 
+        public static Kind forPaladin(PaladinGear gear){
+            return switch(gear){
+                case GATE->GATEKEEPER;case ROAD->WAYGUARD;case VOW->VOWSTEEL;case DAWN->DAWNWARD;case CITADEL->CITADEL;
+            };
+        }
+
+        PaladinGear paladinGear(){
+            return switch(this){
+                case GATEKEEPER->PaladinGear.GATE;case WAYGUARD->PaladinGear.ROAD;case VOWSTEEL->PaladinGear.VOW;
+                case DAWNWARD->PaladinGear.DAWN;case CITADEL->PaladinGear.CITADEL;default->null;
+            };
+        }
+
+        public static Kind forBerserker(BerserkerGear gear){
+            return switch(gear){
+                case ROAD->FIELDBREAKER;case IRON->IRONWAKE;case RIDGE->RIDGECLEAVER;
+                case CINDER->CINDERMAW;case FAULT->FAULTLINE;
+            };
+        }
+
+        BerserkerGear greatswordGear(){
+            return switch(this){
+                case FIELDBREAKER->BerserkerGear.ROAD;case IRONWAKE->BerserkerGear.IRON;
+                case RIDGECLEAVER->BerserkerGear.RIDGE;case CINDERMAW->BerserkerGear.CINDER;
+                case FAULTLINE->BerserkerGear.FAULT;default->null;
+            };
+        }
+
+        public static Kind forPriest(PriestGear gear){
+            return switch(gear){
+                case WAY->WAYLIGHT_STAFF;case GROVE->GREENBOUGH_STAFF;case BELL->VESPER_STAFF;
+                case DAWN->DAWNRING_STAFF;case HEARTH->HEARTHCROWN_STAFF;
+            };
+        }
+
+        private PriestGear priestGear(){
+            return switch(this){
+                case WAYLIGHT_STAFF->PriestGear.WAY;case GREENBOUGH_STAFF->PriestGear.GROVE;
+                case VESPER_STAFF->PriestGear.BELL;case DAWNRING_STAFF->PriestGear.DAWN;
+                case HEARTHCROWN_STAFF->PriestGear.HEARTH;default->null;
+            };
+        }
+
+        public static Kind forMage(MageGear gear){
+            return switch(gear){
+                case HEARTH->STAFF;case FROST->RIMEGLASS_STAFF;case PRISM->PRISMWEAVE_STAFF;
+                case STAR->STARWARD_STAFF;case ASTRAL->ASTRAL_CROWN_STAFF;
+            };
+        }
+
+        private MageGear mageGear(){
+            return switch(this){
+                case STAFF->MageGear.HEARTH;case RIMEGLASS_STAFF->MageGear.FROST;case PRISMWEAVE_STAFF->MageGear.PRISM;
+                case STARWARD_STAFF->MageGear.STAR;case ASTRAL_CROWN_STAFF->MageGear.ASTRAL;default->null;
+            };
+        }
+
+        public static Kind forAssassin(AssassinGear gear){
+            return switch(gear){
+                case ALLEY->DAGGERS;case BRIAR->BRIAR_DAGGER;case ASH->ASH_DAGGER;
+                case MOON->MOON_DAGGER;case GLOAM->GLOAM_DAGGER;
+            };
+        }
+
+        AssassinGear assassinGear(){
+            return switch(this){
+                case DAGGERS->AssassinGear.ALLEY;case BRIAR_DAGGER->AssassinGear.BRIAR;
+                case ASH_DAGGER->AssassinGear.ASH;case MOON_DAGGER->AssassinGear.MOON;
+                case GLOAM_DAGGER->AssassinGear.GLOAM;default->null;
+            };
+        }
+
+        public boolean isHeldSword(){return isGreatsword() || paladinGear()!=null;}
+        public boolean isGreatsword(){return greatswordGear()!=null;}
         public boolean isDaggers(){return this==DAGGERS || name().endsWith("_DAGGER");}
         public boolean isStaff(){return this==STAFF || name().endsWith("_STAFF");}
         public boolean isHell(){return name().startsWith("HELL_");}
@@ -50,6 +135,7 @@ public final class WeaponArt {
         public float smear;       // 0..1 intensity of the slash smear (peaks on the first hit frames)
         public float back, prevBack;        // weapon angle seen from behind
         public float prevFront, prevSide;   // angles a moment earlier: the smear sweeps from these to the current angle
+        DaggerHand daggerHand = DaggerHand.NONE;
     }
 
     /** t = attack progress 0..1: wind-up 0-0.35, strike 0.35-0.75 (matches hit frames 4-6 of 8), recover 0.75-1. */
@@ -99,11 +185,24 @@ public final class WeaponArt {
      */
     private static Swing meleeSwing(Kind k, float t) {
         Swing s = new Swing();
-        float wind = keyed(t, 0, 0.55f, 1, 0.55f, 0.12f, 0, 0, 0);
-        float cut = keyed(t, 0, 0, 0, 0.65f, 1, 1, 0.45f, 0);
+        float wind, cut;
+        if (k.isDaggers()) {
+            s.daggerHand = daggerHand(t);
+            wind = keyed(t, 0, 0.42f, 0.72f, 0.1f, 0.42f, 0, 0, 0);
+            cut = keyed(t, 0, 0, 0, 1, 0.15f, 1, 0.5f, 0);
+            s.reach = cut;
+            s.smear = keyed(t, 0, 0, 0, 1, 0.15f, 1, 0.32f, 0);
+        } else {
+            wind = keyed(t, 0, 0.55f, 1, 0.55f, 0.12f, 0, 0, 0);
+            cut = keyed(t, 0, 0, 0, 0.65f, 1, 1, 0.45f, 0);
+            s.reach = keyed(t, 0, 0, 0, 0.75f, 1, 0.6f, 0.2f, 0);
+            if(k.isHeldSword()){
+                s.smear=t<HELD_SWORD_HIT?0:Math.max(0,1-(t-HELD_SWORD_HIT)/0.18f);
+            }else{
+                s.smear = keyed(t, 0, 0, 0, 1, 0.72f, 0.24f, 0, 0);
+            }
+        }
         s.lift = wind;
-        s.reach = keyed(t, 0, 0, 0, 0.75f, 1, 0.6f, 0.2f, 0);
-        s.smear = keyed(t, 0, 0, 0, 0.7f, 1, 0.4f, 0, 0);
         s.front = k.restFront + (k.windFront - k.restFront) * wind
                 + (k.strikeFront - k.restFront) * cut;
         s.back = k.restFront + (k.windBack - k.restFront) * wind
@@ -113,6 +212,13 @@ public final class WeaponArt {
         // Punch from the shoulder; armed strikes sweep from overhead into a forward extension.
         s.arm = (k == Kind.NONE ? 25 : 145) * wind - 80 * cut;
         return s;
+    }
+
+    private static DaggerHand daggerHand(float progress) {
+        int frame = Math.round(progress * 7) + 1;
+        if (frame <= DAGGER_FIRST_HIT_FRAME) return DaggerHand.MAIN;
+        if (frame <= DAGGER_SECOND_HIT_FRAME + 1) return DaggerHand.OFF;
+        return DaggerHand.NONE;
     }
 
     private static float keyed(float t, float... values) {
@@ -153,57 +259,21 @@ public final class WeaponArt {
         at.rotate(Math.toRadians(angle));
         float grow = size * (1f + 0.28f * reach);
         at.scale(grow, grow);
+        PaladinGear paladin=kind.paladinGear();
+        if(paladin!=null){paladin.drawSword(g,at);return;}
+        BerserkerGear greatsword=kind.greatswordGear();
+        if(greatsword!=null){greatsword.drawSword(g,at);return;}
+        AssassinGear gear=kind.assassinGear();
+        if(gear!=null){gear.drawDagger(g,at,mirror<0);return;}
+        PriestGear priestStaff=kind.priestGear();
+        if(priestStaff!=null){priestStaff.drawStaff(g,at);return;}
+        MageGear staffGear=kind.mageGear();
+        if(staffGear!=null){staffGear.drawStaff(g,at);return;}
         switch (kind) {
             case SWORD -> sword(g, at);
             case AXE   -> axe(g, at);
-            case STAFF -> staff(g, at);
             default -> relic(g,at,kind);
         }
-    }
-
-    /** A broad tapered crescent in the facing direction, kept inside the 64-unit canvas.
-     * It is drawn in body space, so the slash stays in front of the target-facing side
-     * instead of orbiting around the character's weapon hand.
-     */
-    static void drawMeleeSmear(Graphics2D g, Kind kind, boolean side, boolean back, float t, float strength) {
-        if (kind.isStaff() || strength <= 0.01f) return;
-        float cx = 32, cy = side ? 39 : back ? 25 : 39;
-        float rx = side ? 28 : 24, ry = side ? 20 : 22;
-        if (kind == Kind.NONE) { rx *= 0.7f; ry *= 0.7f; }
-        double facing = side ? 0 : back ? -Math.PI / 2 : Math.PI / 2;
-        float sweep = Math.max(0, Math.min(1, (t - 3f / 7) * 7));
-        double from = facing + Math.toRadians(-78 + 42 * sweep);
-        double to = facing + Math.toRadians(12 + 66 * sweep);
-        Path2D crescent = new Path2D.Float();
-        int steps = 32;
-        for (int i = 0; i <= steps; i++) {
-            double a = from + (to - from) * i / steps;
-            double x = cx + rx * Math.cos(a), y = cy + ry * Math.sin(a);
-            if (i == 0) crescent.moveTo(x, y); else crescent.lineTo(x, y);
-        }
-        for (int i = steps; i >= 0; i--) {
-            double a = from + (to - from) * i / steps;
-            double taper = Math.sin(Math.PI * i / steps);
-            double width = (kind == Kind.NONE ? 3 : 6) * taper;
-            crescent.lineTo(cx + (rx - width) * Math.cos(a), cy + (ry - width) * Math.sin(a));
-        }
-        crescent.closePath();
-        Paint paint = g.getPaint();
-        g.setPaint(new Color(255, 229, 170, Math.round(240 * strength)));
-        g.fill(crescent);
-        // Crisp ivory outer edge survives downsampling; the warm inner band gives it weight.
-        Path2D rim = new Path2D.Float();
-        for (int i = 0; i <= steps; i++) {
-            double a = from + (to - from) * i / steps;
-            double x = cx + rx * Math.cos(a), y = cy + ry * Math.sin(a);
-            if (i == 0) rim.moveTo(x, y); else rim.lineTo(x, y);
-        }
-        Stroke stroke = g.getStroke();
-        g.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(new Color(255, 253, 240, Math.round(255 * strength)));
-        g.draw(rim);
-        g.setStroke(stroke);
-        g.setPaint(paint);
     }
 
     private static void P(Graphics2D g, AffineTransform at, Shape s, Color c, int seed) {

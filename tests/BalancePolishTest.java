@@ -26,10 +26,6 @@ public class BalancePolishTest {
         var draw=UI.class.getDeclaredMethod("drawPlayerHP");draw.setAccessible(true);draw.invoke(g.ui);
         require(image.getRGB(32,60)==p.resourceBarColor().getRGB() && p.resourceBarColor().getGreen()>150 && p.resourceBarColor().getBlue()<100,"Focus bar renders yellow");
         graphics.dispose();save(image.getSubimage(0,0,270,110),"focus-hud");
-        design(p,"mage");require(p.maxHP==8 && p.getAttack()==2 && p.resourceName().equals("MP"),"Mage damage nerfed while HP/MP identity stays intact");
-        p.currentWeapon=ItemRegistry.create(ItemType.ROYAL_STAFF,g);p.attack=p.getAttack();require(p.attack==9,"upgraded Mage weapon also receives 25 percent damage reduction");
-        Projectile shot=HitResourceGenerationTest.cast(g,p);require(shot.attack==9 && p.arcaneCharge==0,"ordinary fireball uses reduced damage and no free rune");
-        p.arcaneCharge=p.maxArcaneCharge;shot=HitResourceGenerationTest.cast(g,p);require(shot.empowered && shot.attack==18 && p.arcaneCharge==0,"empowered fireball is now two times damage");
         design(p,"warrior");p.worldX=300;p.worldY=300;
         var gallery=new BufferedImage(950,180,BufferedImage.TYPE_INT_ARGB);var art=gallery.createGraphics();art.setColor(Color.BLACK);art.fillRect(0,0,950,180);
         var signatures=new HashSet<Integer>();
@@ -53,6 +49,6 @@ public class BalancePolishTest {
         g.particleList.clear();p.HP=1;g.quests.activateArea(true);g.applyGameEventLocally(decoded.playerId,decoded.type,decoded.message,decoded.personalText);
         require(g.particleList.isEmpty() && g.quests.inDungeon(),"town cast does not leak effects into dungeon");g.quests.activateArea(false);
         require(g.particleList.stream().anyMatch(e->e instanceof WarriorSkillEffect) && p.HP==1,"replicated Rally renders in town without healing twice");
-        System.out.println("PASS: doubled Hell HP and wipe reset, Warrior health increase, yellow Hunter Focus, Mage base/upgraded/empowered nerfs, five bounded animated Warrior skill effects, network replay and scene isolation.");
+        System.out.println("PASS: doubled Hell HP and wipe reset, Warrior health increase, yellow Hunter Focus, five bounded animated Warrior skill effects, network replay and scene isolation.");
     }
 }

@@ -5,6 +5,7 @@ import monster.MonsterType;
 import entity.Entity;
 import entity.Monster;
 import entity.Player;
+import entity.SkillParticles;
 import net.InputState;
 import tile.TileManager;
 import tiles_interactive.InteractiveTile;
@@ -215,7 +216,7 @@ public class Gamepanel extends JPanel implements Runnable{
                     nextFrame += frameInterval;
                     if(now - nextFrame >= 0) nextFrame = now + frameInterval;
                     drawToTempscreen();
-                    drawToScreen();
+                    presentGameFrame();
                 }
 
                 now = System.nanoTime();
@@ -261,6 +262,11 @@ public class Gamepanel extends JPanel implements Runnable{
 
         ui.update(mouseH.getScaledX(),mouseH.getScaledY(),mouseH.leftClicked);
 
+        if(gameState == playState && isWorldFrozen()){
+            Player local=localPlayer();
+            if(local!=null && local.isRanger())local.cancelBowDraw();
+        }
+
         if(gameState == playState && !isWorldFrozen()){
 
             // 1. Reconcile FIRST, using only inputs already buffered from previous ticks
@@ -296,6 +302,8 @@ public class Gamepanel extends JPanel implements Runnable{
                     mouseH.leftClicked = false;
                 }
                 if(grassEditor.active){
+                    localInput.leftHeld = false;
+                    localInput.gameplaySuppressed = true;
                     localInput.leftClicked = false;   // painting must not swing the weapon
                     mouseH.leftClicked = false;
                     localInput.targetedMonsterIndex = -1;
@@ -372,16 +380,10 @@ public class Gamepanel extends JPanel implements Runnable{
             }
 
             //PARTICLES
-            for(int i = 0; i< particleList.size(); i++){
-                if(particleList.get(i) != null){
-                    if(particleList.get(i).alive){
-                        particleList.get(i).update();
-                    }
-                    if(!particleList.get(i).alive){
-                        particleList.remove(i);
-                    }
-                }
+            for(Entity particle : particleList){
+                if(particle != null && particle.alive) particle.update();
             }
+            particleList.removeIf(particle -> particle == null || !particle.alive);
 
             //INTERACTABLE TILES
             if(simulateWorld){
@@ -454,8 +456,11 @@ public class Gamepanel extends JPanel implements Runnable{
 
     private void endPixelBuffer(){
         g2 = screenG;
+        Object oldInterpolation=g2.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         g2.drawImage(pixelBuf, 0, 0, screenWidth, screenHeight, null);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterpolation==null
+                ?RenderingHints.VALUE_INTERPOLATION_BILINEAR:oldInterpolation);
     }
 
     public void setPixelBuffer(boolean on){
@@ -467,12 +472,7 @@ public class Gamepanel extends JPanel implements Runnable{
         g2.setColor(Color.black);
         g2.fillRect(0, 0, screenWidth, screenHeight);
 
-        //TITLE SCREEN
-        if(gameState == titleState){
-            ui.draw(g2);
-        }
-        //INGAME SCREEN
-        else{
+        if(gameState == playState){
 
             if(pixelBuffer) beginPixelBuffer();
 
@@ -502,6 +502,7 @@ public class Gamepanel extends JPanel implements Runnable{
             }
 
             if(!quests.inDungeon())grass.drawBase(g2);
+            entity.PriestCombat.drawSanctuaries(this,g2);
 
             //ADD ENTITIES TO THE LIST
             for(Player p : players){
@@ -548,6 +549,10 @@ public class Gamepanel extends JPanel implements Runnable{
                 if(!quests.inDungeon())grass.drawFront(g2, entityList.get(i));
             }
 
+            for(Player p:players){
+                if(p!=null && p.inWell==quests.inDungeon() && p.isBerserker())p.berserker.drawImpact(g2);
+            }
+
             //EMPTY ENTITY LIST
             entityList.clear();
 
@@ -567,9 +572,18 @@ public class Gamepanel extends JPanel implements Runnable{
                 lighting.draw(g2, shakeOffsetX, shakeOffsetY);
             }
 
-            //UI
-            ui.draw(g2);
         }
+        // Direct captures still include the UI. The live presenter draws it into its own layer.
+        if(Thread.currentThread()!=gameThread){
+            Graphics2D overlay=(Graphics2D)g2.create();
+            try{ui.draw(overlay);}finally{overlay.dispose();}
+        }
+    }
+
+    private void presentGameFrame() throws IOException{
+        if(tempScreen==null)return;
+        DisplaySettings.Resolution resolution=display.frameResolution();
+        if(frames.publish(tempScreen,resolution.width(),resolution.height(),display.interfaceResolution(),ui::draw))repaint();
     }
 
     public void drawToScreen(){
@@ -584,7 +598,7 @@ public class Gamepanel extends JPanel implements Runnable{
             if(frame==null){super.paintComponent(graphics);return;}
             // An opaque completed frame plus its letterbox margins paints every pixel.
             // Avoid clearing the entire high-DPI window again before this blit.
-            display.paintFrame((Graphics2D)graphics,frame.image(),getWidth(),getHeight(),frame.sequence());
+            display.paintFrame((Graphics2D)graphics,frame.image(),frame.overlay(),getWidth(),getHeight(),frame.sequence());
             if(frame.sequence()!=lastPaintedSequence){
                 lastPaintedSequence=frame.sequence();paintedFrames.incrementAndGet();
             }
@@ -717,7 +731,11 @@ public class Gamepanel extends JPanel implements Runnable{
         if(type==GameEventType.SKILL_EFFECT){
             if(playerId>=0 && playerId<players.length && players[playerId]!=null){
                 Player caster=players[playerId];boolean previous=quests.inDungeon();quests.activateArea(caster.inWell);
-                caster.spawnWarriorSkillEffects(personalMessage);quests.activateArea(previous);
+                try {
+                    SkillParticles.spawn(caster, personalMessage);
+                } finally {
+                    quests.activateArea(previous);
+                }
             }
             return;
         }

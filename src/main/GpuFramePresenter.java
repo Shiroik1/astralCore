@@ -18,7 +18,7 @@ public final class GpuFramePresenter {
         }
         for(int attempt=0;attempt<3;attempt++){
             boolean recreate=texture==null || configuration!=next || texture.getWidth()!=source.getWidth()
-                    || texture.getHeight()!=source.getHeight();
+                    || texture.getHeight()!=source.getHeight() || texture.getTransparency()!=source.getTransparency();
             if(recreate)createTexture(next,source);
             int validation=texture.validate(next);
             if(validation==VolatileImage.IMAGE_INCOMPATIBLE){createTexture(next,source);validation=VolatileImage.IMAGE_RESTORED;}
@@ -40,7 +40,7 @@ public final class GpuFramePresenter {
     private void createTexture(GraphicsConfiguration next,BufferedImage source){
         if(texture!=null)texture.flush();
         configuration=next;
-        texture=next.createCompatibleVolatileImage(source.getWidth(),source.getHeight(),Transparency.OPAQUE);
+        texture=next.createCompatibleVolatileImage(source.getWidth(),source.getHeight(),source.getTransparency());
         uploadedSource=null;uploadedSequence=Long.MIN_VALUE;
     }
     public void dispose(){

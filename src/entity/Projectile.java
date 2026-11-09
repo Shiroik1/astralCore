@@ -62,15 +62,19 @@ public class Projectile extends Entity{
             int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
             if(monsterIndex != 999){
                 if(((Player) user).canResolveWorldActions()){
-                    Player owner=(Player)user;
-                    if(owner.damageMonster(monsterIndex,attack,empowered,direction))owner.gainRuneChargeOnHit(empowered);
+                    ((Player)user).damageMonster(monsterIndex,attack,empowered,direction);
                 }
-                generateParticle(user.projectile, gp.monster[monsterIndex]);
+                generateParticle(user.projectile==null?this:user.projectile, gp.monster[monsterIndex]);
                 alive = false;
             }
         }
         else {
-            Player contactedPlayer = hitPlayerAlongFlight();
+            int dx=(int)(worldX+velocityX())-worldX,dy=(int)(worldY+velocityY())-worldY;
+            Player contactedPlayer=hitPlayerAlongFlight(dx,dy);
+            if(PaladinCombat.interceptProjectile(this,dx,dy,contactedPlayer)){
+                alive=false;
+                return;
+            }
             if(contactedPlayer != null && !contactedPlayer.invincible){
                 if(!gp.isNetworked || gp.isHost){
                     damagePlayer(contactedPlayer, attack);
@@ -111,9 +115,7 @@ public class Projectile extends Entity{
         }
     }
 
-    private Player hitPlayerAlongFlight(){
-        int dx=useAngledMovement?(int)(worldX+vx)-worldX:direction.equals("right")?speed:direction.equals("left")?-speed:0;
-        int dy=useAngledMovement?(int)(worldY+vy)-worldY:direction.equals("down")?speed:direction.equals("up")?-speed:0;
+    private Player hitPlayerAlongFlight(int dx,int dy){
         java.awt.Rectangle swept=new java.awt.Rectangle(worldX+solidArea.x+Math.min(0,dx),worldY+solidArea.y+Math.min(0,dy),solidArea.width+Math.abs(dx),solidArea.height+Math.abs(dy));
         for(Player p:gp.players)if(p!=null && p.inWell==gp.quests.inDungeon() && !p.isDead && !p.invincible && swept.intersects(p.worldX+p.solidArea.x,p.worldY+p.solidArea.y,p.solidArea.width,p.solidArea.height))return p;
         return null;

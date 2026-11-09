@@ -9,6 +9,7 @@ public class InputState {
     public boolean ePressed;
     public boolean escapePressed;
     public boolean leftClicked;
+    public boolean leftHeld, rightHeld, gameplaySuppressed, movementLocked, chorusSpeed, heavyMovement;
     public boolean[] skillKeyPressed = new boolean[5];
     public int targetedMonsterIndex = -1;
     public int aimWorldX, aimWorldY;
@@ -24,6 +25,8 @@ public class InputState {
         state.ePressed = keyH.consumeEEdge();
         state.escapePressed = keyH.consumeEscapeEdge();
         state.leftClicked = mouseH.leftClicked;
+        state.leftHeld = mouseH.leftPressed;
+        state.rightHeld = mouseH.rightPressed;
         state.targetedMonsterIndex = targetedMonsterIndex;
         for(int i = 0; i < state.skillKeyPressed.length; i++){
             state.skillKeyPressed[i] = keyH.skillKeyPressed[i];
@@ -39,6 +42,10 @@ public class InputState {
         right = newer.right;
         aimWorldX = newer.aimWorldX;
         aimWorldY = newer.aimWorldY;
+        targetedMonsterIndex = newer.targetedMonsterIndex;
+        leftHeld = newer.leftHeld;
+        rightHeld = newer.rightHeld;
+        gameplaySuppressed = newer.gameplaySuppressed;
         ePressed = ePressed || newer.ePressed;
         escapePressed = escapePressed || newer.escapePressed;
         leftClicked = leftClicked || newer.leftClicked;
@@ -49,6 +56,9 @@ public class InputState {
     }
 
     public void suppressGameplay(){
+        gameplaySuppressed = true;
+        leftHeld = false;
+        rightHeld = false;
         up = false;
         down = false;
         left = false;

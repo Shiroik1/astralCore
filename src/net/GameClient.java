@@ -5,6 +5,8 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
 import entity.Entity;
 import entity.Player;
+import entity.RangerEffect;
+import entity.MageEffect;
 import main.Gamepanel;
 import monster.MON_GreenSlime;
 import monster.MON_SlimeBoss;
@@ -148,7 +150,7 @@ public class GameClient {
             if(p.hairStyle!=ps.hairStyle || p.hairColor!=ps.hairColor){
                 p.hairStyle=ps.hairStyle;p.hairColor=ps.hairColor;appearanceChanged=true;
             }
-            if(ps.playerClass!=null)p.playerClass=entity.CharacterClass.fromId(ps.playerClass).id;
+            if(ps.playerClass!=null)p.applySyncedClass(ps.playerClass);
             if(ps.gender!=null)p.gender="female".equals(ps.gender)?"female":"male";
             if(ps.weaponType!=null && object.ItemRegistry.typeFor(p.currentWeapon)!=ps.weaponType){
                 p.currentWeapon=object.ItemRegistry.create(ps.weaponType,gp);p.attack=p.getAttack();appearanceChanged=true;
@@ -164,6 +166,15 @@ public class GameClient {
                 }
             }
             if(appearanceChanged)p.refreshWeaponAnimation();
+
+            if(p.usesMana()){
+                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
+                boolean infused=ps.effectTypes!=null && java.util.Arrays.asList(ps.effectTypes).contains(entity.MageCombat.INFUSION);
+                p.mage.syncVisual(ps.mageCastTicks,ps.mageCastLength,ps.mageHeading,ps.arcaneCharge,infused);
+                gp.quests.activateArea(activeArea);
+            }
+
+            if(p.isPriest())p.priest.syncVisual(ps.priestBeaconId);
 
             if(p.isLocal){
                 boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
@@ -214,8 +225,11 @@ public class GameClient {
                 p.maxRage = ps.maxRage;
                 p.MP = ps.MP;
                 p.maxMP = ps.maxMP;
-                p.animState = ps.animState;
-                p.attacking = ps.attacking;
+                p.applyRemoteAnimation(ps.animState, ps.attacking);
+                if(p.usesMana()){
+                    p.arcaneCharge=ps.arcaneCharge;
+                    if("attack".equals(ps.animState))p.spriteNum=ps.mageFrame;
+                }
                 p.isDead = ps.isDead;
                 p.applySyncedEffects(ps.effectTypes, ps.effectDurations, ps.effectValues, ps.auraRgb);
 
@@ -224,6 +238,28 @@ public class GameClient {
                     Color color = delta > 0 ? new Color(120, 220, 120) : Color.red;
                     gp.spawnFloatingText(p.worldX, p.worldY, (delta > 0 ? "+" : "") + delta, color);
                 }
+            }
+            if(p.isPaladin()){
+                p.paladin.syncVisual(ps);
+            }
+            if(p.isBerserker()){
+                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
+                p.berserker.syncVisual(ps.berserkerAction,ps.berserkerAge,ps.berserkerSerial,ps.berserkerHeading,ps.berserkerWaveStopped);
+                gp.quests.activateArea(activeArea);
+            }
+            if(p.isAssassin()){
+                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
+                p.assassin.syncVisual(ps.assassinAction,ps.assassinAge,ps.assassinHeading,ps.assassinCrit,ps.assassinCritHeading);
+                gp.quests.activateArea(activeArea);
+                if(!p.isLocal && ps.assassinAction!=0)p.spriteNum=ps.assassinFrame;
+            }
+            if(!p.isLocal && ps.attacking && p.usesMeleeSlash())p.syncMeleeAttackFrame(ps.meleeFrame,ps.meleeFrameTicks);
+            if(p.isRanger()){
+                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
+                p.ranger.applyVisual(ps.rangerMarkIndex,ps.rangerMarkTicks,ps.rangerDraw,ps.rangerDeadeye,
+                        ps.rangerHopAge,ps.rangerRecovery,ps.rangerHeading,!p.isLocal);
+                gp.quests.activateArea(activeArea);
+                if(!p.isLocal && "attack".equals(ps.animState))p.spriteNum=ps.rangerFrame;
             }
         }
 
@@ -246,23 +282,33 @@ public class GameClient {
                 gp.monster[i].HP = ms.HP; // avoid a false "just got hit" trigger on first creation
             }
 
-            Entity m = gp.monster[i];
+            var m = gp.monster[i];
+            m.worldX = ms.worldX;
+            m.worldY = ms.worldY;
             if(ms.HP < m.HP){
                 // The HP delta IS the hit signal — no separate "you got hit" event needed
                 m.flashing = true;
                 m.flashCounter = 0;
                 m.hpBarOn = true;
                 m.hpBarCounter = 0;
-                m.spawnHitParticles();
+                boolean directHit = ms.hitSequence != m.hitSequence;
+                Color accent = directHit && ms.criticalHitRgb != 0 ? new Color(ms.criticalHitRgb) : null;
+                entity.Particle.impact(m, directHit ? ms.hitDirection : null, accent);
                 gp.spawnFloatingText(m.worldX + gp.tileSize/2, m.worldY, String.valueOf(m.HP - ms.HP), new Color(255, 220, 80));
             }
 
-            m.worldX = ms.worldX;
-            m.worldY = ms.worldY;
             m.direction = ms.direction;
             m.HP = ms.HP;
             m.maxHP = ms.maxHP;
+            Player local=gp.localPlayer();
+            m.comboStacks=local!=null && local.isAssassin() && ms.assassinPairMask>=0
+                    ?(ms.assassinPairMask>>local.playerId)&1:ms.comboStacks;
+            m.hitSequence = ms.hitSequence;
             m.dying = ms.dying;
+            m.syncRangerPin(ms.rangerPinned);
+            m.syncAssassinBleed(ms.assassinBleeding);
+            m.syncBerserkerSunder(ms.berserkerSundered);
+            m.syncChallengeMark(ms.paladinChallenged);
 
             if(ms.isBoss && m instanceof MON_SlimeBoss boss){
                 boss.syncCharge(ms.chargeX,ms.chargeY);
@@ -273,6 +319,8 @@ public class GameClient {
         }
 
         applySlimeProjectiles(snapshot.slimeProjectiles);
+        applyRangerEffects(snapshot.rangerEffects);
+        applyMageEffects(snapshot.mageEffects);
 
         for(int i = 0; i < snapshot.objects.length; i++){
             net.ObjectState os = snapshot.objects[i];
@@ -314,6 +362,34 @@ public class GameClient {
                         + " stateful objects, this client has " + expected + ". Use the same maps/ files.");
             }
         }
+    }
+
+    private void applyRangerEffects(RangerEffectState[] states){
+        if(states==null)return;
+        var byId=new java.util.HashMap<Integer,RangerEffect>();
+        for(var projectile:gp.projectileList){
+            if(projectile instanceof RangerEffect effect && effect.isReplica())byId.put(effect.id(),effect);
+        }
+        for(RangerEffectState state:states){
+            RangerEffect existing=byId.remove(state.id);
+            if(existing==null)gp.projectileList.add(RangerEffect.replica(gp,state));
+            else existing.syncReplica(state);
+        }
+        if(!byId.isEmpty())gp.projectileList.removeAll(byId.values());
+    }
+
+    private void applyMageEffects(MageEffectState[] states){
+        if(states==null)return;
+        var byId=new java.util.HashMap<Integer,MageEffect>();
+        for(var projectile:gp.projectileList){
+            if(projectile instanceof MageEffect effect && effect.isReplica())byId.put(effect.id(),effect);
+        }
+        for(MageEffectState state:states){
+            MageEffect existing=byId.remove(state.id);
+            if(existing==null)gp.projectileList.add(MageEffect.replica(gp,state));
+            else existing.syncReplica(state);
+        }
+        if(!byId.isEmpty())gp.projectileList.removeAll(byId.values());
     }
 
     public void applyPendingEvents(){

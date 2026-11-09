@@ -214,6 +214,10 @@ public class UI {
     public void draw(Graphics2D g2) throws IOException {
 
         this.g2 = g2;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BICUBIC);
 
         g2.setFont(jetbrainsMono);
         g2.setColor(Color.white);
@@ -300,7 +304,12 @@ public class UI {
             if(equipmentBounds[i]==null)equipmentBounds[i]=new Rectangle();
             equipmentBounds[i].setBounds(x,y,slotIconSize,slotIconSize);
             g2.setFont(savedFont.deriveFont(11f));g2.setColor(Color.white);
-            g2.drawString(i==1 && gp.localPlayer().playerClass.equals("hunter")?"Paired blades":EQUIPMENT_LABELS[i],x,y-3);
+            var player=gp.localPlayer();
+            String label=EQUIPMENT_LABELS[i];
+            if(i==0 && player.isRanger())label="Bow";
+            if(i==1 && player.isRanger())label="Off hand";
+            if(i==1 && player.playerClass.equals("hunter"))label="Paired blades";
+            g2.drawString(label,x,y-3);
             drawEquipSlot(equipmentBounds[i],draggingItem && dragSourceType==i+1 ? null : gp.localPlayer().equippedItem(i+1));
         }
         undressBounds.setBounds(equipX,frameY+windowPadding+equipmentRows*(slotIconSize+18)+6,equipmentWidth,24);
@@ -516,9 +525,11 @@ public class UI {
         g2.drawString(value, textX, textY);
         textY += lineHeight;
 
-        if(gp.localPlayer().playerClass.equals("mage")){
+        if(gp.localPlayer().usesMana()){
             value = gp.localPlayer().MP + "/" + gp.localPlayer().maxMP;
-        } else {
+        }else if(gp.localPlayer().isPaladin()){
+            value=gp.localPlayer().resolve+"/"+gp.localPlayer().maxResolve;
+        }else{
             value = gp.localPlayer().rage + "/" + gp.localPlayer().maxRage;
         }
         textX = getXforRightAlignText(value, tailX);
@@ -633,11 +644,17 @@ public class UI {
                 new Color(60, 20, 20), new Color(200, 40, 40), "HP");
 
         int secondaryY = hpY + barHeight + barSpacing;
-        if(local.playerClass.equals("mage")){
+        if(local.usesMana()){
             drawStatBar(barX, secondaryY, barWidth, barHeight, local.MP, local.maxMP,
                     new Color(20, 30, 60), new Color(60, 130, 230), "MP");
-            drawArcaneCharge(local, barX + barWidth + 16, secondaryY, barHeight);
-        } else {
+            if(local.isMage())drawArcaneCharge(local, barX + barWidth + 16, secondaryY, barHeight);
+            else{
+                g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,12f));g2.setColor(new Color(0xF7D58C));
+                g2.drawString("Beacon · "+local.priest.beaconLabel(),barX+barWidth+14,secondaryY+15);
+            }
+        }else if(local.isPaladin()){
+            drawPaladinResolve(local,barX,secondaryY);
+        }else{
             drawStatBar(barX, secondaryY, barWidth, barHeight, local.rage, local.maxRage,
                     local.resourceBarBackground(), local.resourceBarColor(), local.resourceName().toUpperCase(java.util.Locale.ROOT));
         }
@@ -646,6 +663,22 @@ public class UI {
             if(new Rectangle(barX,78,200,18).contains(gp.mouseH.getScaledX(),gp.mouseH.getScaledY()))gp.merchant.tooltip(g2,java.util.List.of("Resolve","Shield-mitigated hits build Resolve.","At five, your next hit gains twice defense."),barX,105);
             for(int i=0;i<local.maxResolve;i++){g2.setColor(i<local.resolve?Color.WHITE:Color.BLACK);g2.fillRect(barX+66+i*17,80,11,11);g2.setColor(Color.WHITE);g2.drawRect(barX+66+i*17,80,11,11);}
         }
+    }
+
+    private void drawPaladinResolve(Player local,int x,int y){
+        g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,12f));g2.setColor(Color.WHITE);
+        g2.drawString("RESOLVE",x,y+15);
+        for(int i=0;i<local.maxResolve;i++){
+            int cx=x+77+i*22;
+            var pip=new Polygon(new int[]{cx-7,cx,cx+7,cx+5,cx,cx-5},new int[]{y+4,y+2,y+4,y+14,y+18,y+14},6);
+            g2.setColor(i<local.resolve?new Color(0xF3C98A):new Color(0x344355));g2.fill(pip);
+            g2.setStroke(new BasicStroke(1.5f));g2.setColor(new Color(0xF1DEB9));g2.draw(pip);
+        }
+        if(local.paladin.guarding()){
+            g2.setColor(new Color(0xB4DBE9));g2.drawString("GUARDING",x+205,y+15);
+        }
+        if(new Rectangle(x,y,184,22).contains(gp.mouseH.getScaledX(),gp.mouseH.getScaledY()))
+            gp.merchant.tooltip(g2,java.util.List.of("Resolve","Hold right click to Guard.","Each mitigated frontal hit grants one Resolve."),x,y+30);
     }
 
     private void drawOtherPlayersHUD(Player local){
@@ -669,9 +702,11 @@ public class UI {
             drawMiniStatBar(barX, y, barWidth, hpHeight, p.HP, p.maxHP, new Color(60, 20, 20), new Color(200, 40, 40));
 
             int secondY = y + hpHeight + 3;
-            if(p.playerClass.equals("mage")){
+            if(p.usesMana()){
                 drawMiniStatBar(barX, secondY, barWidth, mpHeight, p.MP, p.maxMP, new Color(20, 30, 60), new Color(60, 130, 230));
-            } else {
+            }else if(p.isPaladin()){
+                drawMiniStatBar(barX,secondY,barWidth,mpHeight,p.resolve,p.maxResolve,new Color(0x344355),new Color(0xF3C98A));
+            }else{
                 drawMiniStatBar(barX, secondY, barWidth, mpHeight, p.rage, p.maxRage, p.resourceBarBackground(), p.resourceBarColor());
             }
 
@@ -1080,8 +1115,9 @@ public class UI {
         int startX = (gp.screenWidth - totalWidth) / 2;
         int y = gp.screenHeight - slotSize - 20;
 
-        for(int i = 0; i < gp.localPlayer().skills.length; i++){
-            Skill skill = gp.localPlayer().skills[i];
+        Player local=gp.localPlayer();
+        for(int i = 0; i < local.skills.length; i++){
+            Skill skill = local.skills[i];
             if(skill == null) continue;
 
             int x = startX + i * (slotSize + spacing);
@@ -1092,7 +1128,8 @@ public class UI {
 
             //ICON
             if(skill.icon != null){
-                g2.drawImage(skill.icon, x + 9, y + 9, 32, 32, null);
+                int inset=local.isRanger() || local.isAssassin() || local.usesMana() || local.isBerserker() || local.isPaladin()?4:9;
+                g2.drawImage(skill.icon,x+inset,y+inset,slotSize-2*inset,slotSize-2*inset,null);
             }
 
             //COOLDOWN OVERLAY - darkens bottom-up as it wipes away, like a classic ability timer
@@ -1111,9 +1148,9 @@ public class UI {
             }
 
             //INSUFFICIENT RESOURCE TINT
-            boolean insufficientResource = gp.localPlayer().playerClass.equals("mage")
-                    ? gp.localPlayer().MP < skill.resourceCost
-                    : gp.localPlayer().rage < skill.resourceCost;
+            int resource=local.skillResource();
+            boolean insufficientResource=resource<skill.resourceCost
+                    || (local.isMage() && local.arcaneCharge<local.mage.runesRequired(i));
             if(insufficientResource){
                 g2.setColor(new Color(255, 0, 0, 80));
                 g2.fillRoundRect(x, y, slotSize, slotSize, 8, 8);
@@ -1130,8 +1167,10 @@ public class UI {
         }
         int mx=gp.mouseH.getScaledX(),my=gp.mouseH.getScaledY();
         for(int i=0;i<5;i++)if(new Rectangle(startX+i*(slotSize+spacing),y,slotSize,slotSize).contains(mx,my)){
-            Skill skill=gp.localPlayer().skills[i];if(skill==null)continue;
-            gp.merchant.tooltip(g2,java.util.List.of(skill.name,skill.resourceCost+(" "+gp.localPlayer().resourceName())+" | "+skill.cooldownDuration/60+"s cooldown",skill.description),mx+16,my-115);
+            Skill skill=local.skills[i];if(skill==null)continue;
+            int runes=local.isMage()?local.mage.runesRequired(i):0;
+            String cost=skill.resourceCost+" "+local.resourceName()+(runes==0?"":runes==1?" + 1+ runes":" + "+runes+" runes");
+            gp.merchant.tooltip(g2,java.util.List.of(skill.name,cost+" | "+skill.cooldownDuration/60+"s cooldown",skill.description),mx+16,my-115);
         }
     }
 
@@ -1145,6 +1184,7 @@ public class UI {
 
         for(entity.StatusEffect effect : local.statusEffects){
             BufferedImage icon = local.statusEffectIcons.get(effect.type);
+            if(icon==null)icon=entity.PriestCombat.statusIcon(effect.type);
 
             g2.setColor(Color.BLACK);
             g2.fillRoundRect(x, y, iconSize, iconSize, 6, 6);
@@ -1356,7 +1396,7 @@ public class UI {
         local.setCharacterDesign(entity.CharacterClass.at(classIndex).id, genderIndex == 1 ? "female" : "male");
 
         local.setDefaultValues();
-        if(local.playerClass.equals("mage")){
+        if(local.usesMana()){
             local.getMagePlayerImage();
         } else {
             local.getPlayerImage();
@@ -1450,6 +1490,21 @@ public class UI {
             art.CharacterArt.Look look=new art.CharacterArt.Look();
             look.outfit=choice.outfit(female);look.shadow=false;
             look.weapon=choice==entity.CharacterClass.HUNTER?art.WeaponArt.Kind.DAGGERS:choice==entity.CharacterClass.MAGE?art.WeaponArt.Kind.STAFF:art.WeaponArt.Kind.SWORD;
+            if(choice==entity.CharacterClass.RANGER){
+                look.weapon=art.WeaponArt.Kind.NONE;
+                look.rangerBow=look.rangerOutfit=art.RangerGear.TRAIL;
+            }
+            if(choice==entity.CharacterClass.HUNTER)look.assassinOutfit=art.AssassinGear.ALLEY;
+            if(choice==entity.CharacterClass.MAGE)look.mageOutfit=art.MageGear.HEARTH;
+            if(choice==entity.CharacterClass.PALADIN){
+                look.weapon=art.WeaponArt.Kind.GATEKEEPER;look.paladinOutfit=look.paladinShield=art.PaladinGear.GATE;
+            }
+            if(choice==entity.CharacterClass.BERSERKER){
+                look.weapon=art.WeaponArt.Kind.FIELDBREAKER;look.berserkerOutfit=art.BerserkerGear.ROAD;
+            }
+            if(choice==entity.CharacterClass.PRIEST){
+                look.weapon=art.WeaponArt.Kind.WAYLIGHT_STAFF;look.priestOutfit=art.PriestGear.WAY;
+            }
             look.shieldStyle=choice==entity.CharacterClass.WARRIOR?1:0;
             return art.CharacterArt.render(side?art.CharacterArt.Dir.RIGHT:art.CharacterArt.Dir.DOWN,
                     new art.CharacterArt.Pose(),look,144);
@@ -1464,29 +1519,61 @@ public class UI {
         String subtitle="Choose your class and appearance.";
         g2.drawString(subtitle,getXforCenteredText(subtitle),100);
         boolean female=gp.keyH.selectedGenderIndex==1;
-        int gap=18,cardWidth=(gp.screenWidth-120-2*gap)/3,top=133,cardHeight=340;
+        var choices=entity.CharacterClass.CREATION_CHOICES;
+        int gap=18,cardWidth=(gp.screenWidth-120-(choices.size()-1)*gap)/choices.size(),top=133,cardHeight=340;
+        int preview=Math.min(144,(cardWidth-8)/2);
         int mx=gp.mouseH.getScaledX(),my=gp.mouseH.getScaledY();
         boolean clicked=gp.mouseH.leftClicked;
-        for(entity.CharacterClass choice:entity.CharacterClass.values()){
-            int x=60+choice.ordinal()*(cardWidth+gap);
+        for(int index=0;index<choices.size();index++){
+            var choice=choices.get(index);
+            int x=60+index*(cardWidth+gap);
             Rectangle card=new Rectangle(x,top,cardWidth,cardHeight);
-            if(clicked && card.contains(mx,my))gp.keyH.selectedClassIndex=choice.ordinal();
-            boolean selected=gp.keyH.selectedClassIndex==choice.ordinal();
+            if(clicked && card.contains(mx,my))gp.keyH.selectedClassIndex=index;
+            boolean selected=gp.keyH.selectedClassIndex==index;
             g2.setColor(Color.BLACK);
             g2.fillRoundRect(x,top,cardWidth,cardHeight,20,20);
             g2.setColor(Color.WHITE);
             g2.setStroke(new BasicStroke(selected?3:1));g2.drawRoundRect(x,top,cardWidth,cardHeight,20,20);
-            g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,24f));
+            g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,20f));
+            int labelWidth=g2.getFontMetrics().stringWidth(choice.label);
+            if(labelWidth>cardWidth-12)g2.setFont(jetbrainsMono.deriveFont(Font.BOLD,20f*(cardWidth-12)/labelWidth));
             g2.setColor(Color.WHITE);
             g2.drawString(choice.label,x+(cardWidth-g2.getFontMetrics().stringWidth(choice.label))/2,top+43);
             int center=x+cardWidth/2;
-            g2.drawImage(creationPreview(choice,female,false),center-144,top+73,null);
-            g2.drawImage(creationPreview(choice,female,true),center,top+73,null);
+            g2.drawImage(creationPreview(choice,female,false),center-preview,top+85,preview,preview,null);
+            g2.drawImage(creationPreview(choice,female,true),center,top+85,preview,preview,null);
             g2.setFont(jetbrainsMono.deriveFont(14f));g2.setColor(new Color(219,222,232));
             String type=choice.armorLabel+" type";
             g2.drawString(type,center-g2.getFontMetrics().stringWidth(type)/2,top+251);
             g2.setFont(jetbrainsMono.deriveFont(12f));g2.setColor(new Color(165,173,190));
+            int weaponWidth=g2.getFontMetrics().stringWidth(choice.weaponLabel);
+            if(weaponWidth>cardWidth-8)g2.setFont(jetbrainsMono.deriveFont(12f*(cardWidth-8)/weaponWidth));
             g2.drawString(choice.weaponLabel,center-g2.getFontMetrics().stringWidth(choice.weaponLabel)/2,top+281);
+            g2.setFont(jetbrainsMono.deriveFont(10f));
+            if(choice==entity.CharacterClass.PALADIN){
+                String controls="Hold right click to Guard";
+                g2.drawString(controls,center-g2.getFontMetrics().stringWidth(controls)/2,top+296);
+            }
+            if(choice==entity.CharacterClass.BERSERKER){
+                String controls="Sweep groups for more Rage";
+                g2.drawString(controls,center-g2.getFontMetrics().stringWidth(controls)/2,top+296);
+            }
+            if(choice==entity.CharacterClass.RANGER){
+                String controls="Click to shoot · Hold to draw";
+                g2.drawString(controls,center-g2.getFontMetrics().stringWidth(controls)/2,top+296);
+            }
+            if(choice==entity.CharacterClass.HUNTER){
+                String controls="Land two pairs for a critical hit";
+                g2.drawString(controls,center-g2.getFontMetrics().stringWidth(controls)/2,top+296);
+            }
+            if(choice==entity.CharacterClass.MAGE){
+                String controls="Land bolts to build runes";
+                g2.drawString(controls,center-g2.getFontMetrics().stringWidth(controls)/2,top+296);
+            }
+            if(choice==entity.CharacterClass.PRIEST){
+                String controls="Mend links an ally";
+                g2.drawString(controls,center-g2.getFontMetrics().stringWidth(controls)/2,top+296);
+            }
             if(selected){g2.setColor(Color.WHITE);g2.drawString("SELECTED",center-g2.getFontMetrics().stringWidth("SELECTED")/2,top+312);}
         }
         String[] labels={"Male preset","Female preset"};
@@ -1530,11 +1617,14 @@ public class UI {
         for(int i = 0; i < local.maxArcaneCharge; i++){
             int px = x + i * (pipSize + spacing);
             boolean filled = i < local.arcaneCharge;
-            g2.setColor(filled ? new Color(190, 120, 255) : new Color(0, 0, 0, 140));
-            g2.fillOval(px, y, pipSize, pipSize);
-            g2.setColor(Color.white);
-            g2.setStroke(new BasicStroke(1));
-            g2.drawOval(px, y, pipSize, pipSize);
+            int cx=px+pipSize/2,cy=y+pipSize/2;
+            var rune=new Polygon(new int[]{cx,px+pipSize,cx,px},new int[]{y,cy,y+pipSize,cy},4);
+            g2.setColor(filled ? new Color(190,120,255) : new Color(0,0,0,140));
+            g2.fillPolygon(rune);
+            g2.setColor(filled?new Color(0xF6E9FF):new Color(0xBDA9D1));
+            g2.setStroke(new BasicStroke(1.5f));
+            g2.drawPolygon(rune);
+            if(filled)g2.fillPolygon(new int[]{cx,cx+3,cx,cx-3},new int[]{cy-4,cy,cy+4,cy},4);
         }
 
         if(local.arcaneCharge >= local.maxArcaneCharge){

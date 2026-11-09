@@ -17,10 +17,13 @@ public class HeadpieceEquipmentTest {
     public static void main(String[] args)throws Exception{
         var game=new AppearanceEquipmentTest.QuietGame();Player p=game.localPlayer();
         for(String id:new String[]{"hunter","warrior"}){
-            p.setCharacterDesign(id,"female");require(p.equippedItem(Player.EQUIP_HEADPIECE)==null,"only Mage starts with a headpiece");
+            p.setCharacterDesign(id,"female");require(p.equippedItem(Player.EQUIP_HEADPIECE)==null,"starter hair stays visible");
         }
         for(boolean pixel:new boolean[]{false,true}){
-            CharacterSprites.pixelMode=pixel;p.setCharacterDesign("mage","female");
+            CharacterSprites.pixelMode=pixel;p.setCharacterDesign("mage","female");p.setItems();
+            require(p.equippedItem(Player.EQUIP_HEADPIECE)==null && ItemRegistry.typeFor(p.inventorySlots[1])==ItemType.MAGE_HAT,
+                    "Mage carries the optional hat in the bag");
+            p.tryEquipFromBag(1,Player.EQUIP_HEADPIECE);
             Entity hair=p.equippedItem(Player.EQUIP_HAIR),hat=p.equippedItem(Player.EQUIP_HEADPIECE);
             BufferedImage hatFrame=p.down1;
             int dressed=AppearanceEquipmentTest.pixels(hatFrame);
@@ -49,10 +52,12 @@ public class HeadpieceEquipmentTest {
         require(ItemRegistry.typeFor(remote.equippedItem(Player.EQUIP_HEADPIECE))==ItemType.MAGE_HAT,"remote hat equip");
         remoteState.apparelTypes[6]=null;apply.invoke(client,snapshot);
         require(remote.equippedItem(Player.EQUIP_HEADPIECE)==null && remote.equippedItem(Player.EQUIP_HAIR)!=null,"remote hat removal preserves hair");
-        CharacterArt.Look look=new CharacterArt.Look();look.shadow=false;look.outfit=CharacterClass.MAGE.outfit(true);
+        CharacterArt.Look look=new CharacterArt.Look();look.shadow=false;
+        var o=CharacterClass.MAGE.outfit(true);
+        var hat=(OBJ_apparel)ItemRegistry.create(ItemType.MAGE_HAT,game);
+        look.outfit=new CharacterOutfit(o.hair(),o.torso(),o.pants(),o.boots(),o.gloves(),o.cloak(),o.details(),hat.color);
         BufferedImage withHat=CharacterArt.render(CharacterArt.Dir.UP,new CharacterArt.Pose(),look,240);
-        var o=look.outfit;
-        look.outfit=new CharacterOutfit(o.hair(),o.torso(),o.pants(),o.boots(),o.gloves(),o.cloak(),o.details());
+        look.outfit=o;
         BufferedImage noHat=CharacterArt.render(CharacterArt.Dir.UP,new CharacterArt.Pose(),look,240);
         require(firstOpaqueRow(withHat)<firstOpaqueRow(noHat)-20,"hat sits above actual crown");
         // At x=32, y=39, rear long hair must cover the cape and collar.

@@ -39,7 +39,7 @@ public class MON_SlimeBoss extends Monster {
 
         name = hell?"Hell Slime":"Slime King";
         speed = 2;
-        maxHP = hell?600:50;
+        maxHP = hell?350:50;
         HP = maxHP;
         attack = hell?13:9;
         defense = hell?2:1;
@@ -70,7 +70,7 @@ public class MON_SlimeBoss extends Monster {
         HP=maxHP;worldX=25*gp.tileSize;worldY=14*gp.tileSize;bossState="idle";bossStateTimer=0;
         lastAttackWasSlam=false;hellAttackCycle=0;attackState=false;attacking=false;moving=false;
         spriteNum=1;spriteCounter=0;invincible=false;invincibleCounter=0;flashing=false;knockbackActive=false;
-        statusEffects.clear();comboStacks=0;auraActive=false;
+        statusEffects.clear();clearAssassinPairs();auraActive=false;
     }
 
     public double chargeX(){return chargeX;}
@@ -260,13 +260,7 @@ public class MON_SlimeBoss extends Monster {
     }
 
     private void spawnChargeParticles(){
-        for(int i = 0; i < 4; i++){
-            double angle = Math.random() * 2 * Math.PI;
-            int xd = (int) Math.round(Math.cos(angle) * 2);
-            int yd = (int) Math.round(Math.sin(angle) * 2);
-            Particle p = new Particle(gp, this, SlimeArt.SAGE, 5, 1, 15, xd, yd);
-            gp.particleList.add(p);
-        }
+        Particle.burst(this, Particle.Style.MOTE, SlimeArt.SAGE, 4, 4, 15, 2.3f);
     }
 
     public void damageReaction(){

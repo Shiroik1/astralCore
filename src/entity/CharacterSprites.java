@@ -24,6 +24,9 @@ public final class CharacterSprites {
     public static final int PIXEL_SCALE = 3;
 
     public static final int IDLE_FRAMES = 4, RUN_FRAMES = 8, ATTACK_FRAMES = 8;
+    static final int SWORD_ATTACK_FRAMES=2*ATTACK_FRAMES-1;
+    static final int SWORD_HIT_POSE=6;
+    static final int GREATSWORD_RAISE_FRAMES=4;
 
     /** Screen size (px) of the square canvas every body frame is drawn into. */
     public static int canvasSize() { return LOW * PIXEL_SCALE; }
@@ -45,9 +48,30 @@ public final class CharacterSprites {
             BufferedImage[] run = new BufferedImage[RUN_FRAMES];
             for (int i = 0; i < RUN_FRAMES; i++)
                 run[i] = frame(DIRS[d], new CharacterArt.Pose().walk(i / (float) RUN_FRAMES), look);
-            BufferedImage[] atk = new BufferedImage[ATTACK_FRAMES];
-            for (int i = 0; i < ATTACK_FRAMES; i++)
-                atk[i] = frame(DIRS[d], new CharacterArt.Pose().attack(i / (float) (ATTACK_FRAMES - 1)), look);
+            int attackFrames=look.weapon.isHeldSword()?SWORD_ATTACK_FRAMES:ATTACK_FRAMES;
+            BufferedImage[] atk = new BufferedImage[attackFrames];
+            for (int i = 0; i < attackFrames; i++)
+                atk[i] = frame(DIRS[d], new CharacterArt.Pose().attack(i / (float) (attackFrames - 1)), look);
+
+            if(look.weapon.isGreatsword()){
+                var raised=new BufferedImage[GREATSWORD_RAISE_FRAMES];
+                for(int i=0;i<raised.length;i++){
+                    var pose=new CharacterArt.Pose();pose.greatswordRaise=(i+1)/(float)raised.length;
+                    raised[i]=frame(DIRS[d],pose,look);
+                }
+                var impact=java.util.Arrays.copyOfRange(atk,SWORD_HIT_POSE,attackFrames);
+                sprites.put("greatsword_raise_"+NAMES[d],new SpriteAnimation(raised,size,size));
+                sprites.put("greatsword_impact_"+NAMES[d],new SpriteAnimation(impact,size,size));
+            }
+
+            if(look.paladinShield!=null){
+                var guard=new BufferedImage[2];
+                for(int i=0;i<guard.length;i++){
+                    var pose=new CharacterArt.Pose();pose.guard=(i+1)/2f;
+                    guard[i]=frame(DIRS[d],pose,look);
+                }
+                sprites.put("guard_"+NAMES[d],new SpriteAnimation(guard,size,size));
+            }
 
             sprites.put("idle_" + NAMES[d], new SpriteAnimation(idle, size, size));
             SpriteAnimation r = new SpriteAnimation(run, size, size);

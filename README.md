@@ -90,7 +90,13 @@ The published alpha offers short or long hair at creation. Equipment layers—in
 - **A forest healing pond:** follow the west path north into the trees, then press **E** at the pale stone to restore HP.
 - **An underground dungeon:** ten quest slimes, live objective tracking, and a Slime King encounter with dialogue.
 - **A repeatable boss challenge:** offer one Slime Essence at the well altar to summon Hell Slime. It drops another essence and stronger class weapons.
-- **Three playable classes:** distinct equipment, resources, skills, and animated combat.
+- **Six playable class choices:** Hunter Assassin, Hunter Ranger, Caster Mage, Caster Priest, Warrior Berserker, and Warrior Paladin, each with distinct equipment and skills.
+- **Hunter Ranger:** tap left click for a quick shot, or hold until the bow flashes and release for a clean shot. Land arrows to build Focus for skills on **1–5**. Mira sells Ranger bows and leathers at levels 1, 5, 10, 17, and 25.
+- **Hunter Assassin:** land two dagger pairs on one target to crit on the fourth cut. Mira sells five tiers of paired daggers and leathers.
+- **Caster Mage:** land free Staff Bolts to build runes. Place Ember and Frost spells with the cursor, then spend runes on a close-range Detonation or a distant Cometfall. Mira stocks five tiers of staves and robes.
+- **Caster Priest** uses Mend to link a Beacon to the ally under the cursor. Land Radiant Bolts to heal your Beacon, ward it with Aegis, and support your group with Hallowed Ground, Dawn Chorus, and Sanctuary. Mira stocks five tiers of Priest staves and vestments.
+- **Warrior Berserker** earns Rage by landing wide, two-handed greatsword swings. Cleave groups, Rush into melee, Sunder armor, hit twice with Whirlwind, or send a shockwave forward with Worldbreaker. Mira stocks five greatsword and armor tiers.
+- **Warrior Paladin** holds right click to Guard and builds Resolve by mitigating frontal hits. Spend it on Interpose, Oathstrike, or a Last Bastion wall that catches hostile projectiles. Mira stocks five sets of swords, shields, and armor.
 - **A visible equipment system:** change or remove outfit pieces, weapons, shields, and headwear.
 - **Solo and host/join co-op:** shared quest progress with independent plaza respawns. A surviving boss resets after a party wipe.
 - **Adjustable display settings:** device-supported resolutions, fullscreen options, and an optional pixel filter.

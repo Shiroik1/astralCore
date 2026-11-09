@@ -31,5 +31,9 @@ public class NetworkRegistration {
         kryo.register(QuestState.class);
         kryo.register(SlimeProjectileState.class);
         kryo.register(SlimeProjectileState[].class);
+        kryo.register(RangerEffectState.class);
+        kryo.register(RangerEffectState[].class);
+        kryo.register(MageEffectState.class);
+        kryo.register(MageEffectState[].class);
     }
 }

@@ -52,7 +52,7 @@ public class HellSlimeProgressionTest {
             p.tryEquipFromBag(slot,Player.EQUIP_WEAPON);
             require(p.currentWeapon.attackValue==4 && before!=AppearanceEquipmentTest.pixels(p.down1),"powerful reward changes held artwork");
         }
-        require(mage.canCastFireball(),"Royal Staff casts spells");
+        require(mage.hasStaff(),"Royal Staff casts spells");
         g.quests.enterWell(warrior);finishAll(g);
         altar.interact(hunter);require(boss(g)<0,"no essence cannot summon");WellQuestTest.finish(hunter);
         // Fill the ground loot slots to ensure the essence and class drops cannot disappear.

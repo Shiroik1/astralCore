@@ -22,7 +22,7 @@ public class AppearanceEquipmentTest {
     public static void main(String[] args) throws Exception {
         QuietGame game=new QuietGame();Player p=game.localPlayer();
         p.setCharacterDesign("hunter","male");
-        require(p.currentOutfit().equals(CharacterOutfit.ADVENTURER),"starter outfit");
+        require(p.currentOutfit().equals(entity.CharacterClass.HUNTER.outfit(false)),"starter outfit");
         int dressed=pixels(p.down1);
         for(int slot=Player.EQUIP_HAIR;slot<=Player.EQUIP_CLOAK;slot++) {
             Entity item=p.equippedItem(slot);ItemType id=ItemRegistry.typeFor(item);
@@ -40,7 +40,7 @@ public class AppearanceEquipmentTest {
         }
         Entity[] savedBag=p.inventorySlots.clone();
         for(int i=0;i<p.inventorySlots.length;i++)p.inventorySlots[i]=ItemRegistry.create(ItemType.POTION_RED,game);
-        p.undress();require(p.currentOutfit().equals(CharacterOutfit.ADVENTURER),"full bag preserves outfit");
+        p.undress();require(p.currentOutfit().equals(entity.CharacterClass.HUNTER.outfit(false)),"full bag preserves outfit");
         require(pixels(p.down1)==dressed,"full bag preserves sprites");
         System.arraycopy(savedBag,0,p.inventorySlots,0,savedBag.length);
         Set<Entity> gear=Collections.newSetFromMap(new IdentityHashMap<>());
@@ -56,7 +56,7 @@ public class AppearanceEquipmentTest {
         PlayerState bare=SnapshotBuilder.build(game).players[0];
         require(Arrays.stream(bare.apparelTypes).allMatch(Objects::isNull),"bare outfit snapshot");
         for(int i=0;i<p.inventorySlots.length;i++)if(p.inventorySlots[i] instanceof OBJ_apparel clothing)p.tryEquipFromBag(i,3+clothing.slot.ordinal());
-        require(p.currentOutfit().equals(CharacterOutfit.ADVENTURER),"redress from bag");
+        require(p.currentOutfit().equals(entity.CharacterClass.HUNTER.outfit(false)),"redress from bag");
         Entity originalHair=p.equippedItem(Player.EQUIP_HAIR);
         Entity alternateHair=ItemRegistry.create(ItemType.HAIR,game);p.inventorySlots[1]=alternateHair;
         p.tryEquipFromBag(1,Player.EQUIP_HAIR);
@@ -66,7 +66,7 @@ public class AppearanceEquipmentTest {
         require(Arrays.stream(dressedState.apparelTypes,0,6).allMatch(Objects::nonNull) && dressedState.apparelTypes[6]==null,"equipped outfit snapshot");
         // Separate players must not share appearance state through the sprite cache.
         Player other=new Player(game,game.keyH);other.undress();
-        require(p.currentOutfit().equals(CharacterOutfit.ADVENTURER),"player outfits isolated");
+        require(p.currentOutfit().equals(entity.CharacterClass.HUNTER.outfit(false)),"player outfits isolated");
         require(!other.currentOutfit().equals(p.currentOutfit()),"bare and dressed cache keys differ");
         other.playerId=1;other.isLocal=false;game.players[1]=other;
         WorldSnapshot snapshot=SnapshotBuilder.build(game);
@@ -74,7 +74,7 @@ public class AppearanceEquipmentTest {
         GameClient client=new GameClient(game);
         var apply=GameClient.class.getDeclaredMethod("applySnapshot",WorldSnapshot.class);apply.setAccessible(true);
         apply.invoke(client,snapshot);
-        require(other.currentOutfit().equals(CharacterOutfit.ADVENTURER),"remote outfit updates");
+        require(other.currentOutfit().equals(entity.CharacterClass.HUNTER.outfit(false)),"remote outfit updates");
         remote.apparelTypes=new ItemType[p.apparelSlots.length];remote.weaponType=ItemType.FISTS;
         apply.invoke(client,snapshot);
         require(other.currentOutfit().equals(CharacterOutfit.BARE),"remote outfit removes layers");

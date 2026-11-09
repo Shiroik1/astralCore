@@ -11,18 +11,18 @@ public class ClassCreationTest {
     static void require(boolean ok,String message){if(!ok)throw new AssertionError(message);}
     public static void main(String[] args)throws Exception{
         var game=new AppearanceEquipmentTest.QuietGame();Player p=game.localPlayer();
-        require(CharacterClass.values().length==3,"three creation choices");
+        require(CharacterClass.CREATION_CHOICES.size()==6,"six creation choices");
         require(CharacterClass.fromId("swordsman")==CharacterClass.WARRIOR,"legacy swordsman maps to Warrior");
         var navigation=KeyHandler.class.getDeclaredMethod("characterCreationStep",int.class);navigation.setAccessible(true);
         game.keyH.selectedClassIndex=0;
-        navigation.invoke(game.keyH,KeyEvent.VK_A);require(game.keyH.selectedClassIndex==2,"A wraps backwards");
+        navigation.invoke(game.keyH,KeyEvent.VK_A);require(game.keyH.selectedClassIndex==CharacterClass.CREATION_CHOICES.indexOf(CharacterClass.BERSERKER),"A wraps backwards to Berserker");
         navigation.invoke(game.keyH,KeyEvent.VK_D);require(game.keyH.selectedClassIndex==0,"D wraps forwards");
         navigation.invoke(game.keyH,KeyEvent.VK_D);require(game.keyH.selectedClassIndex==1,"Mage is selectable");
         navigation.invoke(game.keyH,KeyEvent.VK_W);require(game.keyH.selectedGenderIndex==1,"female selection");
         Set<Integer> portraits=new HashSet<>();
-        for(CharacterClass choice:CharacterClass.values())for(int gender=0;gender<2;gender++){
+        for(CharacterClass choice:CharacterClass.CREATION_CHOICES)for(int gender=0;gender<2;gender++){
             game.ui.pendingCharacterName="Test "+choice.label;
-            game.ui.confirmCharacterCreation(choice.ordinal(),gender);
+            game.ui.confirmCharacterCreation(CharacterClass.CREATION_CHOICES.indexOf(choice),gender);
             require(p.playerClass.equals(choice.id),"confirmed class ID");
             require(p.gender.equals(gender==0?"male":"female"),"confirmed gender");
             require(p.currentOutfit().equals(choice.outfit(gender==1)),"preset matches actual equipment");
@@ -35,7 +35,7 @@ public class ClassCreationTest {
             var state=SnapshotBuilder.build(game).players[0];
             require(state.gender.equals(p.gender) && state.playerClass.equals(p.playerClass),"class/gender snapshot");
         }
-        require(portraits.size()==6,"six distinct designs at actual game resolution");
+        require(portraits.size()==12,"twelve distinct designs at actual game resolution");
         p.setCharacterDesign("hunter","male");
         p.inventorySlots[1]=ItemRegistry.create(ItemType.MAGE_ROBE,game);
         p.tryEquipFromBag(1,Player.EQUIP_TORSO);
@@ -57,6 +57,6 @@ public class ClassCreationTest {
         apply.invoke(new GameClient(game),snapshot);
         require(remote.gender.equals("female") && remote.playerClass.equals("mage"),"remote identity synchronizes");
         require(remote.currentOutfit().equals(CharacterClass.MAGE.outfit(true)),"remote outfit and hair synchronize");
-        System.out.println("PASS: class navigation, six creation designs, legacy rename, mixed equipment, join presets and remote class/gender synchronization.");
+        System.out.println("PASS: class navigation, twelve creation designs, legacy rename, mixed equipment, join presets and remote class/gender synchronization.");
     }
 }

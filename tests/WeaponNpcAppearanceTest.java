@@ -7,9 +7,24 @@ import java.util.*;
 public class WeaponNpcAppearanceTest {
     static void require(boolean ok,String message){if(!ok)throw new AssertionError(message);}
     public static void main(String[] args)throws Exception{
+        var assassinBlades=EnumSet.noneOf(WeaponArt.Kind.class);
+        for(var tier:AssassinGear.values())assassinBlades.add(WeaponArt.Kind.forAssassin(tier));
         for(WeaponArt.Kind kind:WeaponArt.Kind.values()){
             var rest=WeaponArt.swing(kind,false,0);
-            require(rest.front==0 && rest.back==0,"upright front/back weapon: "+kind);
+            if(assassinBlades.contains(kind)){
+                require(rest.front>90 && rest.back>90 && rest.side< -90,"Assassin holds daggers low: "+kind);
+            }else{
+                require(rest.front==0 && rest.back==0,"upright front/back weapon: "+kind);
+            }
+        }
+        var assassin=new CharacterArt.Look();
+        assassin.shadow=false;assassin.outfit=CharacterClass.HUNTER.outfit(false);
+        var unarmed=CharacterArt.render(CharacterArt.Dir.DOWN,new CharacterArt.Pose(),assassin,240);
+        for(var tier:AssassinGear.values()){
+            assassin.weapon=WeaponArt.Kind.forAssassin(tier);
+            var armed=CharacterArt.render(CharacterArt.Dir.DOWN,new CharacterArt.Pose(),assassin,240);
+            require(bladePixels(armed,unarmed,9,18)>0 && bladePixels(armed,unarmed,47,56)>0,
+                    "each front-facing dagger extends outward: "+tier);
         }
         for(boolean pixel:new boolean[]{false,true}){
             CharacterSprites.pixelMode=pixel;
@@ -53,6 +68,17 @@ public class WeaponNpcAppearanceTest {
             var expected=new HashMap<String,SpriteAnimation>();CharacterSprites.build(expected,expectedLook);
             require(AppearanceEquipmentTest.pixels(npc.down1)==AppearanceEquipmentTest.pixels(expected.get("idle_down").frames[0]),"pixel command refreshes NPC appearance");
         }
-        System.out.println("PASS: upright held weapons, rear weapon occlusion, bald Hunter-tunic NPC, stationary idle, shared foot anchor and display-mode refresh.");
+        System.out.println("PASS: held weapon poses, rear weapon occlusion, bald Hunter-tunic NPC, stationary idle, shared foot anchor and display-mode refresh.");
+    }
+
+    private static int bladePixels(BufferedImage armed,BufferedImage unarmed,int left,int right){
+        int count=0;
+        for(int y=64*3;y<78*3;y++){
+            for(int x=(left+8)*3;x<(right+8)*3;x++){
+                int pixel=armed.getRGB(x,y);
+                if(pixel!=unarmed.getRGB(x,y) && (pixel>>>24)>190 && ((pixel>>16)&255)>175)count++;
+            }
+        }
+        return count;
     }
 }

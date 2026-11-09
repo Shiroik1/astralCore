@@ -14,6 +14,12 @@ public class OBJ_apparel extends Entity {
     public final Color color;
     public final CharacterOutfit.Theme theme;
     public final boolean longHair;
+    public final art.RangerGear rangerGear;
+    public final art.AssassinGear assassinGear;
+    public final art.MageGear mageGear;
+    public final art.PriestGear priestGear;
+    public final art.BerserkerGear berserkerGear;
+    public final art.PaladinGear paladinGear;
 
     public OBJ_apparel(Gamepanel gp, ItemType itemType, CharacterOutfit.Slot slot, String label) {
         this(gp,itemType,slot,label,CharacterOutfit.Theme.LEATHER,false);
@@ -21,10 +27,55 @@ public class OBJ_apparel extends Entity {
 
     public OBJ_apparel(Gamepanel gp, ItemType itemType, CharacterOutfit.Slot slot, String label,
                        CharacterOutfit.Theme theme, boolean longHair) {
+        this(gp,itemType,slot,label,theme,longHair,null);
+    }
+
+    public OBJ_apparel(Gamepanel gp, ItemType itemType, CharacterOutfit.Slot slot, String label,
+                       CharacterOutfit.Theme theme, boolean longHair, art.RangerGear rangerGear) {
+        this(gp,itemType,slot,label,theme,longHair,rangerGear,null);
+    }
+
+    public OBJ_apparel(Gamepanel gp, ItemType itemType, CharacterOutfit.Slot slot, String label,
+                       CharacterOutfit.Theme theme, boolean longHair, art.RangerGear rangerGear, art.AssassinGear assassinGear) {
+        this(gp,itemType,slot,label,theme,longHair,rangerGear,assassinGear,null);
+    }
+
+    OBJ_apparel(Gamepanel gp,ItemType itemType,CharacterOutfit.Slot slot,String label,CharacterOutfit.Theme theme,
+               boolean longHair,art.RangerGear rangerGear,art.AssassinGear assassinGear,art.MageGear mageGear){
+        this(gp,itemType,slot,label,theme,longHair,rangerGear,assassinGear,mageGear,null);
+    }
+
+    OBJ_apparel(Gamepanel gp,ItemType itemType,CharacterOutfit.Slot slot,String label,CharacterOutfit.Theme theme,
+               boolean longHair,art.RangerGear rangerGear,art.AssassinGear assassinGear,art.MageGear mageGear,art.PriestGear priestGear){
+        this(gp,itemType,slot,label,theme,longHair,rangerGear,assassinGear,mageGear,priestGear,null);
+    }
+
+    OBJ_apparel(Gamepanel gp,ItemType itemType,CharacterOutfit.Slot slot,String label,CharacterOutfit.Theme theme,
+                boolean longHair,art.RangerGear rangerGear,art.AssassinGear assassinGear,art.MageGear mageGear,
+                art.PriestGear priestGear,art.BerserkerGear berserkerGear){
+        this(gp,itemType,slot,label,theme,longHair,rangerGear,assassinGear,mageGear,priestGear,berserkerGear,null);
+    }
+
+    OBJ_apparel(Gamepanel gp,ItemType itemType,CharacterOutfit.Slot slot,String label,CharacterOutfit.Theme theme,
+                boolean longHair,art.RangerGear rangerGear,art.AssassinGear assassinGear,art.MageGear mageGear,
+                art.PriestGear priestGear,art.BerserkerGear berserkerGear,art.PaladinGear paladinGear){
         super(gp);this.itemType=itemType;this.slot=slot;this.theme=theme;this.longHair=longHair;
-        color=CharacterOutfit.themed(theme,longHair).color(slot);
+        this.rangerGear=rangerGear;this.assassinGear=assassinGear;this.mageGear=mageGear;this.priestGear=priestGear;this.berserkerGear=berserkerGear;this.paladinGear=paladinGear;
+        color=paladinGear!=null?paladinGear.plate:berserkerGear!=null?berserkerGear.armorColor:priestGear!=null?priestGear.robe:mageGear!=null?mageGear.robe:assassinGear!=null?assassinGear.tunic:rangerGear!=null?rangerGear.tunic:CharacterOutfit.themed(theme,longHair).color(slot);
         name=label;type=type_apparel;
         description="("+name+")\n"+slot.name().toLowerCase()+" appearance\nDrag to the matching equipment slot.";
+        if(rangerGear!=null)description="("+name+")\nRanger · Level "+rangerGear.level
+                +"\n+"+rangerGear.health+" HP · "+rangerGear.armor+" Armor";
+        if(assassinGear!=null)description="("+name+")\nAssassin · Level "+assassinGear.level
+                +"\n+"+assassinGear.health+" HP · "+assassinGear.armor+" Armor";
+        if(mageGear!=null)description="("+name+")\nMage · Level "+mageGear.level
+                +"\n+"+mageGear.health+" HP · "+mageGear.armor+" Armor · +"+mageGear.mana+" MP";
+        if(priestGear!=null)description="("+name+")\nPriest · Level "+priestGear.level
+                +"\n+"+priestGear.health+" HP · "+priestGear.armor+" Armor · +"+priestGear.mana+" MP";
+        if(berserkerGear!=null)description="("+name+")\nBerserker · Level "+berserkerGear.level
+                +"\n+"+berserkerGear.health+" HP · "+berserkerGear.armor+" Armor";
+        if(paladinGear!=null)description="("+name+")\nPaladin · Level "+paladinGear.level
+                +"\n+"+paladinGear.health+" HP · "+paladinGear.armor+" Armor";
         int size=gp.tileSize;down1=new BufferedImage(size,size,BufferedImage.TYPE_INT_ARGB);
         Graphics2D g=down1.createGraphics();g.scale(size/48.0,size/48.0);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);

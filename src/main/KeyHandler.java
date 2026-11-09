@@ -23,7 +23,7 @@ public class KeyHandler implements KeyListener {
     public StringBuilder chatInput = new StringBuilder();
 
     public int characterCreationStep = 0; // 0 = naming, 1 = class/preset, 2 = hair customization
-    public int selectedClassIndex = 2; // Hunter, Mage, Warrior (default)
+    public int selectedClassIndex = entity.CharacterClass.CREATION_CHOICES.indexOf(entity.CharacterClass.PALADIN);
     public int selectedGenderIndex = 0; // 0 = male, 1 = female
 
     public KeyHandler(Gamepanel gp){
@@ -311,10 +311,10 @@ public class KeyHandler implements KeyListener {
     private void characterCreationStep(int code){
         if(code==KeyEvent.VK_ESCAPE){gp.ui.characterSlots.open();return;}
         if(code == KeyEvent.VK_A){
-            selectedClassIndex = Math.floorMod(selectedClassIndex - 1, entity.CharacterClass.values().length);
+            selectedClassIndex = Math.floorMod(selectedClassIndex - 1, entity.CharacterClass.CREATION_CHOICES.size());
         }
         if(code == KeyEvent.VK_D){
-            selectedClassIndex = (selectedClassIndex + 1) % entity.CharacterClass.values().length;
+            selectedClassIndex = (selectedClassIndex + 1) % entity.CharacterClass.CREATION_CHOICES.size();
         }
         if(code == KeyEvent.VK_W || code == KeyEvent.VK_S){
             selectedGenderIndex = 1 - selectedGenderIndex;

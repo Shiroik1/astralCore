@@ -9,6 +9,7 @@ public class StatusEffect {
     public int tickInterval; // for DOT effects: ticks between damage applications
     public int tickCounter = 0;
     public Color tintColor;
+    Player source;
 
     public StatusEffect(String type, int duration, int value, int tickInterval){
         this.type = type;

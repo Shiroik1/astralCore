@@ -1,5 +1,7 @@
 package entity;
 
+import art.WeaponArt;
+import art.Palette;
 import main.Gamepanel;
 import main.KeyHandler;
 import main.UtilityTool;
@@ -12,8 +14,10 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import net.InputState;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import world.WorldObject;
 
 public class Player extends Entity{
@@ -22,6 +26,12 @@ public class Player extends Entity{
     public int playerId;
     public String playerName = "";
     public String playerClass = "warrior";
+    public final RangerCombat ranger = new RangerCombat(this);
+    public final AssassinCombat assassin = new AssassinCombat(this);
+    public final MageCombat mage = new MageCombat(this);
+    public final PriestCombat priest = new PriestCombat(this);
+    public final BerserkerCombat berserker = new BerserkerCombat(this);
+    public final PaladinCombat paladin = new PaladinCombat(this);
     public String gender = "male";
     public int hairStyle=-1,hairColor=-1;
 
@@ -61,19 +71,20 @@ public class Player extends Entity{
 
     private int attackFrameHoldCounter = 0;
     private boolean attackBuffered = false;
+    private enum DaggerCut { FIRST, SECOND }
+    private final ArrayList<Entity> firstDaggerTargets = new ArrayList<>();
 
     public Entity leftHandItem;
     public Entity rightHandItem;
 
     private int bounceCounter = 0;
-    private int trailCounter = 0;
+    private static final int TRAIL_START_DELAY = 8;
+    private int trailCounter = TRAIL_START_DELAY;
     private final int hitStopOnHitMonster = 6; // ticks frozen when the player lands a hit — tune to taste
     private final int hitStopOnTakingDamage = 8; // slightly longer than dealing a hit — getting hit should read heavier
-    private final int trailInterval = 8; // ticks between trail particles — lower = denser trail
     private int bodySize; // canvas size shared by every player body animation (idle/run/attack)
     public Entity hoveredTarget = null;
     private boolean mageProjectileFired = false;
-    private Entity mageTarget= null;
     private int mageAimX, mageAimY;
 
     public int arcaneCharge = 0;
@@ -93,7 +104,6 @@ public class Player extends Entity{
     public Skill[] skills = new Skill[5];
     private boolean powerStrikePending = false;
     private int powerStrikeBonus = 0;
-    private boolean rendPending = false;
     private boolean armorBreakPending;
     private int ticksSinceSkillUse = 0;
     private final int mpRegenDelayTicks = 120;   // ticks after last skill use before MP starts regenerating
@@ -123,7 +133,7 @@ public class Player extends Entity{
 
         applyStarterAppearance();
         setDefaultValues();
-        if(playerClass.equals("mage")){
+        if(usesMana()){
             getMagePlayerImage();
         } else {
             getPlayerImage();
@@ -147,35 +157,36 @@ public class Player extends Entity{
         nextLevelExp = 30;
         coin = 0;
 
-        if(playerClass.equals("mage")){
-            maxHP = 8;
+        if(usesMana()){
+            maxHP = (isPriest()?9:8)+outfitHealth(equippedItem(EQUIP_TORSO));
             HP = maxHP;
-            maxMP = 10;
+            maxMP = (isPriest()?12:10)+outfitMana(equippedItem(EQUIP_TORSO));
             MP = maxMP;
             maxRage = 0;
             rage = 0;
             strength = 1;
             dexterity = 1;
-            intelligence = 3;
-            currentWeapon = new OBJ_staff(gp);
+            intelligence = isPriest()?1:2;
+            arcaneCharge=0;
+            currentWeapon = isPriest()?ItemRegistry.create(ItemType.WAYLIGHT_STAFF,gp):new OBJ_staff(gp);
             rightHandItem = currentWeapon;
             currentShield = new OBJ_no_shield(gp);
         } else {
-            maxHP = playerClass.equals("warrior")?12:10;
+            maxHP = isPaladin()?14+outfitHealth(equippedItem(EQUIP_TORSO)):isBerserker()?12+outfitHealth(equippedItem(EQUIP_TORSO)):isRanger()?10+rangerHealth(equippedItem(EQUIP_TORSO)):playerClass.equals("warrior")?12:10;
             HP = maxHP;
             maxMP = 0;
             MP = 0;
-            maxRage = 100;
+            maxRage = isPaladin()?0:100;
+            if(isPaladin())resolve=0;
             rage = 0;
-            strength = 1;
+            strength = isRanger()?2:1;
             dexterity = 1;
             intelligence = 0;
-            currentWeapon = playerClass.equals("hunter")?new OBJ_dualdaggers(gp):new OBJ_sword_normal(gp);
+            currentWeapon = isPaladin()?ItemRegistry.create(ItemType.GATEKEEPER_SWORD,gp):isBerserker()?ItemRegistry.create(ItemType.FIELDBREAKER,gp):isRanger()?ItemRegistry.create(ItemType.TRAILWOOD_BOW,gp):playerClass.equals("hunter")?new OBJ_dualdaggers(gp):new OBJ_sword_normal(gp);
             rightHandItem = currentWeapon;
-            currentShield = playerClass.equals("hunter")?new OBJ_no_shield(gp):new OBJ_shield_wood(gp);
+            currentShield = isPaladin()?ItemRegistry.create(ItemType.GATEKEEPER_ROUNDSHIELD,gp):usesFocus() || isBerserker()?new OBJ_no_shield(gp):new OBJ_shield_wood(gp);
         }
 
-        projectile = new OBJ_fireball(gp);
         attack = getAttack();
         defense = getDefense();
     }
@@ -196,25 +207,123 @@ public class Player extends Entity{
         java.util.Arrays.fill(inventorySlots, null);
         Entity starterPotion = new OBJ_potion_red(gp);
         inventorySlots[0] = starterPotion;
+        if(isMage())inventorySlots[1]=ItemRegistry.create(ItemType.MAGE_HAT,gp);
         setupSkills();
     }
 
-    public String resourceName(){return playerClass.equals("mage")?"MP":playerClass.equals("hunter")?"Focus":"Rage";}
-    public Color resourceBarColor(){return playerClass.equals("hunter")?new Color(235,198,60):new Color(220,60,30);}
-    public Color resourceBarBackground(){return playerClass.equals("hunter")?new Color(60,49,12):new Color(50,15,15);}
+    public boolean isPaladin(){return playerClass.equals("paladin");}
+    boolean hasPaladinSword(){return currentWeapon instanceof OBJ_paladinGear && currentWeapon.type==type_sword;}
 
-    /** Visual-only; invoked on every peer by the authoritative skill event. */
-    public void spawnWarriorSkillEffects(String skillName){WarriorSkillEffect.spawn(gp,this,skillName);}
+    public boolean isBerserker(){return playerClass.equals("berserker");}
+    boolean hasGreatsword(){return isBerserker() && currentWeapon instanceof OBJ_greatsword;}
+
+    public boolean isMage(){return playerClass.equals("mage");}
+    public boolean isPriest(){return playerClass.equals("priest");}
+    public boolean usesMana(){return isMage() || isPriest();}
+    public boolean hasStaff(){return usesMana() && currentWeapon!=null && !currentWeapon.isPlaceholder && currentWeapon.type==type_staff;}
+
+    public boolean isRanger(){return playerClass.equals("ranger");}
+    boolean hasBow(){return isRanger() && currentWeapon instanceof OBJ_rangerbow;}
+    public boolean isAssassin(){return playerClass.equals("hunter");}
+    boolean hasDaggers(){return isAssassin() && weaponKind().isDaggers();}
+    private boolean usesFocus(){return isRanger() || isAssassin();}
+    public String resourceName(){return usesMana()?"MP":isPaladin()?"Resolve":usesFocus()?"Focus":"Rage";}
+    public int skillResource(){return usesMana()?MP:isPaladin()?resolve:rage;}
+    public Color resourceBarColor(){return usesFocus()?new Color(235,198,60):new Color(220,60,30);}
+    public Color resourceBarBackground(){return usesFocus()?new Color(60,49,12):new Color(50,15,15);}
+
+    private static art.RangerGear rangerOutfit(Entity item){
+        return item instanceof OBJ_apparel apparel?apparel.rangerGear:null;
+    }
+
+    private static int rangerHealth(Entity item){
+        var gear=rangerOutfit(item);
+        return gear==null?0:gear.health;
+    }
+
+    private static art.AssassinGear assassinOutfit(Entity item){
+        return item instanceof OBJ_apparel apparel?apparel.assassinGear:null;
+    }
+
+    private static art.MageGear mageOutfit(Entity item){
+        return item instanceof OBJ_apparel apparel?apparel.mageGear:null;
+    }
+
+    private static art.PriestGear priestOutfit(Entity item){
+        return item instanceof OBJ_apparel apparel?apparel.priestGear:null;
+    }
+
+    private static int outfitMana(Entity item){
+        var priest=priestOutfit(item);
+        if(priest!=null)return priest.mana;
+        var gear=mageOutfit(item);
+        return gear==null?0:gear.mana;
+    }
+
+    private static art.BerserkerGear berserkerOutfit(Entity item){
+        return item instanceof OBJ_apparel apparel?apparel.berserkerGear:null;
+    }
+
+    private static art.PaladinGear paladinOutfit(Entity item){
+        return item instanceof OBJ_apparel apparel?apparel.paladinGear:null;
+    }
+
+    private static int outfitHealth(Entity item){
+        var plate=paladinOutfit(item);
+        if(plate!=null)return plate.health;
+        var armor=berserkerOutfit(item);
+        if(armor!=null)return armor.health;
+        var priest=priestOutfit(item);
+        if(priest!=null)return priest.health;
+        var robe=mageOutfit(item);
+        if(robe!=null)return robe.health;
+        var gear=assassinOutfit(item);
+        return gear==null?rangerHealth(item):gear.health;
+    }
 
     public int getDefense() {
+        if(isPaladin()){
+            var plate=paladinOutfit(equippedItem(EQUIP_TORSO));
+            return defense=(plate==null?0:plate.armor)+(currentShield==null?0:currentShield.defenseValue);
+        }
+        if(isBerserker()){
+            var gear=berserkerOutfit(equippedItem(EQUIP_TORSO));
+            return defense=gear==null?0:gear.armor;
+        }
+        if(isPriest()){
+            var gear=priestOutfit(equippedItem(EQUIP_TORSO));
+            return defense=gear==null?0:gear.armor;
+        }
+        if(usesMana()){
+            var gear=mageOutfit(equippedItem(EQUIP_TORSO));
+            return defense=gear==null?0:gear.armor;
+        }
+        if(isAssassin()){
+            var gear=assassinOutfit(equippedItem(EQUIP_TORSO));
+            return defense=gear==null?0:gear.armor;
+        }
+        if(isRanger()){
+            var gear=rangerOutfit(equippedItem(EQUIP_TORSO));
+            return defense=gear==null?0:gear.armor;
+        }
         return defense = dexterity * currentShield.defenseValue;
     }
 
     public int getAttack() {
         attackArea = currentWeapon.attackArea;
-        int statValue = playerClass.equals("mage") ? intelligence : strength;
-        int raw=statValue*currentWeapon.attackValue;
-        return attack=playerClass.equals("mage") && raw>0?Math.max(1,raw*3/4):raw;
+        if(isPaladin())return attack=hasPaladinSword()?strength+currentWeapon.attackValue:0;
+        if(isBerserker())return attack=hasGreatsword()?strength+currentWeapon.attackValue:0;
+        if(isRanger())return attack=hasBow()?strength+currentWeapon.attackValue:0;
+        if(isAssassin() && hasDaggers()){
+            int power=currentWeapon instanceof OBJ_rewardweapon reward?(reward.kind.isHell()?13:9):currentWeapon.attackValue;
+            return attack=strength+power;
+        }
+        if(usesMana()){
+            if(!hasStaff())return attack=0;
+            int power=currentWeapon instanceof OBJ_rewardweapon reward?(reward.kind.isHell()?12:7):currentWeapon.attackValue;
+            return attack=intelligence+power;
+        }
+        return attack=strength*currentWeapon.attackValue;
     }
 
     public void getPlayerImage(){
@@ -325,7 +434,7 @@ public class Player extends Entity{
     private final art.CharacterArt.Look bodyLook = new art.CharacterArt.Look();
 
     private BodyKey builtBodyKey;
-    private record BodyKey(art.WeaponArt.Kind weapon, int shield, boolean pixel, Color skin, Color eye,
+    private record BodyKey(art.WeaponArt.Kind weapon, art.RangerGear bow, art.RangerGear rangerOutfit, art.AssassinGear assassinOutfit, art.MageGear mageOutfit, art.PriestGear priestOutfit, art.BerserkerGear berserkerOutfit, art.PaladinGear paladinOutfit, art.PaladinGear paladinShield, int shield, boolean pixel, Color skin, Color eye,
                            Color blush, art.CharacterOutfit outfit) {}
     // Bounded because independent apparel slots allow many outfit combinations.
     private static final java.util.Map<BodyKey, java.util.Map<String, SpriteAnimation>> BODY_CACHE =
@@ -343,19 +452,35 @@ public class Player extends Entity{
         refreshWeaponAnimation();
     }
 
-    /** Starter wardrobe only. No new class mechanics or specialization choices. */
+    public void applySyncedClass(String classId){
+        String id=CharacterClass.fromId(classId).id;
+        if(playerClass.equals(id))return;
+        playerClass=id;
+        ranger.reset();assassin.reset();mage.cancel();berserker.cancel();paladin.reset();priest.reset();
+        setupSkills();
+    }
+
+    /** Starter wardrobe for the chosen class and preset. */
     private void applyStarterAppearance(){
         boolean female="female".equals(gender);
         ItemType[] items=switch(CharacterClass.fromId(playerClass)){
+            case RANGER -> new ItemType[]{female?ItemType.LONG_HAIR:ItemType.HAIR,
+                    ItemType.TRAIL_SCOUT_OUTFIT,ItemType.PANTS,ItemType.BOOTS,ItemType.GLOVES,ItemType.CLOAK};
             case HUNTER -> new ItemType[]{female?ItemType.LONG_HAIR:ItemType.HAIR,
-                    ItemType.TUNIC,ItemType.PANTS,ItemType.BOOTS,ItemType.GLOVES,ItemType.CLOAK};
+                    ItemType.ALLEY_SCOUT_OUTFIT,ItemType.PANTS,ItemType.BOOTS,ItemType.GLOVES,ItemType.CLOAK};
+            case PRIEST -> new ItemType[]{female?ItemType.MAGE_LONG_HAIR:ItemType.MAGE_HAIR,
+                    ItemType.WAYFARER_ROBE,ItemType.MAGE_PANTS,ItemType.MAGE_BOOTS,ItemType.MAGE_GLOVES,ItemType.MAGE_CLOAK};
             case MAGE -> new ItemType[]{female?ItemType.MAGE_LONG_HAIR:ItemType.MAGE_HAIR,
-                    ItemType.MAGE_ROBE,ItemType.MAGE_PANTS,ItemType.MAGE_BOOTS,ItemType.MAGE_GLOVES,ItemType.MAGE_CLOAK};
+                    ItemType.HEARTH_ROBE,ItemType.MAGE_PANTS,ItemType.MAGE_BOOTS,ItemType.MAGE_GLOVES,ItemType.MAGE_CLOAK};
+            case PALADIN -> new ItemType[]{female?ItemType.WARRIOR_LONG_HAIR:ItemType.WARRIOR_HAIR,
+                    ItemType.GATE_SENTINEL_ARMOR,ItemType.WARRIOR_PANTS,ItemType.WARRIOR_BOOTS,ItemType.WARRIOR_GLOVES,ItemType.WARRIOR_CLOAK};
+            case BERSERKER -> new ItemType[]{female?ItemType.WARRIOR_LONG_HAIR:ItemType.WARRIOR_HAIR,
+                    ItemType.ROAD_REAVER_ARMOR,ItemType.WARRIOR_PANTS,ItemType.WARRIOR_BOOTS,ItemType.WARRIOR_GLOVES,ItemType.WARRIOR_CLOAK};
             case WARRIOR -> new ItemType[]{female?ItemType.WARRIOR_LONG_HAIR:ItemType.WARRIOR_HAIR,
                     ItemType.WARRIOR_ARMOR,ItemType.WARRIOR_PANTS,ItemType.WARRIOR_BOOTS,ItemType.WARRIOR_GLOVES,ItemType.WARRIOR_CLOAK};
         };
         for(int i=0;i<items.length;i++)apparelSlots[i]=ItemRegistry.create(items[i],gp);
-        apparelSlots[6]=CharacterClass.fromId(playerClass)==CharacterClass.MAGE?ItemRegistry.create(ItemType.MAGE_HAT,gp):null;
+        apparelSlots[6]=null;
     }
 
     public art.CharacterOutfit currentOutfit(){
@@ -366,6 +491,48 @@ public class Player extends Entity{
         for(int i=0;i<colors.length;i++)if(apparelSlots[i] instanceof OBJ_apparel item){
             colors[i]=item.color;if(i<themes.length)themes[i]=item.theme;
             if(i==0)longHair=item.longHair;
+        }
+        var rangerGear=rangerOutfit(equippedItem(EQUIP_TORSO));
+        if(rangerGear!=null){
+            if(colors[2]!=null)colors[2]=rangerGear.pants();
+            if(colors[3]!=null)colors[3]=rangerGear.boots();
+            if(colors[4]!=null)colors[4]=rangerGear.gloves();
+            if(colors[5]!=null)colors[5]=rangerGear.cloak;
+        }
+        var assassinGear=assassinOutfit(equippedItem(EQUIP_TORSO));
+        if(assassinGear!=null){
+            if(colors[2]!=null)colors[2]=assassinGear.pants();
+            if(colors[3]!=null)colors[3]=assassinGear.boots();
+            if(colors[4]!=null)colors[4]=assassinGear.gloves();
+            if(colors[5]!=null)colors[5]=assassinGear.cloak;
+        }
+        var paladinGear=paladinOutfit(equippedItem(EQUIP_TORSO));
+        if(paladinGear!=null){
+            if(colors[2]!=null)colors[2]=paladinGear.pants();
+            if(colors[3]!=null)colors[3]=paladinGear.boots();
+            if(colors[4]!=null)colors[4]=paladinGear.gloves();
+            if(colors[5]!=null)colors[5]=paladinGear.mantle();
+        }
+        var berserkerGear=berserkerOutfit(equippedItem(EQUIP_TORSO));
+        if(berserkerGear!=null){
+            if(colors[2]!=null)colors[2]=berserkerGear.pants();
+            if(colors[3]!=null)colors[3]=berserkerGear.boots();
+            if(colors[4]!=null)colors[4]=berserkerGear.gloves();
+            if(colors[5]!=null)colors[5]=berserkerGear.scarf;
+        }
+        var priestGear=priestOutfit(equippedItem(EQUIP_TORSO));
+        if(priestGear!=null){
+            if(colors[2]!=null)colors[2]=priestGear.pants();
+            if(colors[3]!=null)colors[3]=priestGear.boots();
+            if(colors[4]!=null)colors[4]=priestGear.gloves();
+            if(colors[5]!=null)colors[5]=priestGear.mantle;
+        }
+        var mageGear=mageOutfit(equippedItem(EQUIP_TORSO));
+        if(mageGear!=null){
+            if(colors[2]!=null)colors[2]=mageGear.pants();
+            if(colors[3]!=null)colors[3]=mageGear.boots();
+            if(colors[4]!=null)colors[4]=mageGear.gloves();
+            if(colors[5]!=null)colors[5]=mageGear.mantle;
         }
         art.CharacterOutfit outfit=new art.CharacterOutfit(colors[0],colors[1],colors[2],colors[3],colors[4],colors[5],
                 new art.CharacterOutfit.Details(themes[0],themes[1],themes[2],themes[3],themes[4],themes[5],longHair),colors[6]);
@@ -379,7 +546,11 @@ public class Player extends Entity{
 
     private art.WeaponArt.Kind weaponKind(){
         if(currentWeapon == null || currentWeapon.isPlaceholder) return art.WeaponArt.Kind.NONE; // fists
-        if(currentWeapon instanceof OBJ_dualdaggers)return art.WeaponArt.Kind.DAGGERS;
+        if(currentWeapon instanceof OBJ_dualdaggers daggers)return daggers.kind;
+        if(currentWeapon instanceof OBJ_prieststaff staff)return staff.kind;
+        if(currentWeapon instanceof OBJ_paladinGear sword)return art.WeaponArt.Kind.forPaladin(sword.gear);
+        if(currentWeapon instanceof OBJ_greatsword sword)return sword.kind;
+        if(currentWeapon instanceof OBJ_staff staff)return staff.kind;
         if(currentWeapon instanceof OBJ_rewardweapon reward)return reward.kind;
         return switch(currentWeapon.type){
             case type_sword -> art.WeaponArt.Kind.SWORD;
@@ -391,7 +562,8 @@ public class Player extends Entity{
 
     private void buildGeneratedBody(){
         art.CharacterOutfit outfit = currentOutfit();
-        BodyKey key = new BodyKey(weaponKind(),currentShield==null || currentShield.isPlaceholder?0:currentShield instanceof OBJ_blueshield?2:1, CharacterSprites.pixelMode, bodyLook.skin,
+        BodyKey key = new BodyKey(weaponKind(),currentWeapon instanceof OBJ_rangerbow bow?bow.gear:null,
+                rangerOutfit(equippedItem(EQUIP_TORSO)),assassinOutfit(equippedItem(EQUIP_TORSO)),mageOutfit(equippedItem(EQUIP_TORSO)),priestOutfit(equippedItem(EQUIP_TORSO)),berserkerOutfit(equippedItem(EQUIP_TORSO)),paladinOutfit(equippedItem(EQUIP_TORSO)),currentShield instanceof OBJ_paladinGear shield?shield.gear:null,currentShield==null || currentShield.isPlaceholder?0:currentShield instanceof OBJ_blueshield?2:1, CharacterSprites.pixelMode, bodyLook.skin,
                 bodyLook.eye, bodyLook.blush, outfit);
         if(key.equals(builtBodyKey) && sprites.containsKey("idle_down")) return;
         java.util.Map<String, SpriteAnimation> generated;
@@ -400,7 +572,7 @@ public class Player extends Entity{
             if(generated == null){
                 art.CharacterArt.Look look = new art.CharacterArt.Look();
                 look.skin=key.skin();look.eye=key.eye();look.blush=key.blush();
-                look.weapon=key.weapon();look.shieldStyle=key.shield();look.outfit=outfit;
+                look.weapon=key.weapon();look.rangerBow=key.bow();look.rangerOutfit=key.rangerOutfit();look.assassinOutfit=key.assassinOutfit();look.mageOutfit=key.mageOutfit();look.priestOutfit=key.priestOutfit();look.berserkerOutfit=key.berserkerOutfit();look.paladinOutfit=key.paladinOutfit();look.paladinShield=key.paladinShield();look.shieldStyle=key.shield();look.outfit=outfit;
                 generated = new java.util.HashMap<>();
                 CharacterSprites.build(generated, look);
                 BODY_CACHE.put(key, generated);
@@ -420,21 +592,61 @@ public class Player extends Entity{
 
     private boolean fitsEquipment(Entity item, int slot){
         if(item==null)return false;
-        if(slot==EQUIP_WEAPON)return item.type==type_sword || item.type==type_axe || item.type==type_staff;
-        if(slot==EQUIP_SHIELD)return !playerClass.equals("hunter") && item.type==type_shield;
+        if(item instanceof OBJ_paladinGear gear)
+            return isPaladin() && level>=gear.gear.level && (slot==EQUIP_WEAPON && gear.type==type_sword || slot==EQUIP_SHIELD && gear.type==type_shield);
+        if(isPaladin() && (slot==EQUIP_WEAPON || slot==EQUIP_SHIELD))return false;
+        if(slot==EQUIP_WEAPON){
+            if(item instanceof OBJ_greatsword sword)return isBerserker() && level>=sword.gear.level;
+            if(isBerserker())return false;
+            if(item instanceof OBJ_rangerbow bow)return isRanger() && level>=bow.gear.level;
+            if(item instanceof OBJ_dualdaggers daggers && (isAssassin() || daggers.gear!=art.AssassinGear.ALLEY)){
+                return isAssassin() && level>=daggers.gear.level;
+            }
+            if(isAssassin())return item instanceof OBJ_rewardweapon reward && reward.kind.isDaggers();
+            if(item instanceof OBJ_prieststaff staff)return isPriest() && level>=staff.gear.level;
+            if(isPriest())return false;
+            if(isMage())return item.type==type_staff && (!(item instanceof OBJ_staff staff) || level>=staff.gear.level);
+            if(item instanceof OBJ_staff staff && staff.gear!=art.MageGear.HEARTH)return false;
+            return !isRanger() && (item.type==type_sword || item.type==type_axe || item.type==type_staff);
+        }
+        if(slot==EQUIP_SHIELD)return !usesFocus() && !usesMana() && !isBerserker() && item.type==type_shield;
+        var gear=rangerOutfit(item);
+        if(gear!=null && (!isRanger() || level<gear.level))return false;
+        var leathers=assassinOutfit(item);
+        if(leathers!=null && (!isAssassin() || level<leathers.level))return false;
+        var robe=mageOutfit(item);
+        if(robe!=null && (!isMage() || level<robe.level))return false;
+        var plate=paladinOutfit(item);
+        if(plate!=null && (!isPaladin() || level<plate.level))return false;
+        var armor=berserkerOutfit(item);
+        if(armor!=null && (!isBerserker() || level<armor.level))return false;
+        var vestment=priestOutfit(item);
+        if(vestment!=null && (!isPriest() || level<vestment.level))return false;
         return item instanceof OBJ_apparel clothing && slot==EQUIP_HAIR+clothing.slot.ordinal();
     }
 
     private void setEquipment(int slot, Entity item){
-        if(slot==EQUIP_WEAPON){currentWeapon=item!=null?item:new OBJ_fists(gp);attack=getAttack();}
-        else if(slot==EQUIP_SHIELD){currentShield=item!=null?item:new OBJ_no_shield(gp);defense=getDefense();}
-        else if(slot>=EQUIP_HAIR && slot<=EQUIP_HEADPIECE)apparelSlots[slot-EQUIP_HAIR]=item;
+        if(slot==EQUIP_WEAPON){currentWeapon=item!=null?item:new OBJ_fists(gp);attack=getAttack();firstDaggerTargets.clear();ranger.cancelCast();assassin.cancel();mage.cancel();berserker.cancel();paladin.cancel();}
+        else if(slot==EQUIP_SHIELD){currentShield=item!=null?item:new OBJ_no_shield(gp);defense=getDefense();paladin.cancel();}
+        else if(slot>=EQUIP_HAIR && slot<=EQUIP_HEADPIECE){
+            if((usesFocus() || usesMana() || isBerserker() || isPaladin()) && slot==EQUIP_TORSO){
+                Entity previous=equippedItem(slot);
+                maxHP+=outfitHealth(item)-outfitHealth(previous);
+                HP=Math.min(HP,maxHP);
+                if(usesMana()){
+                    maxMP+=outfitMana(item)-outfitMana(previous);
+                    MP=Math.min(MP,maxMP);
+                }
+            }
+            apparelSlots[slot-EQUIP_HAIR]=item;
+            if(usesFocus() || usesMana() || isBerserker() || isPaladin())defense=getDefense();
+        }
         refreshWeaponAnimation();
     }
 
     public void getPlayerAttackImage(){
         if(USE_GENERATED_BODY){ buildGeneratedBody(); return; }
-        if(playerClass.equals("mage")) return;
+        if(usesMana()) return;
         String weaponFolder = getWeaponFolder();
 
         BufferedImage[] attackDown = {
@@ -564,13 +776,20 @@ public class Player extends Entity{
     public void update(){
         if(!isLocal && !gp.isHost){
             updateAura(); // effects come from the snapshot
+            if(isRanger())ranger.advanceVisual();
+            if(isBerserker())berserker.advanceReplica();
+            if(isPaladin())paladin.advanceReplica();
             if(!isDead){
-                updateAnimation();
+                boolean swordSkill=isBerserker() && berserker.active() || isPaladin() && paladin.active();
+                if(!swordSkill && !assassin.active() && !"attack".equals(animState)){
+                    updateAnimation();
+                }
             }
             return;
         }
 
         if(isDead){
+            ranger.cancelCast();assassin.reset();mage.cancel();berserker.cancel();paladin.reset();priest.reset();
             merchantOpen=false;
             if(!isPredictedClient()) updateStatusEffects();
             return;
@@ -581,19 +800,25 @@ public class Player extends Entity{
             hoveredTarget = (idx >= 0 && idx < gp.monster.length) ? gp.monster[idx] : null;
         }
 
-        if(merchantOpen){moving=false;attacking=false;return;}
+        if(isPaladin())paladin.tickTimers();
+
+        if(!isPredictedClient() && (merchantOpen || inDialogue || gp.quests.isBossIntro()))PriestCombat.tickDuringInteraction(this);
+
+        if(merchantOpen){moving=false;attacking=false;ranger.cancelCast();assassin.cancel();mage.cancel();berserker.cancel();paladin.cancel();return;}
 
         if(inDialogue){
+            ranger.cancelCast();assassin.cancel();mage.cancel();berserker.cancel();paladin.cancel();
             updateDialogueReveal();
             interactNPC(999); // only checks for a close-via-E while talking — index 999 means "no NPC collision
             return; // freezes only THIS player's movement/attack — never touches gp.gameState, so nobody else is affected
         }
 
         if(gp.quests.isBossIntro()){
-            moving=false;attacking=false;animState="idle";return;
+            moving=false;attacking=false;animState="idle";ranger.cancelCast();assassin.cancel();mage.cancel();berserker.cancel();paladin.cancel();return;
         }
 
         if(isLocal && gp.inventoryOpen){
+            ranger.cancelCast();assassin.cancel();mage.cancel();berserker.cancel();paladin.cancel();
             if(!isPredictedClient()) updateStatusEffects();
             return;
         }
@@ -625,8 +850,10 @@ public class Player extends Entity{
             vertDir = "down";
         }
 
-        direction = (vertDir != null) ? vertDir : direction;
-        direction = (horizDir != null) ? horizDir : direction;
+        if((!isBerserker() && !isPaladin()) || !attacking && !berserker.active() && !paladin.active()){
+            direction = (vertDir != null) ? vertDir : direction;
+            direction = (horizDir != null) ? horizDir : direction;
+        }
 
         animState = attacking ? "attack" : (moving ? "run" : "idle");
 
@@ -635,13 +862,14 @@ public class Player extends Entity{
         }
         updateAura();
         updateDroppedItemPickupBlocks();
+        if(isPaladin())paladin.setGuard(currentInput.rightHeld && !currentInput.gameplaySuppressed);
 
         if(!isPredictedClient()){
             for(int i = 0; i < skills.length; i++){
                 if(skills[i] != null){
                     skills[i].update();
                     if(currentInput.skillKeyPressed[i]){
-                        if(skills[i].isReady() && hasEnoughResource(skills[i].resourceCost) && (!playerClass.equals("warrior") || hasShield() || (i!=0 && i!=2))){
+                        if(skills[i].isReady() && hasEnoughResource(skills[i].resourceCost) && (!isRanger() || ranger.canUse(i)) && (!isAssassin() || assassin.canUse(i)) && (!isMage() || mage.canUse(i)) && (!isPriest() || priest.canUse(i)) && (!isBerserker() || berserker.canUse()) && (!isPaladin() || paladin.canUse(i)) && (!playerClass.equals("warrior") || hasShield() || (i!=0 && i!=2))){
                             spendResource(skills[i].resourceCost);
                             skills[i].trigger();
                         }
@@ -651,6 +879,41 @@ public class Player extends Entity{
             }
         }
 
+        currentInput.movementLocked=false;
+        currentInput.heavyMovement=false;
+        if(isPaladin()){
+            boolean wasActing=paladin.active();
+            paladin.update();
+            currentInput.heavyMovement=paladin.guarding();
+            currentInput.movementLocked=wasActing;
+            if(currentInput.movementLocked){moving=false;bounceCounter=0;}
+        }
+        if(isBerserker()){
+            boolean wasActing=berserker.active();
+            boolean canMove=berserker.canMove();
+            berserker.update();
+            currentInput.heavyMovement=canMove && berserker.active();
+            currentInput.movementLocked=wasActing && !currentInput.heavyMovement;
+            if(currentInput.movementLocked){moving=false;bounceCounter=0;}
+        }
+        if(isRanger()){
+            boolean wasLeaping=ranger.hopAge()>0;
+            ranger.update();
+            currentInput.movementLocked=wasLeaping || ranger.braced();
+            if(currentInput.movementLocked){moving=false;bounceCounter=0;}
+        }
+        if(isAssassin()){
+            boolean wasUsingSkill=assassin.active();
+            assassin.update();
+            currentInput.movementLocked=wasUsingSkill || assassin.active();
+            if(currentInput.movementLocked){moving=false;bounceCounter=0;}
+        }
+        if(usesMana()){
+            boolean wasCasting=mage.active();
+            mage.update();
+            currentInput.movementLocked=wasCasting || mage.active();
+            if(currentInput.movementLocked){moving=false;bounceCounter=0;}
+        }
         if(!attacking){
             if(gp.hitStopCounter <= 0){
                 spriteCounter++;
@@ -667,13 +930,7 @@ public class Player extends Entity{
             }
         }
 
-        if(moving && !attacking){
-            trailCounter++;
-            if(trailCounter >= trailInterval){
-                spawnTrailParticle();
-                trailCounter = 0;
-            }
-        }
+        if(!moving || attacking || knockbackActive) trailCounter = TRAIL_START_DELAY;
 
         if(knockbackActive){
             updateKnockback();
@@ -688,7 +945,7 @@ public class Player extends Entity{
             }
             attacking();
         }
-        else if(moving || currentInput.ePressed || currentInput.leftClicked){
+        else if(moving || currentInput.ePressed || currentInput.leftClicked || (isBerserker() || isPaladin()) && attackBuffered){
 
                 //CHECK TILE COLLISION
                 collisionOn = false;
@@ -715,49 +972,28 @@ public class Player extends Entity{
                 //CHECK EVENT
                 gp.eventHandler.checkEvent(this);
 
+                int startX = worldX, startY = worldY;
                 //IF COLLISION IS FALSE, PLAYER CAN MOVE
-                if(!currentInput.ePressed){
-
-                    boolean diagonal = (horizDir != null && vertDir != null);
-                    int moveSpeed = diagonal ? (int)Math.round(speed * 0.7071) : speed;
-                    if(diagonal && moveSpeed < 1) moveSpeed = 1;
-
-                    if(horizDir != null){
-                        direction = horizDir;
-                        collisionOn = false;
-                        gp.collisionChecker.checkTile(this);
-                        if(!collisionOn){
-                            worldX += horizDir.equals("left") ? -moveSpeed : moveSpeed;
-                        }
-                    }
-
-                    if(vertDir != null){
-                        direction = vertDir;
-                        collisionOn = false;
-                        gp.collisionChecker.checkTile(this);
-                        if(!collisionOn){
-                            worldY += vertDir.equals("up") ? -moveSpeed : moveSpeed;
-                        }
-                    }
-
-                    direction = (vertDir != null) ? vertDir : direction;
-                    direction = (horizDir != null) ? horizDir: direction;
+                if(!currentInput.ePressed && !currentInput.movementLocked){
+                    currentInput.chorusSpeed=hasStatusEffect(PriestCombat.CHORUS);
+                    moveForInput(horizDir,vertDir,currentInput.chorusSpeed,currentInput.heavyMovement);
                 }
 
-
-                if((currentInput.ePressed || currentInput.leftClicked || attackBuffered) && !attackCanceled
-                        && (!playerClass.equals("mage") || canCastFireball())){
+                if(!isRanger() && !currentInput.movementLocked && (currentInput.ePressed && !usesMana() || currentInput.leftClicked || attackBuffered) && !attackCanceled
+                        && (!usesMana() || hasStaff()) && (!isBerserker() || hasGreatsword() && !berserker.active())
+                        && (!isPaladin() || hasPaladinSword() && !paladin.active() && !paladin.guarding())){
                     attacking = true;
+                    animState = "attack";
                     spriteNum = 1;
                     attackFrameHoldCounter = 0;
-                    mageTarget = hoveredTarget;
+                    firstDaggerTargets.clear();
                     mageAimX = currentInput.aimWorldX;
                     mageAimY = currentInput.aimWorldY;
-                    if(playerClass.equals("mage")){
-                        direction = radialDirection(mageAimX - (worldX + gp.tileSize/2), mageAimY - (worldY + gp.tileSize/2));
-                    }
+                    if(usesMana())direction=mage.aimDirection(mageAimX,mageAimY);
                     gustGrass();
                 }
+
+                if(!attacking) updateRunningTrail(worldX - startX, worldY - startY);
 
             if(isLocal){
                 gp.keyH.ePressed = false;
@@ -768,6 +1004,12 @@ public class Player extends Entity{
             attackCanceled = false;
             attackBuffered = false;
         }
+
+        if(isBerserker())berserker.pose();
+        if(isPaladin())paladin.pose();
+        if(isRanger())ranger.pose();
+        if(isAssassin())assassin.pose();
+        if(usesMana())mage.pose();
 
         if(invincible){
             invincibleCounter++;
@@ -790,7 +1032,7 @@ public class Player extends Entity{
         }
 
         if(!isPredictedClient()){
-            if(playerClass.equals("mage")){
+            if(usesMana()){
                 ticksSinceSkillUse++;
                 if(ticksSinceSkillUse >= mpRegenDelayTicks && MP < maxMP){
                     mpRegenCounter++;
@@ -800,7 +1042,7 @@ public class Player extends Entity{
                     }
                 }
             }
-            else {
+            else if(!usesFocus()){
                 ticksSinceRageGain++;
                 if(ticksSinceRageGain >= rageDecayDelayTicks && rage > 0){
                     rageDecayCounter++;
@@ -842,60 +1084,62 @@ public class Player extends Entity{
     public void attacking() {
         if(gp.hitStopCounter > 0) return;
 
-        if(playerClass.equals("mage")){
+        if(usesMana()){
             mageAttacking();
             return;
         }
 
         SpriteAnimation anim = getCurrentAnimation();
-        int totalFrames = (anim != null) ? anim.frames.length : 1;
+        int totalFrames = (isBerserker() || isPaladin())?CharacterSprites.ATTACK_FRAMES
+                :anim!=null?anim.frames.length:1;
 
-        int delayForCurrentFrame = getAttackFrameDelay(spriteNum);
-
-        attackFrameHoldCounter++;
-        if(attackFrameHoldCounter >= delayForCurrentFrame){
-            attackFrameHoldCounter = 0;
-            spriteNum++;
-
-            if(spriteNum > totalFrames){
-                spriteNum = 1;
-                attacking = false;
-                return;
-            }
+        int previousFrame=spriteNum;
+        advanceAttackFrame();
+        if(spriteNum > totalFrames){
+            spriteNum = 1;
+            attacking = false;
+            animState = moving ? "run" : "idle";
+            return;
         }
 
-        if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame){
-            if(canResolveWorldActions()){
-                Rectangle attackBounds=meleeAttackBounds();
-                java.util.List<Integer> hitMonsters=gp.collisionChecker.checkEntityMultiple(attackBounds,gp.monster);
-                int bonusDamage = 0;
-                if(powerStrikePending){
-                    bonusDamage = powerStrikeBonus;
-                    powerStrikePending = false;
-                }
-                for(int monsterIndex : hitMonsters){
-                    boolean landed=damageMonster(monsterIndex,getEffectiveAttack()+bonusDamage,false,null);
-                    if(rendPending && landed){
-                        gp.monster[monsterIndex].addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
-                    }
-                }
-                if(rendPending && !hitMonsters.isEmpty()){
-                    rendPending = false;
-                }
-
-                for(int index:gp.collisionChecker.checkEntityMultiple(attackBounds,gp.interactable))objectInteract(index);
+        if(!canResolveWorldActions()) return;
+        if(isBerserker()){
+            if(hasGreatsword() && spriteNum!=previousFrame && spriteNum==attackHitStartFrame)berserker.basicSweep();
+        }else if(isPaladin()){
+            if(hasPaladinSword() && spriteNum!=previousFrame && spriteNum==attackHitStartFrame)resolveMeleeStrike(null);
+        }else if(weaponKind().isDaggers()){
+            if(spriteNum == WeaponArt.DAGGER_FIRST_HIT_FRAME){
+                resolveMeleeStrike(DaggerCut.FIRST);
+            } else if(spriteNum == WeaponArt.DAGGER_SECOND_HIT_FRAME){
+                resolveMeleeStrike(DaggerCut.SECOND);
+                firstDaggerTargets.clear();
             }
+        } else if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame){
+            resolveMeleeStrike(null);
         }
     }
 
+    private void resolveMeleeStrike(DaggerCut cut){
+        Rectangle attackBounds = meleeAttackBounds();
+        java.util.List<Integer> hitMonsters = gp.collisionChecker.checkEntityMultiple(attackBounds, gp.monster);
+        int bonusDamage = powerStrikePending ? powerStrikeBonus : 0;
+        powerStrikePending = false;
+        for(int monsterIndex : hitMonsters){
+            boolean landed = damageMonster(monsterIndex, getEffectiveAttack(), false, null, cut, bonusDamage, false);
+            if(!landed) continue;
+            Entity target = gp.monster[monsterIndex];
+            if(cut == DaggerCut.FIRST) firstDaggerTargets.add(target);
+        }
+        for(int index : gp.collisionChecker.checkEntityMultiple(attackBounds, gp.interactable)) objectInteract(index);
+    }
 
     public Rectangle meleeAttackBounds(){
-        int x=worldX+solidArea.x,y=worldY+solidArea.y,w=attackArea.width,h=attackArea.height;
+        int x=worldX+solidArea.x,y=worldY+solidArea.y,width=attackArea.width,reach=attackArea.height;
         return switch(direction){
-            case "up" -> new Rectangle(x+solidArea.width/2-w/2,y-h+2,w,h);
-            case "down" -> new Rectangle(x+solidArea.width/2-w/2,y+solidArea.height-2,w,h);
-            case "left" -> new Rectangle(x-w+2,y+solidArea.height/2-h/2,w,h);
-            default -> new Rectangle(x+solidArea.width-2,y+solidArea.height/2-h/2,w,h);
+            case "up" -> new Rectangle(x+solidArea.width/2-width/2,y-reach+2,width,reach);
+            case "down" -> new Rectangle(x+solidArea.width/2-width/2,y+solidArea.height-2,width,reach);
+            case "left" -> new Rectangle(x-reach+2,y+solidArea.height/2-width/2,reach,width);
+            default -> new Rectangle(x+solidArea.width-2,y+solidArea.height/2-width/2,reach,width);
         };
     }
 
@@ -908,34 +1152,108 @@ public class Player extends Entity{
     }
 
     public boolean damageMonster(int index, int attack, boolean forcedBigHit, String knockbackDir) {
-        if(!canResolveWorldActions() || attack<=0 || index<0 || index>=gp.monster.length)return false;
+        return damageMonster(index, attack, forcedBigHit, knockbackDir, null, 0, false,false);
+    }
+
+    void gainBerserkerRage(int amount){
+        rage=Math.min(maxRage,rage+amount);
+        ticksSinceRageGain=0;
+    }
+
+    void beginBerserkerSkill(){attackBuffered=false;}
+
+    boolean berserkerDamage(int index,int power,String direction,boolean heavy,boolean followUp){
+        return damageMonster(index,power,heavy,direction,null,0,followUp,false);
+    }
+
+    boolean rangerDamage(int index,int damage,String direction,boolean precise,boolean followUp){
+        return damageMonster(index,damage,precise,direction,null,0,followUp,false);
+    }
+
+    void gainRangerFocus(int amount){
+        rage=Math.min(maxRage,rage+amount);
+    }
+
+    private boolean damageMonster(int index,int attack,boolean critical,String direction,DaggerCut cut,int bonus,boolean followUp){
+        return damageMonster(index,attack,critical,direction,cut,bonus,followUp,false);
+    }
+
+    boolean mageDamage(int index,int power,String direction,boolean area,boolean strong){
+        return damageMonster(index,power,strong,direction,null,0,area,false);
+    }
+
+    void interruptForMageSpell(){
+        attacking=false;attackBuffered=false;mageProjectileFired=false;attackFrameHoldCounter=0;
+    }
+
+    boolean assassinHit(int index,int power,String direction){
+        return damageMonster(index,power,false,direction,null,0,false,true);
+    }
+
+    boolean assassinCut(int index,int power,String direction,boolean second,boolean followUp){
+        boolean landed=damageMonster(index,power,false,direction,second?DaggerCut.SECOND:DaggerCut.FIRST,0,followUp,true);
+        if(landed && !second)firstDaggerTargets.add(gp.monster[index]);
+        if(second)firstDaggerTargets.clear();
+        return landed;
+    }
+
+    void interruptForAssassinSkill(){
+        attacking=false;attackBuffered=false;attackFrameHoldCounter=0;firstDaggerTargets.clear();
+    }
+
+    void assassinBleedTick(Monster target,int damage){
+        if(!canResolveWorldActions() || target.dying || !target.alive)return;
+        target.HP=Math.max(0,target.HP-damage);
+        target.hpBarOn=true;target.hpBarCounter=0;
+        AssassinCombat.bleedCue(target,false);
+        gp.spawnFloatingText(target.worldX+gp.tileSize/2,target.worldY,String.valueOf(damage),AssassinCombat.CORAL);
+        finishMonster(target);
+    }
+
+    private void finishMonster(Monster target){
+        if(target.HP>0 || target.dying)return;
+        target.dying=true;
+        if(playerId>=0 && playerId<gp.players.length && gp.players[playerId]==this){
+            grantExperience(target.exp);
+            gp.broadcastPlayerEvent(playerId,GameEventType.KILL,
+                    "Player " + (playerId + 1) + " killed the " + target.name + "! (+" + target.exp + " EXP)",null);
+        }
+    }
+
+    private boolean damageMonster(int index, int attack, boolean forcedBigHit, String knockbackDir,
+                                  DaggerCut cut, int bonusDamage, boolean followUp,boolean assassinSkill) {
+        if(!canResolveWorldActions() || attack+bonusDamage<=0 || index<0 || index>=gp.monster.length)return false;
         if(gp.monster[index]==null || !gp.monster[index].alive || gp.monster[index].dying || gp.monster[index].HP<=0)return false;
         if(index != 999){
-            Entity target = gp.monster[index];
-            if(!target.invincible){
+            Monster target = gp.monster[index];
+            // Only a target this combo already hit can take the second cut through hit immunity.
+            boolean completedPair = cut == DaggerCut.SECOND && firstDaggerTargets.contains(target);
+            if(!target.invincible || completedPair || followUp){
                 gp.playSE(5);
-                int damage = Math.max(1,attack-Math.max(0,target.defense-target.getStatusEffectValue("armorBreak")));
+                int armor = Math.max(0,target.defense-Math.max(target.getStatusEffectValue("armorBreak"),target.getStatusEffectValue(BerserkerCombat.SUNDERED)));
+                int damage = cut == null ? Math.max(1, attack + bonusDamage - armor)
+                        : Math.max(1, (attack - armor + (cut == DaggerCut.FIRST ? 1 : 0)) / 2 + bonusDamage);
 
                 boolean isBigHit = forcedBigHit;
                 boolean resolveStrike=false;
-                if(!playerClass.equals("mage") && damage > 0){
-                    rage = Math.min(maxRage, rage + 10);
+                if(!usesMana() && !isRanger() && !isBerserker() && !isPaladin() && !assassinSkill && (!isAssassin() || cut!=null)){
+                    rage = Math.min(maxRage, rage + (cut == null ? 10 : 5));
                     ticksSinceRageGain = 0;
 
                     if(playerClass.equals("warrior") && resolve>=maxResolve && hasShield()){
                         damage+=Math.max(1,getEffectiveDefense()*2);resolve=0;isBigHit=true;resolveStrike=true;
                     }
-                    if(playerClass.equals("hunter"))target.comboStacks++;
-                    if(target.comboStacks >= target.maxComboStacks){
-                        isBigHit = true;
-                        target.comboStacks = 0;
-                        damage = damage * 2;
-                    }
+                }
+                if(isAssassin() && completedPair && target.completeAssassinPair(this)){
+                    isBigHit=true;
+                    damage=damage*2+assassin.consumeWound(target);
+                    assassin.finisher(knockbackDir!=null?knockbackDir:direction);
                 }
 
                 if(armorBreakPending){target.addStatusEffect(new StatusEffect("armorBreak",180,2,0));armorBreakPending=false;}
+                damage+=PriestCombat.consumeChorus(this,damage);
                 target.HP -= damage;
-                target.invincibilityDuration=playerClass.equals("hunter")?12:22;target.invincibleCounter=0;
+                target.invincibilityDuration=usesFocus() || usesMana() || isBerserker() || isPaladin()?12:22;target.invincibleCounter=0;
                 target.invincible = true;
                 target.flashing = true;
                 target.flashCounter = 0;
@@ -943,35 +1261,34 @@ public class Player extends Entity{
                 target.hpBarCounter = 0;
 
                 int knockbackDist = isBigHit ? target.knockbackDistance * 2 : target.knockbackDistance;
-                target.startKnockback(knockbackDir != null ? knockbackDir : direction, knockbackDist);
+                String hitDirection = knockbackDir != null ? knockbackDir : direction;
+                if(cut != DaggerCut.FIRST && !isRanger() && !usesMana() && !assassinSkill) target.startKnockback(hitDirection, knockbackDist);
 
-                int shakeDuration = isBigHit ? hitStopOnHitMonster * 2 : hitStopOnHitMonster;
-                int shakeIntensity = isBigHit ? 8 : 4;
-                gp.startScreenShake(shakeDuration, shakeIntensity);
-                target.spawnHitParticles();
+                int hitStop = isRanger() || usesMana()?1:cut == DaggerCut.FIRST ? 1 : cut == DaggerCut.SECOND ? 3 : hitStopOnHitMonster;
+                if(isBigHit) hitStop *= 2;
+                gp.startScreenShake(isBigHit ? Math.max(10, hitStop) : hitStop, isBigHit ? 12 : 4);
                 target.damageReaction();
-                gp.startHitStop(isBigHit ? hitStopOnHitMonster * 2 : hitStopOnHitMonster);
+                gp.startHitStop(hitStop);
 
+                Color criticalColor = null;
                 if(isBigHit){
                     gp.playSE(7);
-                    Color burstColor = playerClass.equals("mage") ? new Color(190, 120, 255) : new Color(255, 60, 60);
-                    spawnFinisherBurst(target, burstColor);
+                    criticalColor = isMage() ? new Color(0xC3A4EF) : Palette.GOLD;
                 }
+                target.hitSequence++;
+                target.hitDirection = hitDirection;
+                target.criticalHitRgb = criticalColor == null ? 0 : criticalColor.getRGB();
+                Particle.impact(target, hitDirection, criticalColor);
 
                 if(damage > 0){
-                    String label = resolveStrike?"COUNTER! ":isBigHit ? (playerClass.equals("mage") ? "NOVA! " : "CRUSH! ") : "";
+                    String label = resolveStrike?"COUNTER! ":isBigHit ? (isRanger()?"PRECISE! ":isAssassin()?"FOURTH CUT! ":isMage()?"NOVA! ":isPriest()?"RADIANT! ":"CRUSH! ") : "";
                     Color textColor = isBigHit
-                            ? (playerClass.equals("mage") ? new Color(190, 120, 255) : new Color(255, 70, 70))
+                            ? (isMage() ? new Color(190, 120, 255) : isPriest()?Palette.GOLD:new Color(255, 70, 70))
                             : new Color(255, 220, 80);
                     gp.spawnFloatingText(target.worldX + gp.tileSize/2, target.worldY, label + damage, textColor);
                 }
 
-                if(target.HP <= 0){
-                    target.dying = true;
-                    grantExperience(target.exp);
-                    gp.broadcastPlayerEvent(playerId, GameEventType.KILL,
-                            "Player " + (playerId + 1) + " killed the " + target.name + "! (+" + target.exp + " EXP)", null);
-                }
+                finishMonster(target);
                 return true;
             }
         }
@@ -986,14 +1303,14 @@ public class Player extends Entity{
     private void checkLevelUp() {
         if(level < 25 && exp >= nextLevelExp){
             level++;
-            nextLevelExp = nextLevelExp * 2;
+            nextLevelExp = usesFocus() || usesMana() || isBerserker() || isPaladin()?nextLevelExp+30+4*(level-1):nextLevelExp*2;
 
             maxHP += 3;
-            if(playerClass.equals("mage")){
-                intelligence++;
+            if(usesMana()){
+                if(level%2==1)intelligence++;
                 dexterity++;
             } else {
-                strength++;
+                if((!usesFocus() && !isBerserker() && !isPaladin()) || level%2==1)strength++;
                 dexterity++;
             }
 
@@ -1014,31 +1331,43 @@ public class Player extends Entity{
         }
     }
 
-    private void contactMonster(int index) {
-        if(index != 999){
-            if(!gp.monster[index].canDealContactDamage())return;
-            if(!invincible && !gp.monster[index].dying){
-                if(!canResolveWorldActions()) return;
+    private void contactMonster(int index){
+        if(index==999)return;
+        Monster monster=gp.monster[index];
+        if(!monster.dying && monster.canDealContactDamage())receiveHit(monster,monster.attack,true);
+    }
 
-                gp.playSE(6);
-                int damage = Math.max(1,gp.monster[index].attack - getEffectiveDefense());
+    void receiveHit(Entity source,int incoming,boolean contact){
+        if(!canResolveWorldActions() || HP<=0 || isDead || invincible || inWell!=gp.quests.inDungeon())return;
+        Player recipient=PaladinCombat.interceptor(this);
+        boolean braced=recipient!=this || recipient.isPaladin() && recipient.paladin.selfBrace();
+        recipient.applyHit(source,incoming,contact,braced);
+    }
 
-                if(!playerClass.equals("mage") && damage > 0){
-                    rage = Math.min(maxRage, rage + 15);
-                    ticksSinceRageGain = 0;
-                }
-                recordShieldMitigation(gp.monster[index].attack,damage);
-                HP -= damage;
-                invincible = true;
-
-                flashing = true;
-                flashCounter = 0;
-                startKnockback(gp.monster[index].direction, knockbackDistance);
-                gp.startScreenShake(hitStopOnTakingDamage, 6);
-                spawnHitParticles();
-                gp.startHitStop(hitStopOnTakingDamage);
-            }
+    private void applyHit(Entity source,int incoming,boolean contact,boolean braced){
+        if(contact)gp.playSE(6);
+        int armored=damageTaken(incoming);
+        recordShieldMitigation(incoming,armored);
+        if(braced)armored=Math.max(1,Math.round(armored*0.65f));
+        int guarded=isPaladin()?paladin.guard(source,armored):armored;
+        int damage=PriestCombat.protect(this,guarded);
+        invincible=true;
+        invincibleCounter=0;
+        if(damage==0)return;
+        if(contact && playerClass.equals("warrior")){
+            rage=Math.min(maxRage,rage+15);
+            ticksSinceRageGain=0;
         }
+        HP-=damage;
+        flashing=true;
+        flashCounter=0;
+        if(guarded==armored && !braced)startKnockback(source.direction,knockbackDistance);
+        int stop=guarded<armored || braced?3:hitStopOnTakingDamage;
+        gp.startScreenShake(stop,stop==3?3:6);
+        spawnHitParticles(source.direction);
+        gp.startHitStop(stop);
+        if(!contact || guarded<armored || braced)
+            gp.spawnFloatingText(worldX+gp.tileSize/2,worldY,String.valueOf(damage),Color.red);
     }
 
     public void pickUpObject(int index){
@@ -1157,7 +1486,8 @@ public class Player extends Entity{
         for(int slot=EQUIP_WEAPON;slot<=EQUIP_HEADPIECE;slot++){
             Entity item=equippedItem(slot);if(item==null || item.isPlaceholder)continue;
             addToInventory(item);
-            if(slot==EQUIP_WEAPON){currentWeapon=new OBJ_fists(gp);attack=getAttack();}
+            if(usesFocus() || usesMana() || isBerserker() || isPaladin())setEquipment(slot,null);
+            else if(slot==EQUIP_WEAPON){currentWeapon=new OBJ_fists(gp);attack=getAttack();}
             else if(slot==EQUIP_SHIELD){currentShield=new OBJ_no_shield(gp);defense=getDefense();}
             else apparelSlots[slot-EQUIP_HAIR]=null;
         }
@@ -1282,6 +1612,10 @@ public class Player extends Entity{
     public void draw(Graphics2D g2){
         SpriteAnimation anim = getCurrentAnimation();
         BufferedImage bodyImage = getCurrentFrame();
+        if(isPaladin() && !isDead && !attacking && hasShield() && paladin.guardFrame()>0){
+            var guard=sprites.get("guard_"+direction);
+            if(guard!=null)bodyImage=guard.frames[paladin.guardFrame()-1];
+        }
         if(bodyImage == null) return;
 
         int bodyWidth = (anim != null) ? anim.width : bodyImage.getWidth();
@@ -1310,9 +1644,11 @@ public class Player extends Entity{
         if(moving && !attacking){
             bounce = Math.abs(Math.sin(bounceCounter * 0.2)) * -4;
         }
+        int hopLift=isRanger()?ranger.hopLift():0;
+        bounce-=hopLift;
 
         double castScale = 1.0;
-        if(attacking && playerClass.equals("mage") && spriteNum == attackHitStartFrame){
+        if(attacking && usesMana() && spriteNum == attackHitStartFrame){
             double progress = Math.min(1.0, (double) attackFrameHoldCounter / getEffectiveAttackFrameDelay());
             castScale = 1.0 + Math.sin(progress * Math.PI) * 0.18;
         }
@@ -1327,8 +1663,19 @@ public class Player extends Entity{
             }
             drawShadow(g2, shadowScreenX, shadowScreenY);
         }
+        if(isBerserker() && !isDead){
+            berserker.drawGround(g2);
+            berserker.drawAfterimage(g2,bodyImage,drawX,drawY);
+        }
+        if(isAssassin() && !isDead)assassin.drawAfterimages(g2,bodyImage,drawX,drawY);
+        boolean up="up".equals(direction);
+        boolean bowBehind=isRanger() && up;
+        if(bowBehind)ranger.drawBow(g2);
+        if(!up)drawMeleeSlashes(g2);
         AffineTransform originalTransform = g2.getTransform();
         g2.translate(0, bounce);
+        if(hopLift>0)g2.rotate(-Math.cos(ranger.heading())*hopLift/100,
+                drawX+bodyWidth/2.0,drawY+bodyHeight*0.78);
         if(castScale != 1.0){
             int pivotX = drawX + bodyWidth/2;
             int pivotY = drawY + bodyHeight/2;
@@ -1339,9 +1686,56 @@ public class Player extends Entity{
         g2.drawImage(bodyImage, drawX, drawY, null);
         g2.setTransform(originalTransform);
 
+        if(up)drawMeleeSlashes(g2);
         drawNameLabel(g2, drawX + bodyWidth/2, drawY);
+        if(isRanger()){
+            if(!bowBehind)ranger.drawBow(g2);
+            ranger.draw(g2);
+        }
+        if(isMage())mage.draw(g2);
+        if(isBerserker())berserker.draw(g2);
+        if(isPaladin())paladin.draw(g2);
+        PriestCombat.drawSupport(this,g2);
     }
 
+
+    public boolean usesMeleeSlash(){return !usesMana() && !isRanger();}
+
+    private void drawMeleeSlashes(Graphics2D g){
+        if(isDead || !usesMeleeSlash())return;
+        if(attacking)drawBasicSlash(g);
+        if(isAssassin())assassin.drawSlashes(g);
+        if(isBerserker())berserker.drawSlash(g);
+        if(isPaladin())paladin.drawSlash(g);
+    }
+
+    private void drawBasicSlash(Graphics2D g){
+        var weapon=weaponKind();
+        double heading=art.MeleeSlash.heading(direction);
+        if(weapon.isDaggers()){
+            drawSlash(g,heading,55,49,ticksFromAttackFrame(WeaponArt.DAGGER_FIRST_HIT_FRAME),false);
+        }else{
+            float reach=weapon==WeaponArt.Kind.NONE?32:isBerserker()?79:attackArea.height;
+            float width=weapon==WeaponArt.Kind.NONE?32:isBerserker()?86:attackArea.width;
+            drawSlash(g,heading,reach,width,ticksFromAttackFrame(attackHitStartFrame),false);
+        }
+    }
+
+    void drawSlash(Graphics2D g,double heading,float reach,float width,int ticksFromHit,boolean reverse){
+        Player camera=gp.localPlayer();
+        float scale=gp.tileSize/48f;
+        float offset=(isAssassin()?10:5)*scale;
+        float x=worldX+(float)solidArea.getCenterX()-camera.worldX+camera.screenX+(float)Math.cos(heading)*offset;
+        float y=worldY+(float)solidArea.getCenterY()-camera.worldY+camera.screenY-7*scale+(float)Math.sin(heading)*offset;
+        art.MeleeSlash.draw(g,x,y,heading,reach*scale,width*scale,ticksFromHit,reverse);
+    }
+
+    private int ticksFromAttackFrame(int hitFrame){
+        int delta=attackFrameHoldCounter;
+        for(int frame=hitFrame;frame<spriteNum;frame++)delta+=getAttackFrameDelay(frame);
+        for(int frame=spriteNum;frame<hitFrame;frame++)delta-=getAttackFrameDelay(frame);
+        return delta;
+    }
 
 //    private void drawAttackHitbox(Graphics2D g2){
 //        if(!attacking || spriteCounter <= 5 || spriteCounter > 25) return;
@@ -1371,82 +1765,41 @@ public class Player extends Entity{
         };
     }
 
-    private void spawnTrailParticle(){
-        int feetOffsetY = (solidArea.y + solidArea.height) - (gp.tileSize / 2);
-        Particle p = new Particle(gp, this, getParticleColor(), getParticleSize(), getParticleSpeed(), getParticleMaxHP(), 0, 0, 0, feetOffsetY);
-        p.groundEffect = true;
-        gp.particleList.add(p);
-    }
-
-    @Override
-    public Color getParticleColor(){
-        return new Color(223, 223, 223); // dust color — tune to your art
-    }
-
-    @Override
-    public int getParticleSize(){
-        return 6;
-    }
-
-    @Override
-    public int getParticleSpeed(){
-        return 0; // trail particles stay put and just fade/expire, don't fly outward
-    }
-
-    @Override
-    public int getParticleMaxHP(){
-        return 20; // lifespan in ticks before it disappears
+    private void updateRunningTrail(int dx, int dy){
+        if(dx == 0 && dy == 0){
+            trailCounter = TRAIL_START_DELAY;
+            return;
+        }
+        if(trailCounter > 0){
+            trailCounter--;
+            return;
+        }
+        var random = ThreadLocalRandom.current();
+        trailCounter = random.nextInt(7, 11) - 1;
+        float length = (float)Math.hypot(dx, dy);
+        float backX = -dx / length, backY = -dy / length;
+        boolean runningDown = dx == 0 && dy > 0;
+        float distance = runningDown ? 12 : random.nextFloat(16f, 22f);
+        float lateral = runningDown ? 0 : random.nextFloat(-3.5f, 3.5f);
+        float radius = random.nextFloat(7.8f, 10.4f);
+        float drift = random.nextFloat(0.38f, 0.82f);
+        int lifetime = runningDown ? random.nextInt(10, 13) : random.nextInt(17, 23);
+        Particle.emit(this, Particle.Style.DUST, Color.WHITE, radius, lifetime,
+                backX * drift, backY * drift * 0.65f - 0.16f,
+                backX * distance - backY * lateral, backY * distance + backX * lateral - 5);
     }
 
     private void setupSkills(){
-        if(playerClass.equals("mage")){
-            setupMageSkills();
-        } else if(playerClass.equals("hunter")){setupHunterSkills();}
-        else setupWarriorSkills();
-        if(!playerClass.equals("warrior")){
-            String[] descriptions=playerClass.equals("mage")?new String[]{"For 5s, landed spells build two runes.","Spend runes to explode around you.","Cast faster for 5 seconds.","Ignite your next spell target.","Gain +3 defense for 5 seconds."}:
-                    new String[]{"Empower the next paired-blade strike.","Gain +3 attack for 5 seconds.","Attack faster for 5 seconds.","Next landed strike causes bleeding.","Gain +3 defense for 5 seconds."};
-            for(int i=0;i<5;i++)skills[i].description=descriptions[i];
-        }
-    }
-
-    private void setupHunterSkills(){
-        skills[0] = new Skill("Twin Fang", 30, 300, () -> {
-            powerStrikePending = true;
-            powerStrikeBonus = attack;
-            spawnSkillParticles(new Color(255, 200, 0), 8);
-            announceSkill("Twin Fang");
-        }, loadSkillIcon("/skill_icon/hunter_twinfang"));
-
-        skills[1] = new Skill("Predator Focus", 20, 600, () -> {
-            addStatusEffect(new StatusEffect("attackBoost", 300, 3, 0));
-            startAura(new Color(255, 80, 80), 300);
-            spawnSkillParticles(new Color(255, 80, 80), 10);
-            announceSkill("Predator Focus");
-        }, loadSkillIcon("/skill_icon/hunter_focus"));
-        statusEffectIcons.put("attackBoost", skills[1].icon);
-
-        skills[2] = new Skill("Adrenaline Rush", 20, 600, () -> {
-            addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
-            startAura(new Color(255, 255, 0), 300);
-            spawnSkillParticles(new Color(255, 255, 0), 10);
-            announceSkill("Adrenaline Rush");
-        }, loadSkillIcon("/skill_icon/hunter_haste"));
-        statusEffectIcons.put("attackSpeedBoost", skills[2].icon);
-
-        skills[3] = new Skill("Rend", 25, 480, () -> {
-            rendPending = true;
-            spawnSkillParticles(new Color(150, 0, 0), 8);
-            announceSkill("Rend");
-        }, loadSkillIcon("/skill_icon/hunter_rend"));
-
-        skills[4] = new Skill("Evasive Guard", 20, 600, () -> {
-            addStatusEffect(new StatusEffect("defenseBoost", 300, 3, 0));
-            startAura(new Color(120, 180, 255), 300);
-            spawnSkillParticles(new Color(120, 180, 255), 10);
-            announceSkill("Evasive Guard");
-        }, loadSkillIcon("/skill_icon/hunter_evasion"));
-        statusEffectIcons.put("defenseBoost", skills[4].icon);
+        statusEffectIcons.clear();
+        if(isPaladin()){paladin.setup(skills);return;}
+        if(isBerserker()){berserker.setup(skills);return;}
+        if(isRanger()){ranger.setSkills(skills);return;}
+        if(isAssassin()){assassin.setup(skills);return;}
+        if(isPriest()){priest.setup(skills);return;}
+        if(isMage()){
+            mage.setup(skills);
+            statusEffectIcons.put(MageCombat.INFUSION,skills[2].icon);
+        }else setupWarriorSkills();
     }
 
     private void setupWarriorSkills(){
@@ -1495,58 +1848,15 @@ public class Player extends Entity{
         }
     }
 
-    private void setupMageSkills(){
-        skills[0] = new Skill("Mana Infusion", 2, 240, () -> {
-            // Infusion improves earned charges; it cannot charge runes without landing a spell.
-            statusEffects.removeIf(effect -> effect.type.equals("runeInfusion"));
-            addStatusEffect(new StatusEffect("runeInfusion",300,1,0));
-            spawnSkillParticles(new Color(190, 120, 255), 8);
-            announceSkill("Mana Infusion");
-        }, loadSkillIcon("/skill_icon/mage_manainfusion"));
-
-        statusEffectIcons.put("runeInfusion",skills[0].icon);
-
-        skills[1] = new Skill("Arcane Detonation", 4, 480, () -> {
-            triggerArcaneDetonation();
-        }, loadSkillIcon("/skill_icon/mage_detonation"));
-
-        skills[2] = new Skill("Haste", 3, 600, () -> {
-            addStatusEffect(new StatusEffect("attackSpeedBoost", 300, 2, 0));
-            startAura(new Color(255, 255, 120), 300);
-            spawnSkillParticles(new Color(255, 255, 120), 10);
-            announceSkill("Haste");
-        }, loadSkillIcon("/skill_icon/mage_haste"));
-        statusEffectIcons.put("attackSpeedBoost", skills[2].icon);
-
-        skills[3] = new Skill("Ignite", 3, 420, () -> {
-            rendPending = true;
-            spawnSkillParticles(new Color(255, 120, 0), 8);
-            announceSkill("Ignite");
-        }, loadSkillIcon("/skill_icon/mage_ignite"));
-
-        skills[4] = new Skill("Mana Shield", 3, 600, () -> {
-            addStatusEffect(new StatusEffect("defenseBoost", 300, 3, 0));
-            startAura(new Color(120, 200, 255), 300);
-            spawnSkillParticles(new Color(120, 200, 255), 10);
-            announceSkill("Mana Shield");
-        }, loadSkillIcon("/skill_icon/mage_manashield"));
-        statusEffectIcons.put("defenseBoost", skills[4].icon);
-    }
-
     private BufferedImage loadSkillIcon(String path){return art.SkillArt.icon(path);}
-
-    private void spawnSkillParticles(Color color, int count){
-        for(int i = 0; i < count; i++){
-            double angle = (2 * Math.PI / count) * i;
-            int xd = (int)Math.round(Math.cos(angle) * 2);
-            int yd = (int)Math.round(Math.sin(angle) * 2);
-            Particle p = new Particle(gp, this, color, 6, 2, 20, xd, yd);
-            gp.particleList.add(p);
-        }
-    }
 
     public int getEffectiveAttack(){
         return attack + getStatusEffectValue("attackBoost");
+    }
+
+    public int damageTaken(int incoming){
+        int armor=getEffectiveDefense();
+        return Math.max(1,(usesFocus() || usesMana() || isBerserker() || isPaladin())?Math.round(incoming*(100-Math.min(35,armor))/100f):incoming-armor);
     }
 
     public int getEffectiveDefense(){
@@ -1554,20 +1864,46 @@ public class Player extends Entity{
     }
 
     private boolean hasEnoughResource(int cost){
-        return playerClass.equals("mage") ? MP >= cost : rage >= cost;
+        return skillResource()>=cost;
     }
 
     private void spendResource(int cost){
-        if(playerClass.equals("mage")){
+        if(usesMana()){
             MP -= cost;
             ticksSinceSkillUse = 0;
-        } else {
-            rage -= cost;
+            mpRegenCounter=0;
+        }else if(isPaladin()){
+            resolve-=cost;
+        }else{
+            rage-=cost;
         }
     }
 
+    @Override protected BufferedImage animationFrame(SpriteAnimation anim){
+        if(!"attack".equals(animState) || anim.frames.length!=CharacterSprites.SWORD_ATTACK_FRAMES)
+            return super.animationFrame(anim);
+        int frame=(spriteNum-1)*2;
+        if(attacking){
+            if(attackFrameHoldCounter*2>=getAttackFrameDelay(spriteNum))frame++;
+        }else if(isPaladin()){
+            frame=paladin.swordPose();
+        }else if(isBerserker()){
+            frame=berserker.windupPose();
+        }
+        return anim.frames[Math.clamp(frame,0,anim.frames.length-1)];
+    }
+
+    public int attackFrameTicks(){return attackFrameHoldCounter;}
+
+    public void syncMeleeAttackFrame(int frame,int ticks){
+        spriteNum=Math.clamp(frame,1,CharacterSprites.ATTACK_FRAMES);
+        attackFrameHoldCounter=Math.clamp(ticks,0,getAttackFrameDelay(spriteNum)-1);
+    }
+
     private int getAttackFrameDelay(int frameNumber){
-        if(playerClass.equals("hunter") && weaponKind().isDaggers()){
+        if(isPaladin())return frameNumber<=attackHitEndFrame?4:3;
+        if(isBerserker())return frameNumber<attackHitStartFrame || frameNumber>attackHitEndFrame?5:4;
+        if(weaponKind().isDaggers()){
             return frameNumber<attackHitStartFrame?3:frameNumber<=attackHitEndFrame?1:2;
         }
         if(frameNumber < attackHitStartFrame){
@@ -1580,9 +1916,31 @@ public class Player extends Entity{
     }
 
     public int getEffectiveAttackFrameDelay(){
-        int delay = (playerClass.equals("hunter") && weaponKind().isDaggers()?1:attackActiveFrameDelay) - getStatusEffectValue("attackSpeedBoost");
+        int delay = (weaponKind().isDaggers()?1:attackActiveFrameDelay) - getStatusEffectValue("attackSpeedBoost");
         return Math.max(1, delay);
     }
+
+    private void advanceAttackFrame(){
+        if(++attackFrameHoldCounter >= getAttackFrameDelay(spriteNum)){
+            attackFrameHoldCounter = 0;
+            spriteNum++;
+        }
+    }
+
+    public void applyRemoteAnimation(String state, boolean attacking){
+        if(!usesMana() && !usesFocus() && !isBerserker() && !isPaladin()){
+            if(this.attacking != attacking){
+                spriteNum = 1;
+                attackFrameHoldCounter = 0;
+            }
+            animState = attacking ? "attack" : ("attack".equals(state) ? "idle" : state);
+        } else {
+            animState = state;
+        }
+        this.attacking = attacking;
+    }
+
+    public void cancelBowDraw(){ranger.cancelAim();}
 
     public void applyInput(InputState input){
         currentInput = input;
@@ -1649,10 +2007,18 @@ public class Player extends Entity{
     }
 
     public void resetForSceneTransition(){
+        priest.reset();paladin.reset();
+        resetForInteraction();
+    }
+
+    public void resetForInteraction(){
         merchantOpen=false;
         if(inDialogue)decrementNpcConversation(dialogueNpcIndex);
         closeDialogue();inputHistory.clear();moving=false;attacking=false;attackBuffered=false;attackCanceled=false;collisionOn=false;
-        mageProjectileFired=false;mageTarget=null;hoveredTarget=null;spriteNum=1;spriteCounter=0;attackFrameHoldCounter=0;
+        mageProjectileFired=false;hoveredTarget=null;spriteNum=1;spriteCounter=0;attackFrameHoldCounter=0;
+        firstDaggerTargets.clear();
+        trailCounter=TRAIL_START_DELAY;
+        ranger.reset();assassin.reset();mage.cancel();berserker.cancel();paladin.cancel();
         knockbackActive=false;knockbackRemaining=0;
         if(currentInput!=null){currentInput.suppressGameplay();currentInput.escapePressed=false;}
         animState="idle";
@@ -1669,14 +2035,14 @@ public class Player extends Entity{
 
     public void captureSavedCombat(net.PlayerState state){
         state.powerStrikePending=powerStrikePending;state.powerStrikeBonus=powerStrikeBonus;
-        state.rendPending=rendPending;state.armorBreakPending=armorBreakPending;state.auraTicks=auraDurationRemaining;
+        state.armorBreakPending=armorBreakPending;state.auraTicks=auraDurationRemaining;
         state.effectIntervals=statusEffects.stream().mapToInt(e->e.tickInterval).toArray();
         state.effectCounters=statusEffects.stream().mapToInt(e->e.tickCounter).toArray();
     }
 
     public void restoreSavedCombat(net.PlayerState state){
-        powerStrikePending=state.powerStrikePending;powerStrikeBonus=state.powerStrikeBonus;
-        rendPending=state.rendPending;armorBreakPending=state.armorBreakPending;
+        powerStrikePending=!isAssassin() && state.powerStrikePending;powerStrikeBonus=state.powerStrikeBonus;
+        armorBreakPending=state.armorBreakPending;
         auraDurationRemaining=Math.max(0,state.auraTicks);
         for(int i=0;i<statusEffects.size();i++){
             StatusEffect effect=statusEffects.get(i);
@@ -1703,7 +2069,7 @@ public class Player extends Entity{
         }
     }
 
-    private void announceSkill(String skillName){
+    void announceSkill(String skillName){
         String who = (playerName != null && !playerName.isEmpty()) ? playerName : "Player " + (playerId + 1);
         gp.broadcastPlayerEvent(playerId, GameEventType.SKILL, who + " used " + skillName + "!", null);
         if(playerClass.equals("warrior"))gp.broadcastPlayerEvent(playerId,GameEventType.SKILL_EFFECT,null,skillName);
@@ -1711,19 +2077,25 @@ public class Player extends Entity{
 
     public void simulateMovement(InputState input){
         if(gp.quests.isBossIntro())return;
-        if(input.ePressed) return; // matches the live rule: holding E suppresses movement that tick
+        if(input.ePressed || input.movementLocked) return; // matches the live rule: holding E suppresses movement that tick
 
         String horizDir = input.left ? "left" : (input.right ? "right" : null);
         String vertDir = input.up ? "up" : (input.down ? "down" : null);
 
+        moveForInput(horizDir,vertDir,input.chorusSpeed,input.heavyMovement);
+    }
+
+    private void moveForInput(String horizDir,String vertDir,boolean chorusSpeed,boolean heavyMovement){
+        int boostedSpeed=speed+(chorusSpeed?1:0);
+        if(heavyMovement)boostedSpeed=Math.max(1,boostedSpeed/2);
         boolean diagonal = (horizDir != null && vertDir != null);
-        int moveSpeed = diagonal ? (int) Math.round(speed * 0.7071) : speed;
+        int moveSpeed = diagonal ? (int) Math.round(boostedSpeed * 0.7071) : boostedSpeed;
         if(diagonal && moveSpeed < 1) moveSpeed = 1;
 
         if(horizDir != null){
             direction = horizDir;
             collisionOn = false;
-            gp.collisionChecker.checkTile(this);
+            gp.collisionChecker.checkTile(this,heavyMovement?moveSpeed:Math.max(speed,moveSpeed));
             if(!collisionOn){
                 worldX += horizDir.equals("left") ? -moveSpeed : moveSpeed;
             }
@@ -1732,7 +2104,7 @@ public class Player extends Entity{
         if(vertDir != null){
             direction = vertDir;
             collisionOn = false;
-            gp.collisionChecker.checkTile(this);
+            gp.collisionChecker.checkTile(this,heavyMovement?moveSpeed:Math.max(speed,moveSpeed));
             if(!collisionOn){
                 worldY += vertDir.equals("up") ? -moveSpeed : moveSpeed;
             }
@@ -1804,91 +2176,28 @@ public class Player extends Entity{
 
 
 
-    private boolean isValidTarget(Entity e){
-        return e != null && e.alive && !e.dying;
-    }
-
-    private String radialDirection(double dx, double dy){
-        if(Math.abs(dx) > Math.abs(dy)){
-            return dx > 0 ? "right" : "left";
-        }
-        return dy > 0 ? "down" : "up";
-    }
-
-    public boolean canCastFireball(){
-        return playerClass.equals("mage") && currentWeapon!=null
-                && !currentWeapon.isPlaceholder && currentWeapon.type==type_staff;
-    }
-
-    /** Called only after an authoritative spell impact actually deals damage. */
-    void gainRuneChargeOnHit(boolean empowered){
-        if(!canResolveWorldActions() || !playerClass.equals("mage") || empowered)return;
-        arcaneCharge=Math.min(maxArcaneCharge,arcaneCharge+1+getStatusEffectValue("runeInfusion"));
-        if(arcaneCharge>=maxArcaneCharge)startAura(new Color(120,152,255),999999);
-    }
-
     private void mageAttacking(){
-        // Recheck at release as equipment can change after the cast starts.
-        if(!canCastFireball()){
-            attacking=false;attackBuffered=false;mageProjectileFired=false;mageTarget=null;
-            spriteNum=1;attackFrameHoldCounter=0;return;
+        if(!hasStaff()){
+            interruptForMageSpell();
+            animState="idle";spriteNum=1;
+            return;
         }
-        SpriteAnimation anim = getCurrentAnimation();
-        int totalFrames = (anim != null) ? anim.frames.length : 1;
-
-        int delayForCurrentFrame = getAttackFrameDelay(spriteNum);
-
-        attackFrameHoldCounter++;
-        if(attackFrameHoldCounter >= delayForCurrentFrame){
-            attackFrameHoldCounter = 0;
-            spriteNum++;
-
-            if(spriteNum > totalFrames){
-                spriteNum = 1;
-                attacking = false;
-                mageProjectileFired = false;
-                mageTarget = null;
-                return;
-            }
+        direction=mage.aimDirection(mageAimX,mageAimY);
+        advanceAttackFrame();
+        if(spriteNum>CharacterSprites.ATTACK_FRAMES){
+            spriteNum=1;attacking=false;mageProjectileFired=false;
+            animState=moving?"run":"idle";
+            return;
         }
-
-        if(spriteNum >= attackHitStartFrame && spriteNum <= attackHitEndFrame && !mageProjectileFired){
-            Entity target = isValidTarget(hoveredTarget) ? hoveredTarget
-                    : (isValidTarget(mageTarget) ? mageTarget : null);
-            boolean unleashed = arcaneCharge >= maxArcaneCharge;
-
-            Projectile shot = new OBJ_fireball(gp);
-            shot.attack = unleashed ? getEffectiveAttack() * 2 : getEffectiveAttack();
-            shot.empowered = unleashed;
-            if(target != null){
-                shot.set(worldX, worldY, direction, true, this, target); // homes on the target
-            } else {
-                double angle = Math.atan2(mageAimY - (worldY + gp.tileSize/2), mageAimX - (worldX + gp.tileSize/2));
-                shot.setAngled(worldX, worldY, angle, true, this);      // flies toward where the cursor was
-            }
-            gp.projectileList.add(shot);
-            gp.playSE(9);
-
-            if(rendPending && target != null){
-                target.addStatusEffect(new StatusEffect("bleed", 180, 1, 30));
-                rendPending = false;
-            }
-
-            if(unleashed){
-                arcaneCharge = 0;
-                auraActive = false;
-                spawnNovaCastParticles();
-                gp.startScreenShake(10, 8);
-            } else {
-                spawnCastParticles();
-            }
-            mageProjectileFired = true;
+        if(spriteNum==attackHitStartFrame && !mageProjectileFired){
+            mage.fireBolt(mageAimX,mageAimY);
+            mageProjectileFired=true;
         }
     }
 
     public void refreshWeaponAnimation(){
         if(USE_GENERATED_BODY){ buildGeneratedBody(); return; }
-        if(!playerClass.equals("mage")){
+        if(!usesMana()){
             getPlayerAttackImage();
         } else {
             sprites.remove("attack_down");
@@ -1898,70 +2207,10 @@ public class Player extends Entity{
         }
     }
 
-    private void spawnCastParticles(){
-        Color color = new Color(150, 100, 255);
-        for(int i = 0; i < 6; i++){
-            double angle = (2 * Math.PI / 6) * i;
-            int xd = (int) Math.round(Math.cos(angle) * 2);
-            int yd = (int) Math.round(Math.sin(angle) * 2);
-            Particle p = new Particle(gp, this, color, 5, 2, 15, xd, yd);
-            gp.particleList.add(p);
-        }
-    }
-
     public void spawnLevelUpBurst(){
-        startAura(new Color(255, 215, 0), 90);
-        for(int i = 0; i < 16; i++){
-            double angle = (2 * Math.PI / 16) * i;
-            int xd = (int) Math.round(Math.cos(angle) * 3);
-            int yd = (int) Math.round(Math.sin(angle) * 3);
-            Particle p = new Particle(gp, this, new Color(255, 215, 0), 6, 2, 25, xd, yd);
-            gp.particleList.add(p);
-        }
-    }
-
-    private void spawnFinisherBurst(Entity target, Color color){
-        for(int i = 0; i < 12; i++){
-            double angle = (2 * Math.PI / 12) * i;
-            int xd = (int) Math.round(Math.cos(angle) * 3);
-            int yd = (int) Math.round(Math.sin(angle) * 3);
-            Particle p = new Particle(gp, target, color, 7, 3, 20, xd, yd);
-            gp.particleList.add(p);
-        }
-    }
-
-    private void spawnNovaCastParticles(){
-        for(int i = 0; i < 20; i++){
-            double angle = (2 * Math.PI / 20) * i;
-            int xd = (int) Math.round(Math.cos(angle) * 4);
-            int yd = (int) Math.round(Math.sin(angle) * 4);
-            Particle p = new Particle(gp, this, new Color(190, 120, 255), 7, 3, 22, xd, yd);
-            gp.particleList.add(p);
-        }
-    }
-
-    private void triggerArcaneDetonation(){
-        int chargeSpent = Math.max(1, arcaneCharge);
-        int damagePerHit = getEffectiveAttack() * chargeSpent;
-        int radius = gp.tileSize * 3;
-
-        for(int i = 0; i < gp.monster.length; i++){
-            Entity m = gp.monster[i];
-            if(m == null || m.dying) continue;
-
-            int dx = m.worldX - worldX;
-            int dy = m.worldY - worldY;
-            double distance = Math.sqrt(dx*dx + dy*dy);
-            if(distance <= radius){
-                damageMonster(i, damagePerHit, true, radialDirection(dx, dy));
-            }
-        }
-
-        arcaneCharge = 0;
-        auraActive = false;
-        spawnNovaCastParticles();
-        gp.startScreenShake(10, 8);
-        announceSkill("Arcane Detonation");
+        startAura(Palette.GOLD, 90);
+        Particle.burst(this, Particle.Style.SPARK, Palette.GOLD, 12, 5, 22, 3.8f);
+        Particle.emit(this, Particle.Style.RING, Palette.GOLD, 24, 18, 0, 0, 0, 5);
     }
 
     private void interactScenery(){

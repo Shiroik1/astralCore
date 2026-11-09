@@ -50,7 +50,37 @@ public enum ItemType {
     HELL_DAGGER(entity.CharacterClass.HUNTER,true),
     HELL_STAFF(entity.CharacterClass.MAGE,true),
     POTION_MANA, POTION_GREATER,
-    DUAL_DAGGERS(OBJ_dualdaggers.class,OBJ_dualdaggers::new);
+    DUAL_DAGGERS(OBJ_dualdaggers.class,OBJ_dualdaggers::new),
+    TRAILWOOD_BOW(art.RangerGear.TRAIL,true), TRAIL_SCOUT_OUTFIT(art.RangerGear.TRAIL,false),
+    BRIAR_BOW(art.RangerGear.BRIAR,true), BRIAR_STALKER_OUTFIT(art.RangerGear.BRIAR,false),
+    RIDGEWATCH_BOW(art.RangerGear.RIDGE,true), RIDGEWATCH_OUTFIT(art.RangerGear.RIDGE,false),
+    MOONBOUGH_BOW(art.RangerGear.MOON,true), MOONBOUGH_OUTFIT(art.RangerGear.MOON,false),
+    SUNCREST_BOW(art.RangerGear.SUN,true), SUNCREST_OUTFIT(art.RangerGear.SUN,false),
+    ALLEY_SCOUT_OUTFIT(art.AssassinGear.ALLEY,false),
+    BRIARHOOK_DAGGERS(art.AssassinGear.BRIAR,true), BRIAR_SHADE_OUTFIT(art.AssassinGear.BRIAR,false),
+    ASHGLASS_DAGGERS(art.AssassinGear.ASH,true), ASHVEIL_OUTFIT(art.AssassinGear.ASH,false),
+    MOONSPLIT_DAGGERS(art.AssassinGear.MOON,true), MOONVEIL_OUTFIT(art.AssassinGear.MOON,false),
+    DUSKFANG_DAGGERS(art.AssassinGear.GLOAM,true), GLOAM_REGENT_OUTFIT(art.AssassinGear.GLOAM,false),
+    HEARTH_ROBE(art.MageGear.HEARTH,false),
+    RIMEGLASS_STAFF(art.MageGear.FROST,true), FROST_SCRIBE_ROBE(art.MageGear.FROST,false),
+    PRISMWEAVE_STAFF(art.MageGear.PRISM,true), PRISM_ADEPT_ROBE(art.MageGear.PRISM,false),
+    STARWARD_CROOK(art.MageGear.STAR,true), STARWARD_ROBE(art.MageGear.STAR,false),
+    ASTRAL_CROWN_STAFF(art.MageGear.ASTRAL,true), ASTRAL_REGENT_ROBE(art.MageGear.ASTRAL,false),
+    WAYLIGHT_STAFF(art.PriestGear.WAY,true), WAYFARER_ROBE(art.PriestGear.WAY,false),
+    GREENBOUGH_STAFF(art.PriestGear.GROVE,true), GROVE_KEEPER_ROBE(art.PriestGear.GROVE,false),
+    VESPER_BELLSTAFF(art.PriestGear.BELL,true), BELLWARDEN_ROBE(art.PriestGear.BELL,false),
+    DAWNRING_STAFF(art.PriestGear.DAWN,true), DAWN_HERALD_ROBE(art.PriestGear.DAWN,false),
+    HEARTHCROWN_STAFF(art.PriestGear.HEARTH,true), SANCTUARY_KEEPER_ROBE(art.PriestGear.HEARTH,false),
+    FIELDBREAKER(art.BerserkerGear.ROAD,true), ROAD_REAVER_ARMOR(art.BerserkerGear.ROAD,false),
+    IRONWAKE_CLAYMORE(art.BerserkerGear.IRON,true), IRON_ROAMER_ARMOR(art.BerserkerGear.IRON,false),
+    RIDGECLEAVER(art.BerserkerGear.RIDGE,true), RIDGE_VANGUARD_ARMOR(art.BerserkerGear.RIDGE,false),
+    CINDERMAW(art.BerserkerGear.CINDER,true), CINDER_REAVER_ARMOR(art.BerserkerGear.CINDER,false),
+    FAULTLINE_GREATSWORD(art.BerserkerGear.FAULT,true), FAULTLINE_CHAMPION_ARMOR(art.BerserkerGear.FAULT,false),
+    GATEKEEPER_SWORD(art.PaladinGear.GATE,art.PaladinGear.Piece.SWORD), GATEKEEPER_ROUNDSHIELD(art.PaladinGear.GATE,art.PaladinGear.Piece.SHIELD), GATE_SENTINEL_ARMOR(art.PaladinGear.GATE,art.PaladinGear.Piece.ARMOR),
+    WAYGUARD_SWORD(art.PaladinGear.ROAD,art.PaladinGear.Piece.SWORD), KITE_SHIELD(art.PaladinGear.ROAD,art.PaladinGear.Piece.SHIELD), ROAD_WARDEN_ARMOR(art.PaladinGear.ROAD,art.PaladinGear.Piece.ARMOR),
+    VOWSTEEL_SWORD(art.PaladinGear.VOW,art.PaladinGear.Piece.SWORD), HEATER_SHIELD(art.PaladinGear.VOW,art.PaladinGear.Piece.SHIELD), IRON_VOW_ARMOR(art.PaladinGear.VOW,art.PaladinGear.Piece.ARMOR),
+    DAWNWARD_SWORD(art.PaladinGear.DAWN,art.PaladinGear.Piece.SWORD), SUNCREST_SHIELD(art.PaladinGear.DAWN,art.PaladinGear.Piece.SHIELD), DAWN_BASTION_ARMOR(art.PaladinGear.DAWN,art.PaladinGear.Piece.ARMOR),
+    CITADEL_BLADE(art.PaladinGear.CITADEL,art.PaladinGear.Piece.SWORD), BASTION_SHIELD(art.PaladinGear.CITADEL,art.PaladinGear.Piece.SHIELD), CITADEL_KEEPER_ARMOR(art.PaladinGear.CITADEL,art.PaladinGear.Piece.ARMOR);
 
     final Class<? extends Entity> itemClass;
     final Function<Gamepanel, Entity> factory;
@@ -61,6 +91,49 @@ public enum ItemType {
     ItemType(entity.CharacterClass characterClass,boolean hell){
         this.itemClass=OBJ_rewardweapon.class;
         this.factory=gp -> new OBJ_rewardweapon(gp,this,characterClass,hell);
+    }
+
+    ItemType(art.RangerGear gear,boolean bow){
+        itemClass=bow?OBJ_rangerbow.class:OBJ_apparel.class;
+        factory=bow?gp->new OBJ_rangerbow(gp,this,gear)
+                :gp->new OBJ_apparel(gp,this,art.CharacterOutfit.Slot.TORSO,gear.outfit+" Leathers",
+                        art.CharacterOutfit.Theme.LEATHER,false,gear);
+    }
+
+    ItemType(art.AssassinGear gear,boolean weapon){
+        itemClass=weapon?OBJ_dualdaggers.class:OBJ_apparel.class;
+        factory=weapon?gp->new OBJ_dualdaggers(gp,this,gear)
+                :gp->new OBJ_apparel(gp,this,art.CharacterOutfit.Slot.TORSO,gear.outfit+" Leathers",
+                        art.CharacterOutfit.Theme.LEATHER,false,null,gear);
+    }
+
+    ItemType(art.MageGear gear,boolean weapon){
+        itemClass=weapon?OBJ_staff.class:OBJ_apparel.class;
+        factory=weapon?gp->new OBJ_staff(gp,this,gear)
+                :gp->new OBJ_apparel(gp,this,art.CharacterOutfit.Slot.TORSO,gear.outfit+" Robe",
+                        art.CharacterOutfit.Theme.CASTER,false,null,null,gear);
+    }
+
+    ItemType(art.PriestGear gear,boolean weapon){
+        itemClass=weapon?OBJ_prieststaff.class:OBJ_apparel.class;
+        factory=weapon?gp->new OBJ_prieststaff(gp,this,gear)
+                :gp->new OBJ_apparel(gp,this,art.CharacterOutfit.Slot.TORSO,gear.outfit+" Robe",
+                        art.CharacterOutfit.Theme.CASTER,false,null,null,null,gear);
+    }
+
+    ItemType(art.BerserkerGear gear,boolean weapon){
+        itemClass=weapon?OBJ_greatsword.class:OBJ_apparel.class;
+        factory=weapon?gp->new OBJ_greatsword(gp,this,gear)
+                :gp->new OBJ_apparel(gp,this,art.CharacterOutfit.Slot.TORSO,gear.outfit+" Armor",
+                        art.CharacterOutfit.Theme.ARMOR,false,null,null,null,null,gear);
+    }
+
+    ItemType(art.PaladinGear gear,art.PaladinGear.Piece piece){
+        boolean armor=piece==art.PaladinGear.Piece.ARMOR;
+        itemClass=armor?OBJ_apparel.class:OBJ_paladinGear.class;
+        factory=armor?gp->new OBJ_apparel(gp,this,art.CharacterOutfit.Slot.TORSO,gear.outfit+" Armor",
+                art.CharacterOutfit.Theme.ARMOR,false,null,null,null,null,null,gear)
+                :gp->new OBJ_paladinGear(gp,this,gear,piece==art.PaladinGear.Piece.SHIELD);
     }
 
     ItemType(art.CharacterOutfit.Slot slot, String label){

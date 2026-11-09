@@ -20,6 +20,12 @@ public final class CharacterArt {
         public Color eye  = new Color(0x56403F);
         public Color blush = new Color(0xF4A99A);
         public WeaponArt.Kind weapon = WeaponArt.Kind.NONE;   // held weapon
+        public RangerGear rangerBow, rangerOutfit;
+        public AssassinGear assassinOutfit;
+        public MageGear mageOutfit;
+        public PriestGear priestOutfit;
+        public BerserkerGear berserkerOutfit;
+        public PaladinGear paladinOutfit,paladinShield;
         public int shieldStyle;
         public float weaponScale = 1f;      // >1 makes held weapons and their motion chunkier (used in pixel mode)
         public CharacterOutfit outfit = CharacterOutfit.BARE;
@@ -33,6 +39,8 @@ public final class CharacterArt {
         public float idle = 0f;     // 0..1 breathing phase
         public float attack = 0f;   // attack progress 0..1
         public boolean attacking = false;
+        public float guard;
+        public float greatswordRaise;
         public Pose walk(float p) { walk = p; moving = true; return this; }
         public Pose idle(float p) { idle = p; return this; }
         public Pose attack(float t) { attack = t; attacking = true; return this; }
@@ -73,7 +81,7 @@ public final class CharacterArt {
             squash = runValue(p.walk, new float[]{0.01f, 0.035f, -0.005f, -0.015f});
         }
 
-        if (p.attacking) {
+        if (p.attacking && look.rangerBow == null) {
             WeaponArt.Swing attack = WeaponArt.swing(look.weapon, true, p.attack);
             squash = 0.025f * attack.reach
                     - (look.weapon.isStaff() ? 0.012f * attack.lift : 0);
@@ -88,7 +96,7 @@ public final class CharacterArt {
         g.translate(0, bob);
         g.translate(32, FOOT_Y); g.scale(1 + squash, (p.moving && !p.attacking ? 0.95f : 1) * (1 - squash)); g.translate(-32, -FOOT_Y);
 
-        if (p.attacking && !look.weapon.isStaff()) {
+        if (p.attacking && !look.weapon.isStaff() && look.rangerBow == null) {
             float reach = WeaponArt.swing(look.weapon, true, p.attack).reach;
             float dx = dir == Dir.RIGHT ? 2.5f : dir == Dir.LEFT ? -2.5f : 0;
             float dy = dir == Dir.DOWN ? 1.2f : dir == Dir.UP ? -0.3f : 0;
@@ -106,17 +114,21 @@ public final class CharacterArt {
         boolean back = dir == Dir.UP;
         AffineTransform saved = g.getTransform();
         if (dir == Dir.LEFT) { g.translate(W, 0); g.scale(-1, 1); }
-        WeaponArt.Swing sw = WeaponArt.swing(look.weapon, pose.attacking, pose.attack);
+        boolean bow = look.rangerBow != null;
+        boolean bowAim = bow && pose.attacking;
+        WeaponArt.Swing sw = WeaponArt.swing(look.weapon, pose.attacking && !bow, pose.attack);
         boolean running = pose.moving && !pose.attacking;
         float step = running ? (float) Math.sin(pose.walk * Math.PI * 2) : 0;
         float nearLift = Math.max(0, -step) * 5;
         float farLift = Math.max(0, step) * 5;
-        float armDeg = pose.attacking ? sw.arm : -swing * 48f;
+        float armDeg = pose.attacking && !bow ? sw.arm : -swing * 48f;
         int hs = back ? 1 : -1;
+        boolean offhandCut = sw.daggerHand == WeaponArt.DaggerHand.OFF;
+        int strikeSide = offhandCut ? -hs : hs;
         float armS = (hs < 0 ? -swing : swing) * (running ? 3.2f : 0.8f);
         float armLift = sw.lift * (look.weapon.isStaff() ? 2 : 8)
                 + (back ? sw.reach * 4 : 0);
-        boolean melee = pose.attacking && !look.weapon.isStaff();
+        boolean melee = pose.attacking && !look.weapon.isStaff() && !bow;
         float handX, handY, angle, previous;
         if (side) {
             double ar = Math.toRadians(armDeg);
@@ -124,37 +136,73 @@ public final class CharacterArt {
             handY = 38 + (float) Math.cos(ar) * 8.5f;
             angle = sw.side; previous = sw.prevSide;
         } else {
-            handX = (hs < 0 ? 26 : 38) + hs * (4.2f + armS * 0.3f + sw.reach * 2);
+            handX = (strikeSide < 0 ? 26 : 38) + strikeSide * (4.2f + armS * 0.3f + sw.reach * 2);
             handY = 45.5f - armLift + armS + (back ? -4 : 5) * sw.reach;
             angle = (back ? sw.back : sw.front) * hs;
             previous = (back ? sw.prevBack : sw.prevFront) * hs;
             if (melee) {
-                handX += (32 + hs * 3 - handX) * sw.reach;
+                handX += (32 + strikeSide * 3 - handX) * sw.reach;
                 handY = 45.5f - sw.lift * 7 + (back ? -17 : 7) * sw.reach;
             }
         }
-        // Facing away: the character and outfit always occlude the held weapon.
-        // Front and side views retain the wind-up / follow-through layering.
-        boolean weaponBehind = back || (pose.attacking && !look.weapon.isStaff()
-                && sw.lift > 0.65f && sw.reach < 0.5f);
-        final float weaponX = handX, weaponY = handY;
-        Runnable weapon = () -> WeaponArt.draw(g, look.weapon, weaponX, weaponY, angle,
-                side ? 1 : hs, sw.reach, sw.smear, previous, look.weaponScale);
+        if(look.weapon.isStaff()){
+            if(side){
+                handX=Math.max(handX,39);
+                angle=Math.min(angle+15,42);
+                previous=Math.min(previous+15,42);
+            }else{
+                handX+=hs*6;
+                angle+=20;
+                previous+=20;
+            }
+        }
+        boolean greatsword=look.weapon.isGreatsword();
+        boolean heldSword=look.weapon.isHeldSword();
+        float swordScale=1;
+        if(heldSword){
+            SwordGrip grip=swordGrip(greatsword,side,back,pose,swing,step);
+            handX=grip.x;handY=grip.y;angle=grip.angle;swordScale=grip.scale;
+        }
+        double gripAngle=Math.toRadians(angle);
+        float gripDX=-(float)Math.sin(gripAngle)*swordScale,gripDY=(float)Math.cos(gripAngle)*swordScale;
+        float secondX=handX+gripDX*4.9f,secondY=handY+gripDY*4.9f;
+        boolean pairedAttack = melee && look.weapon.isDaggers();
+        boolean frontDaggers = !side && !back && look.weapon.isDaggers();
+        float frontDaggerRest = -WeaponArt.Kind.DAGGERS.restFront;
+        boolean showMain = !melee || heldSword && sw.smear<0.01f || pairedAttack && sw.daggerHand != WeaponArt.DaggerHand.MAIN;
+        // During the offhand cut, the main blade stays in its resting grip.
+        // On these swords the center of the wrapped grip is below the artwork origin.
+        float gripInset=greatsword?1.45f:2.45f;
+        final float weaponX = heldSword?handX-gripDX*gripInset
+                : offhandCut ? (side ? 32.5f : (hs < 0 ? 26 : 38) + hs * 4.2f) : handX;
+        final float weaponY = heldSword?handY-gripDY*gripInset : offhandCut ? (side ? 46.5f : 45.5f) : handY;
+        final float weaponAngle=frontDaggers?frontDaggerRest:pairedAttack?(side?look.weapon.restSide:look.weapon.restFront*hs):angle;
+        final float priorAngle=previous,weaponScale=heldSword?swordScale:look.weaponScale;
+        Runnable weapon = () -> WeaponArt.draw(g, look.weapon, weaponX, weaponY,
+                weaponAngle, side || frontDaggers || heldSword ? 1 : hs,
+                pairedAttack || heldSword ? 0 : sw.reach, sw.smear, priorAngle, weaponScale);
         Runnable offhand=()->{
             float ox=side?27:(back?21:43),oy=45+step*1.5f;
-            if(look.shieldStyle>0)WeaponArt.shield(g,ox,oy,look.shieldStyle);
-            else if(look.weapon.isDaggers())WeaponArt.draw(g,look.weapon,ox,oy,pose.attacking?-sw.front:0,-1,sw.reach,sw.smear,0,look.weaponScale);
+            if(look.paladinShield!=null){
+                float sx=side?45+pose.guard*4:back?22:46;
+                float sy=45+step*1.1f-pose.guard*7;
+                look.paladinShield.drawShield(g,sx,sy,0.91f,side);
+            }else if(look.shieldStyle>0)WeaponArt.shield(g,ox,oy,look.shieldStyle);
+            if(!side && look.weapon.isDaggers() && !offhandCut){
+                float rest=frontDaggers?frontDaggerRest:look.weapon.assassinGear()==null?0:look.weapon.restFront*hs;
+                WeaponArt.draw(g,look.weapon,ox,oy,rest,-1,0,0,0,look.weaponScale);
+            }
         };
         if(back)offhand.run();
-        CharacterClothing.cloak(g, look.outfit, side, back, swing);
+        CharacterClothing.cloak(g, look.outfit, side, back, swing, look.rangerOutfit,look.assassinOutfit,look.mageOutfit,look.priestOutfit,look.berserkerOutfit,look.paladinOutfit);
         if(!back)CharacterClothing.longHair(g,look.outfit,side,false,swing);
-        if (weaponBehind) weapon.run();
+        if (showMain && back) weapon.run();
         if (side) {
             softPart(g, running ? runLeg(29.5f, -swing * 6.5f, farLift)
                     : sideLeg(29.5f, 48.5f, -swing * 3.2f), shade(look.skin, running ? 0.94f : 0.97f));
             CharacterClothing.leg(g, look.outfit,
                     running ? runLeg(29.5f, -swing * 6.5f, farLift) : sideLeg(29.5f, 48.5f, -swing * 3.2f), 57 - farLift);
-            if (running) {
+            if (running && !greatsword) {
                 double farArm = Math.toRadians(swing * 48);
                 softPart(g, handArm(32.5f, 38, 32.5f - (float) Math.sin(farArm) * 8.5f,
                         38 + (float) Math.cos(farArm) * 8.5f), shade(look.skin, 0.94f));
@@ -174,7 +222,7 @@ public final class CharacterArt {
             softPart(g, body, look.skin);
             CharacterClothing.leg(g, look.outfit,
                     running ? runLeg(32, swing * 6.5f, nearLift) : sideLeg(32, 48.5f, swing * 3.2f), 57 - nearLift);
-            CharacterClothing.torso(g, look.outfit, true);
+            CharacterClothing.torso(g,look.outfit,true,look.mageOutfit,look.priestOutfit,look.berserkerOutfit,look.paladinOutfit);
 
         } else {
             // Union the limbs with the torso so there are no outlines at the joints.
@@ -201,41 +249,133 @@ public final class CharacterArt {
                 body.add(new Area(runLeg(23, -swing * 0.7f, nearLift)));
                 body.add(new Area(runLeg(34, swing * 0.7f, farLift)));
             }
-            body.add(new Area(hs < 0 ? handArm(26, 37.5f, handX, handY)
-                    : arm(26, 37.5f, -1, 8, -swing * (running ? 3.2f : 0.8f))));
-            body.add(new Area(hs > 0 ? handArm(38, 37.5f, handX, handY)
-                    : arm(38, 37.5f, 1, 8, swing * (running ? 3.2f : 0.8f))));
+            if(!bowAim){
+                body.add(new Area(strikeSide < 0 ? handArm(26, 37.5f, handX, handY)
+                        : greatsword?handArm(26,37.5f,secondX,secondY)
+                        : arm(26, 37.5f, -1, 8, -swing * (running ? 3.2f : 0.8f))));
+                body.add(new Area(strikeSide > 0 ? handArm(38, 37.5f, handX, handY)
+                        : greatsword?handArm(38,37.5f,secondX,secondY)
+                        : arm(38, 37.5f, 1, 8, swing * (running ? 3.2f : 0.8f))));
+            }
             softPart(g, body, look.skin);
             for (int i = 0; i < 2; i++) {
                 Area legShape = new Area(body);
                 legShape.intersect(new Area(new Rectangle2D.Float(i == 0 ? 21 : 33, 49, 11, 14)));
                 CharacterClothing.leg(g, look.outfit, legShape, 57 - (i == 0 ? nearLift : farLift));
             }
-            CharacterClothing.torso(g, look.outfit, false);
-            float leftS = -swing * (running ? 3.2f : 0.8f), rightS = -leftS;
-            CharacterClothing.arm(g, look.outfit, 26, 37.5f,
-                    hs < 0 ? handX : 26 - (4.2f + leftS * 0.3f), hs < 0 ? handY : 45.5f + leftS);
-            CharacterClothing.arm(g, look.outfit, 38, 37.5f,
-                    hs > 0 ? handX : 38 + (4.2f + rightS * 0.3f), hs > 0 ? handY : 45.5f + rightS);
+            CharacterClothing.torso(g,look.outfit,false,look.mageOutfit,look.priestOutfit,look.berserkerOutfit,look.paladinOutfit);
+            if(!bowAim){
+                float leftS = -swing * (running ? 3.2f : 0.8f), rightS = -leftS;
+                CharacterClothing.arm(g, look.outfit, 26, 37.5f,
+                        strikeSide < 0 ? handX : greatsword?secondX:26 - (4.2f + leftS * 0.3f),
+                        strikeSide < 0 ? handY : greatsword?secondY:45.5f + leftS,strikeSide<0?look.berserkerOutfit:null);
+                CharacterClothing.arm(g, look.outfit, 38, 37.5f,
+                        strikeSide > 0 ? handX : greatsword?secondX:38 + (4.2f + rightS * 0.3f),
+                        strikeSide > 0 ? handY : greatsword?secondY:45.5f + rightS,strikeSide>0?look.berserkerOutfit:null);
+            }
         }
-        if (back) CharacterClothing.cloak(g, look.outfit, false, true, swing);
-        if(!back)offhand.run();
-        CharacterClothing.collar(g, look.outfit, side);
+        if (back) CharacterClothing.cloak(g, look.outfit, false, true, swing, look.rangerOutfit,look.assassinOutfit,look.mageOutfit,look.priestOutfit,look.berserkerOutfit,look.paladinOutfit);
+        if(!back && look.paladinShield==null)offhand.run();
+        CharacterClothing.collar(g, look.outfit, side,look.berserkerOutfit);
+        if(!back && look.outfit.cloak()!=null && look.rangerOutfit==RangerGear.SUN){
+            g.setColor(look.rangerOutfit.trim);
+            g.fill(new Ellipse2D.Float(side?35:30,36,3.7f,3.7f));
+        }
+        if(!back && look.outfit.cloak()!=null && look.assassinOutfit!=null){
+            g.setColor(look.assassinOutfit.trim);
+            g.fill(new RoundRectangle2D.Float(side?34:30,38,4,2.6f,1,1));
+        }
         fillSoft(g, ellipse(32, 33.9f, 4.5f, 1.4f), shade(look.skin, 0.97f));
+        boolean behindHead=side && heldSword && (pose.greatswordRaise>=0.5f
+                || pose.attacking && pose.attack>0.24f && pose.attack<WeaponArt.HELD_SWORD_HIT);
+        if(showMain && behindHead)weapon.run();
         drawHead(g,side,back,look);
         // Long back hair overlays the cape, collar, and head before the short crown layer.
         if(back)CharacterClothing.longHair(g,look.outfit,false,true,swing);
         CharacterClothing.hair(g, look.outfit, side, back);
-        if (side) {
+        if (side && !bow) {
             softPart(g, handArm(32.5f, 38, handX, handY), lighten(look.skin, 0.10f));
-            CharacterClothing.arm(g, look.outfit, 32.5f, 38, handX, handY);
+            CharacterClothing.arm(g, look.outfit, 32.5f, 38, handX, handY,look.berserkerOutfit);
         }
-        if (!weaponBehind) weapon.run();
-        // Upward swings pass above the crown, so their impact must remain visible over the head.
-        if (melee) WeaponArt.drawMeleeSmear(g, look.weapon, side, back, pose.attack, sw.smear);
+        if(greatsword && side){
+            softPart(g,handArm(31.5f,38,secondX,secondY),shade(look.skin,0.96f));
+            CharacterClothing.arm(g,look.outfit,31.5f,38,secondX,secondY);
+        }
+        if (showMain && !back && !behindHead) weapon.run();
+        if(showMain && heldSword){
+            // Wrap the fingers over the same grip that the arm and weapon use.
+            Color glove=look.outfit.gloves()==null?look.skin:look.outfit.gloves();
+            fillSoft(g,ellipse(handX,handY,2.55f,2.15f),glove);
+            if(greatsword)fillSoft(g,ellipse(secondX,secondY,2.25f,2f),shade(glove,0.92f));
+        }
+        if(!back && look.paladinShield!=null)offhand.run();
+        if (bow && !bowAim && !back) {
+            if (side) {
+                float bowY=44+step;
+                softPart(g,handArm(33,38,43,bowY),look.skin);
+                CharacterClothing.arm(g,look.outfit,33,38,43,bowY);
+                look.rangerBow.drawBow(g,43,bowY,0.83f,0);
+            } else {
+                AffineTransform held=g.getTransform();
+                g.translate(32,47+step);
+                g.rotate(Math.PI/2);
+                look.rangerBow.drawBow(g,0,0,0.83f,0);
+                g.setTransform(held);
+            }
+        }
         // Headgear is the final character layer, above hair, limbs, weapons, and effects.
         CharacterClothing.headpiece(g,look.outfit);
         g.setTransform(saved);
+    }
+
+    private record SwordGrip(float x,float y,float angle,float scale){
+        SwordGrip toward(SwordGrip next,float amount){
+            return new SwordGrip(x+(next.x-x)*amount,y+(next.y-y)*amount,
+                    angle+(next.angle-angle)*amount,scale+(next.scale-scale)*amount);
+        }
+    }
+
+    private static SwordGrip swordGrip(boolean greatsword,boolean side,boolean back,Pose pose,float swing,float step){
+        float sideAngle=greatsword?-116:-128;
+        float frontAngle=greatsword?-114:-137;
+        float restX=side?(greatsword?34:33):back?(greatsword?37:40):(greatsword?27:23.5f);
+        float restY=greatsword?44:45;
+        float restAngle=side?sideAngle:back?-frontAngle:frontAngle;
+        var rest=new SwordGrip(restX,restY,restAngle,1);
+        if(pose.greatswordRaise>0){
+            var overhead=new SwordGrip(side?37:back?36:29,14,back?63:-62,1);
+            return rest.toward(overhead,ease(pose.greatswordRaise));
+        }
+        if(!pose.attacking){
+            return new SwordGrip(restX+(pose.moving?swing*(side?1.6f:0.65f):0),
+                    restY+step+(greatsword?0:pose.guard*2),
+                    restAngle+swing*(side?8:4),1);
+        }
+
+        var windup=new SwordGrip(side?27:back?38:25,side?34:37,back?51:-51,1);
+        var contact=new SwordGrip(side?(greatsword?45:43):back?39:28,side?39:back?32:43,
+                side?73:back?88:-91,1);
+        var follow=new SwordGrip(side?(greatsword?43:41):back?40:26,side?43:45,
+                side?106:back?124:-124,1);
+        float t=pose.attack;
+        float hit=WeaponArt.HELD_SWORD_HIT;
+        if(t<0.32f)return rest.toward(windup,ease(t/0.32f));
+        if(t<hit){
+            float release=ease((t-0.32f)/(hit-0.32f));
+            return windup.toward(contact,side?release*release*release:release);
+        }
+        if(t<0.59f)return contact.toward(follow,ease((t-hit)/(0.59f-hit)));
+        if(!side)return follow.toward(rest,ease((t-0.59f)/0.41f));
+
+        // In profile the blade sweeps down and back, foreshortening as it turns toward the camera.
+        var turn=new SwordGrip(37,38,176,greatsword?0.68f:0.82f);
+        if(t<0.78f)return follow.toward(turn,ease((t-0.59f)/0.19f));
+        var finish=new SwordGrip(restX,restY,restAngle+360,1);
+        return turn.toward(finish,ease((t-0.78f)/0.22f));
+    }
+
+    private static float ease(float t){
+        return t*t*(3-2*t);
     }
 
     /** Shared head layer for body sprites and uncluttered hair-selection thumbnails. */

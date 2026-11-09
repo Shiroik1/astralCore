@@ -13,21 +13,23 @@ public class CollisionChecker {
         this.gp = gp;
     }
 
-    public void checkTile(Entity entity){
+    public void checkTile(Entity entity){checkTile(entity,entity.speed);}
+
+    public void checkTile(Entity entity,int distance){
         int left = entity.worldX + entity.solidArea.x;
         int right = left + entity.solidArea.width;
         int top = entity.worldY + entity.solidArea.y;
         int bottom = top + entity.solidArea.height;
         boolean blocked = switch (entity.direction) {
-            case "up" -> gp.tileM.blocksMovement(left, top - entity.speed, right, top);
-            case "down" -> gp.tileM.blocksMovement(left, bottom, right, bottom + entity.speed);
-            case "left" -> gp.tileM.blocksMovement(left - entity.speed, top, left, bottom);
-            case "right" -> gp.tileM.blocksMovement(right, top, right + entity.speed, bottom);
+            case "up" -> gp.tileM.blocksMovement(left, top - distance, right, top);
+            case "down" -> gp.tileM.blocksMovement(left, bottom, right, bottom + distance);
+            case "left" -> gp.tileM.blocksMovement(left - distance, top, left, bottom);
+            case "right" -> gp.tileM.blocksMovement(right, top, right + distance, bottom);
             default -> false;
         };
         if (blocked) entity.collisionOn = true;
 
-        checkScenery(entity);
+        checkScenery(entity,distance);
     }
 
     public int checkObject(Entity entity, boolean player){
@@ -212,13 +214,13 @@ public class CollisionChecker {
 
     // Blocks movement into a scenery object's collision box. An entity already overlapping a box is allowed
     // to move, so nothing can get permanently stuck (spawned inside one, knocked into one, and so on).
-    private void checkScenery(Entity entity){
+    private void checkScenery(Entity entity,int distance){
         int dx = 0, dy = 0;
         switch (entity.direction){
-            case "up" -> dy = -entity.speed;
-            case "down" -> dy = entity.speed;
-            case "left" -> dx = -entity.speed;
-            case "right" -> dx = entity.speed;
+            case "up" -> dy = -distance;
+            case "down" -> dy = distance;
+            case "left" -> dx = -distance;
+            case "right" -> dx = distance;
         }
 
         int x = entity.worldX + entity.solidArea.x;

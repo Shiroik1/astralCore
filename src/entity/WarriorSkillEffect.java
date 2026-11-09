@@ -3,6 +3,7 @@ package entity;
 import main.Gamepanel;
 import java.awt.*;
 import java.awt.geom.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 /** Short-lived vector effects. Skill events replay these on each peer without applying gameplay twice. */
 public final class WarriorSkillEffect extends Entity {
@@ -15,7 +16,8 @@ public final class WarriorSkillEffect extends Entity {
     private final int lifetime;
     private WarriorSkillEffect(Gamepanel gp,Player owner,Kind kind){
         super(gp);this.owner=owner;this.kind=kind;area=owner.inWell;
-        worldX=owner.worldX+24;worldY=owner.worldY+36;lifetime=kind==Kind.RALLY?42:32;
+        worldX=owner.worldX+24;worldY=owner.worldY+36;
+        lifetime=switch(kind){case RALLY->42;case BREAKER->16;default->32;};
         facing=switch(owner.direction){case "up"->-Math.PI/2;case "down"->Math.PI/2;case "left"->Math.PI;default->0;};
         groundEffect=kind==Kind.RALLY;
     }
@@ -25,14 +27,21 @@ public final class WarriorSkillEffect extends Entity {
         if(kind==null)return;
         gp.particleList.add(new WarriorSkillEffect(gp,owner,kind));
         Color color=switch(kind){case BASH,BULWARK->new Color(155,214,255);case RETALIATION->new Color(220,237,255);case BREAKER->new Color(255,194,107);case RALLY->new Color(145,235,168);};
+        var random = ThreadLocalRandom.current();
         for(int i=0;i<12;i++){
-            double angle=kind==Kind.BASH || kind==Kind.BREAKER?facing(owner)+(i/11.0-.5)*1.9:i*Math.PI/6;
-            Particle spark=new Particle(gp,owner,color,3,1,20,(int)Math.round(Math.cos(angle)*2),(int)Math.round(Math.sin(angle)*2));
-            spark.worldX=owner.worldX+24+(int)(Math.cos(angle)*18);spark.worldY=owner.worldY+32+(int)(Math.sin(angle)*18);
-            gp.particleList.add(spark);
+            double angle=kind==Kind.BASH || kind==Kind.BREAKER?facing(owner)+random.nextDouble(-0.95,0.95):random.nextDouble(2*Math.PI);
+            float x=(float)Math.cos(angle), y=(float)Math.sin(angle);
+            float speed = random.nextFloat(1.6f, 2.8f);
+            Particle.emit(owner, Particle.Style.SQUARE, color, random.nextFloat(2.8f, 4.8f), random.nextInt(13, 20),
+                    x*speed, y*speed, x*15, y*15-4);
         }
     }
     private static double facing(Player p){return switch(p.direction){case "up"->-Math.PI/2;case "down"->Math.PI/2;case "left"->Math.PI;default->0;};}
+    @Override public int sortY(){
+        if(kind==Kind.BREAKER && facing!=-Math.PI/2)return owner.sortY()-1;
+        return super.sortY();
+    }
+
     @Override public void update(){
         if(++age>=lifetime || owner.inWell!=area || owner.isDead){alive=false;return;}
         if(kind==Kind.BULWARK || kind==Kind.RETALIATION){worldX=owner.worldX+24;worldY=owner.worldY+36;}
@@ -58,10 +67,7 @@ public final class WarriorSkillEffect extends Entity {
                 g.draw(new Arc2D.Float(-28,-28,56,56,20,125,Arc2D.OPEN));g.draw(new Arc2D.Float(-28,-28,56,56,200,125,Arc2D.OPEN));
                 g.drawLine(24,-12,28,-24);g.drawLine(28,-24,15,-22);g.drawLine(-24,12,-28,24);g.drawLine(-28,24,-15,22);
             }
-            case BREAKER -> {
-                g.rotate(facing);g.setColor(new Color(255,204,131));g.draw(new Arc2D.Float(-5,-33,62,66,-70+110*t,110,Arc2D.OPEN));
-                for(int i=0;i<5;i++){double a=i*Math.PI*2/5;float x=26+(float)Math.cos(a)*(10+t*25),y=(float)Math.sin(a)*(10+t*25);g.draw(new Line2D.Float(x,y,x+5,y-8));}
-            }
+            case BREAKER -> art.MeleeSlash.draw(g,0,-7,facing,68,66,age/2-3,false);
             case RALLY -> {
                 g.setColor(new Color(145,235,168));float r=20+t*100;g.draw(new Ellipse2D.Float(-r,-r*.45f,r*2,r*.9f));
                 for(int i=-1;i<=1;i++){float x=i*20,y=-15-t*35-Math.abs(i)*8;g.draw(new Line2D.Float(x-5,y,x+5,y));g.draw(new Line2D.Float(x,y-5,x,y+5));}

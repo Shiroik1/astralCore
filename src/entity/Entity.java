@@ -73,7 +73,7 @@ public class Entity {
     public boolean highlighted = false;
 
     public int comboStacks = 0;
-    public final int maxComboStacks = 4;
+    public final int maxComboStacks = 2;
 
     public boolean attackState = false;
 
@@ -89,6 +89,7 @@ public class Entity {
     public static final int type_pickuponly = 7;
     public static final int type_staff = 8;
     public static final int type_apparel = 9;
+    public static final int type_bow = 10;
     public int type = type_none;
 
     //CHARACTER STATUS
@@ -183,6 +184,8 @@ public class Entity {
         dialogueLines = main.DialogueLoader.loadLines(jsonResourcePath);
     }
 
+    private float slowRemainder;
+
     public void update(){
 
         setAction();
@@ -191,6 +194,15 @@ public class Entity {
             updateKnockback();
         }
 
+        int normalSpeed=speed;
+        int slow=Math.max(getStatusEffectValue("rangerSlow"),getStatusEffectValue(MageEffect.FROST_SLOW));
+        if(type==type_monster && slow>0 && speed>0){
+            float adjusted=speed*(100-slow)/100f+slowRemainder;
+            speed=(int)adjusted;
+            slowRemainder=adjusted-speed;
+        }else if(slow==0){
+            slowRemainder=0;
+        }
         collisionOn = false;
         gp.collisionChecker.checkTile(this);
         gp.collisionChecker.checkObject(this, false);
@@ -214,6 +226,7 @@ public class Entity {
             }
         }
 
+        speed=normalSpeed;
         updateAnimation();
 
         if(invincible){
@@ -270,24 +283,8 @@ public class Entity {
         }
     }
 
-    public void damagePlayer(Player target, int attack){
-        if(target.isDead || target.inWell!=gp.quests.inDungeon()) return;
-        if(!target.invincible){
-            int damage = Math.max(1, attack - target.getEffectiveDefense());
-            target.recordShieldMitigation(attack,damage);
-            target.HP -= damage;
-            target.invincible = true;
-            target.flashing = true;
-            target.flashCounter = 0;
-            target.spawnHitParticles();
-            target.startKnockback(this.direction, target.knockbackDistance);
-            gp.startHitStop(8);
-            gp.startScreenShake(8, 6);
-
-            if(damage > 0){
-                gp.spawnFloatingText(target.worldX + gp.tileSize/2, target.worldY, String.valueOf(damage), Color.red);
-            }
-        }
+    public void damagePlayer(Player target,int attack){
+        target.receiveHit(this,attack,false);
     }
 
     public void draw(Graphics2D g2){
@@ -319,14 +316,15 @@ public class Entity {
             }
 
             //COMBO STACK PIPS
-            if(type == type_monster && comboStacks > 0){
+            int visibleStacks=this instanceof Monster monster?monster.visibleComboStacks():0;
+            if(visibleStacks>0){
                 int pipSize = 6;
                 int pipSpacing = 3;
                 int totalWidth = maxComboStacks * pipSize + (maxComboStacks - 1) * pipSpacing;
                 int pipStartX = screenX + (gp.tileSize - totalWidth) / 2;
                 int pipY = screenY - 26;
                 for(int i = 0; i < maxComboStacks; i++){
-                    g2.setColor(i < comboStacks ? new Color(255, 80, 80) : new Color(0, 0, 0, 150));
+                    g2.setColor(i < visibleStacks ? art.Palette.GOLD : new Color(0, 0, 0, 150));
                     g2.fillOval(pipStartX + i * (pipSize + pipSpacing), pipY, pipSize, pipSize);
                 }
             }
@@ -387,14 +385,9 @@ public class Entity {
         int speed = generator.getParticleSpeed();
         int maxHP = generator.getParticleMaxHP();
 
-        Particle p1 = new Particle(gp,target,color,size,speed,maxHP, -2, -1);
-        Particle p2 = new Particle(gp,target,color,size,speed,maxHP, 2, -1);
-        Particle p3 = new Particle(gp,target,color,size,speed,maxHP, -2, 1);
-        Particle p4 = new Particle(gp,target,color,size,speed,maxHP, 2, 1);
-        gp.particleList.add(p1);
-        gp.particleList.add(p2);
-        gp.particleList.add(p3);
-        gp.particleList.add(p4);
+        if(color == null || size <= 0 || maxHP <= 0) return;
+        Particle.Style style = generator instanceof Projectile ? Particle.Style.SPARK : Particle.Style.CHIP;
+        Particle.burst(target, style, color, 5, size * 0.65f, maxHP, speed * 2.4f);
     }
 
 
@@ -411,9 +404,13 @@ public class Entity {
         return anim;
     }
 
+    protected BufferedImage animationFrame(SpriteAnimation anim){
+        return anim.frames[Math.min(spriteNum-1,anim.frames.length-1)];
+    }
+
     protected BufferedImage getCurrentFrame(){
         SpriteAnimation anim = getCurrentAnimation();
-        BufferedImage frame = (anim == null) ? getLegacyFrame() : anim.frames[Math.min(spriteNum - 1, anim.frames.length - 1)];
+        BufferedImage frame = (anim == null) ? getLegacyFrame() : animationFrame(anim);
 
         if(flashing && !dying){
             return getFlashVersion(frame);
@@ -475,6 +472,12 @@ public class Entity {
                 }
             }
 
+            if(e.type.equals(AssassinCombat.BLEED) && this instanceof Monster target
+                    && ++e.tickCounter>=e.tickInterval){
+                e.tickCounter=0;
+                if(e.source!=null)e.source.assassinBleedTick(target,e.value);
+            }
+
             if(e.duration <= 0){
                 statusEffects.remove(i);
             }
@@ -495,19 +498,8 @@ public class Entity {
         return 0;
     }
 
-    public void spawnHitParticles(){
-        Color color = Color.white;
-        int size = 5;
-        int speed = 2;
-        int maxHP = 15;
-
-        for(int i = 0; i < 4; i++){
-            double angle = (2 * Math.PI / 4) * i + (Math.PI / 4); // 45° offset so it doesn't align with movement axes
-            int xd = (int) Math.round(Math.cos(angle) * 2);
-            int yd = (int) Math.round(Math.sin(angle) * 2);
-            Particle p = new Particle(gp, this, color, size, speed, maxHP, xd, yd);
-            gp.particleList.add(p);
-        }
+    public void spawnHitParticles(String direction){
+        Particle.impact(this, direction, null);
     }
 
     public void startAura(Color color, int durationTicks){
@@ -534,12 +526,12 @@ public class Entity {
 
     private void spawnAuraParticle(){
         double angle = Math.random() * 2 * Math.PI;
-        int radius = gp.tileSize / 3;
+        int radius = gp.tileSize * 5 / 12;
         int offsetX = (int) Math.round(Math.cos(angle) * radius);
         int offsetY = (int) Math.round(Math.sin(angle) * radius);
-        Color particleColor = new Color(auraColor.getRed(), auraColor.getGreen(), auraColor.getBlue());
-        Particle p = new Particle(gp, this, particleColor, 4, 1, 25, 0, -1, offsetX, offsetY);
-        gp.particleList.add(p);
+        Color color = art.ArtKit.mix(auraColor, art.Palette.PLASTER, 0.25f);
+        Particle.emit(this, Particle.Style.MOTE, color, 3.6f, 22,
+                offsetX * 0.016f, -0.9f, offsetX, offsetY);
     }
 
     /** Warm common hit/selection variants during loading, rather than on the first combat event. */
