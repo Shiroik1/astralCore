@@ -11,6 +11,7 @@ import main.Gamepanel;
 import monster.MON_GreenSlime;
 import monster.MON_SlimeBoss;
 import monster.MonsterType;
+import world.InnInterior;
 import world.WorldObject;
 
 import java.awt.*;
@@ -141,7 +142,10 @@ public class GameClient {
                 gp.players[ps.playerId] = p;
             }
 
-            if(p.inWell!=ps.inWell)p.resetForSceneTransition();
+            if(p.inWell!=ps.inWell || InnInterior.contains(gp,p)
+                    != (!ps.inWell && InnInterior.containsPosition(gp,ps.worldX,ps.worldY))){
+                p.resetForSceneTransition();
+            }
             p.inWell=ps.inWell;p.resolve=ps.resolve;
             if(!p.isLocal || ps.ackTick>=p.shopChangedInputTick)p.merchantOpen=ps.merchantOpen;
 

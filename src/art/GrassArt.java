@@ -1,88 +1,73 @@
 package art;
 
-import java.awt.*;
+import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.util.Random;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.util.HashMap;
+import java.util.Map;
 
-// Tufts of grass baked at nine lean angles, so swaying and bending cost one plain drawImage per tuft.
-public class GrassArt {
-    public static final int TYPES = 3;                    // 0 short, 1 tall, 2 flowers
+/** Pre-rendered meadow sheets, shared by every game view. */
+public final class GrassArt {
+    public static final int TYPES = 3; // short, tall, flowers
     public static final int[] VARIANTS = {4, 4, 5};
-    public static final int BEND_FRAMES = 9;              // index 4 = upright, 0 = leaning left, 8 = leaning right
+    public static final int BEND_FRAMES = 25;
+    static final int WIDTH = 44, HEIGHT = 36;
+    static final int ROOT_X = WIDTH / 2, ROOT_Y = HEIGHT - 3;
+    static final String[] NAMES = {"short", "tall", "flowers"};
 
-    private static final double W = 40, H = 42;           // canvas, in 48-unit tile space
-    private final double k;
-    public final int footX, footY;                        // the tuft's root, in pixels inside every frame
-    private final BufferedImage[][][] frames = new BufferedImage[TYPES][][];
+    private static final Map<Integer, BufferedImage[][]> CACHE = new HashMap<>();
+    private final BufferedImage[][] frames;
+    public final int footX, footY;
 
     public GrassArt(int tileSize){
-        k = tileSize / 48.0;
-        footX = (int) Math.round(W / 2 * k);
-        footY = (int) Math.round((H - 3) * k);
-        for(int t = 0; t < TYPES; t++){
-            frames[t] = new BufferedImage[VARIANTS[t]][BEND_FRAMES];
-            for(int v = 0; v < VARIANTS[t]; v++){
-                for(int b = 0; b < BEND_FRAMES; b++){
-                    double bend = (b - (BEND_FRAMES - 1) / 2.0) / ((BEND_FRAMES - 1) / 2.0); // -1 .. 1
-                    frames[t][v][b] = bake(t, v, bend);
+        footX = scale(ROOT_X, tileSize);
+        footY = scale(ROOT_Y, tileSize);
+        synchronized(CACHE){
+            frames = CACHE.computeIfAbsent(tileSize, GrassArt::load);
+        }
+    }
+
+    public BufferedImage frame(int type, int level, int variant, int bend){
+        return frames[type][(level * VARIANTS[type] + variant) * BEND_FRAMES + bend];
+    }
+
+    private static BufferedImage[][] load(int tileSize){
+        BufferedImage[][] frames = new BufferedImage[TYPES][];
+        for(int type = 0; type < TYPES; type++){
+            String path = "/scenery/meadow/" + NAMES[type] + ".png";
+            int rows = Palette.GROUND.length * VARIANTS[type];
+            try(InputStream stream = GrassArt.class.getResourceAsStream(path)){
+                if(stream == null) throw new IOException("Missing meadow sheet " + path);
+                BufferedImage sheet = ImageIO.read(stream);
+                if(sheet == null || sheet.getWidth() != WIDTH * BEND_FRAMES || sheet.getHeight() != HEIGHT * rows){
+                    throw new IOException("Invalid meadow sheet " + path);
                 }
+                frames[type] = new BufferedImage[rows * BEND_FRAMES];
+                for(int row = 0; row < rows; row++) for(int bend = 0; bend < BEND_FRAMES; bend++){
+                    var frame = sheet.getSubimage(bend * WIDTH, row * HEIGHT, WIDTH, HEIGHT);
+                    frames[type][row * BEND_FRAMES + bend] = tileSize == 48 ? frame : resize(frame, tileSize);
+                }
+            } catch(IOException e){
+                throw new UncheckedIOException(e);
             }
         }
+        return frames;
     }
 
-    public BufferedImage frame(int type, int variant, int bend){
-        return frames[type][variant][bend];
+    private static BufferedImage resize(BufferedImage frame, int tileSize){
+        var scaled = new BufferedImage(scale(WIDTH, tileSize), scale(HEIGHT, tileSize), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = scaled.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.drawImage(frame, 0, 0, scaled.getWidth(), scaled.getHeight(), null);
+        g.dispose();
+        return scaled;
     }
 
-    private BufferedImage bake(int type, int variant, double bend){
-        ArtKit.Surface s = new ArtKit.Surface((int) Math.round(W * k), (int) Math.round(H * k));
-        Graphics2D g = s.g;
-        g.scale(k, k);
-
-        Random rnd = new Random(type * 1000L + variant * 37L + 11); // same seed for every lean, so only the lean changes
-        int blades = (type == 1) ? 7 : 5;
-        double baseH = (type == 1) ? 26 : 13;
-        double spread = (type == 1) ? 13 : 10;
-        double cx = W / 2, rootY = H - 3;
-
-        double[] rootX = new double[blades], height = new double[blades], natural = new double[blades];
-        for(int i = 0; i < blades; i++){
-            double t = (blades == 1) ? 0.5 : i / (double) (blades - 1);
-            rootX[i] = cx + (t - 0.5) * spread + (rnd.nextDouble() - 0.5) * 2;
-            height[i] = baseH * (0.72 + rnd.nextDouble() * 0.38);
-            natural[i] = (t - 0.5) * 6 + (rnd.nextDouble() - 0.5) * 3;
-        }
-
-        boolean[] flowered = new boolean[blades];
-        if(type == 2){                                   // three blades grow taller and carry a flower
-            for(int n = 0; n < 3; n++){
-                int i = (variant + n * 2) % blades;
-                flowered[i] = true;
-                height[i] = 17 + n * 1.5;
-            }
-        }
-
-        Color[] tones = (type == 1)
-                ? new Color[]{Palette.FOLIAGE_DARK, ArtKit.mix(Palette.FOLIAGE_DARK, Palette.FOLIAGE, 0.5f), Palette.FOLIAGE}
-                : new Color[]{ArtKit.mix(Palette.FOLIAGE_DARK, Palette.FOLIAGE, 0.35f), Palette.FOLIAGE,
-                ArtKit.mix(Palette.FOLIAGE, Palette.FOLIAGE_LIGHT, 0.5f)};
-
-        double[] tipX = new double[blades], tipY = new double[blades];
-        for(int pass = 0; pass < 3; pass++){             // dark blades first, bright ones in front
-            for(int i = pass; i < blades; i += 3){
-                double lean = natural[i] + bend * height[i] * 0.55;
-                double h = height[i] * (1 - 0.15 * Math.abs(bend));
-                ArtKit.blade(g, rootX[i], rootY, h, lean, 2.8, tones[pass]);
-                tipX[i] = rootX[i] + lean;
-                tipY[i] = rootY - h;
-            }
-        }
-        for(int i = 0; i < blades; i++){
-            if(flowered[i]){
-                Color petal = Palette.FLOWERS[(variant + i) % Palette.FLOWERS.length];
-                ArtKit.flower(g, tipX[i], tipY[i] - 0.5, 2.7, petal, Palette.GOLD);
-            }
-        }
-        return s.finish();
+    private static int scale(int units, int tileSize){
+        return (int) Math.round(units * (tileSize / 48.0));
     }
 }

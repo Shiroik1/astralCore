@@ -1,9 +1,12 @@
 package world;
 
+import art.BuildingCatalog.Light;
 import art.ObjectArt;
 import art.Palette;
+import art.TownProp;
 import main.Gamepanel;
 
+import java.util.List;
 import java.util.function.Function;
 
 public enum WorldObjectType {
@@ -13,8 +16,8 @@ public enum WorldObjectType {
     PINE_2(a -> a.pine(2), null, true, Behavior.NONE, null),
     BUSH(a -> a.bush(false), null, false, Behavior.NONE, null),
     FLOWER_BUSH(a -> a.bush(true), null, false, Behavior.NONE, null),
-    ROCK_SMALL(a -> a.rockSmall(1), null, false, Behavior.NONE, null),
-    ROCK_LARGE(a -> a.rockLarge(1), null, false, Behavior.NONE, null),
+    ROCK_SMALL(a -> a.rockSmall(), null, false, Behavior.NONE, null),
+    ROCK_LARGE(a -> a.rockLarge(), null, false, Behavior.NONE, null),
     STUMP(a -> a.stump(), null, false, Behavior.NONE, null),
     FENCE_H(a -> a.fenceH(), null, false, Behavior.NONE, null),
     FENCE_V(a -> a.fenceV(), null, false, Behavior.NONE, null),
@@ -29,10 +32,22 @@ public enum WorldObjectType {
     CHEST(a -> a.chest(), a -> a.chestOpen(), false, Behavior.CHEST, null),
     WELL_LADDER(a -> a.wellLadder(), null, false, Behavior.EXIT_WELL, null),
     WELL_ALTAR(a -> a.wellAltar(),null,false,Behavior.SUMMON_HELL,null),
-    HEALING_POND(a -> a.pondStone(),null,false,Behavior.HEAL,null);
+    HEALING_POND(a -> a.pondStone(),null,false,Behavior.HEAL,null),
+    INN(null, null, true, Behavior.ENTER_INN, null),
+    INN_EXIT(ObjectArt::innExit, null, false, Behavior.EXIT_INN, null),
+    BUILDING(null, null, true, Behavior.NONE, null),
+    LANTERN_HANGING(a -> a.townProp(TownProp.LANTERN_HANGING), null, false, Behavior.NONE, null),
+    CRATE_STACK(a -> a.townProp(TownProp.CRATE_STACK), null, false, Behavior.TEXT, "Crates stacked for storage."),
+    BARREL_STACK(a -> a.townProp(TownProp.BARREL_STACK), null, false, Behavior.TEXT, "Barrels stacked for storage."),
+    FENCE_SHORT(a -> a.townProp(TownProp.FENCE_SHORT), null, false, Behavior.NONE, null),
+    FENCE_TALL(a -> a.townProp(TownProp.FENCE_TALL), null, false, Behavior.NONE, null),
+    LOGS_COVERED(a -> a.townProp(TownProp.LOGS_COVERED), null, false, Behavior.NONE, null),
+    LOGS_STACKED(a -> a.townProp(TownProp.LOGS_STACKED), null, false, Behavior.NONE, null),
+    ROCK_SMALL_MOSS(a -> a.townProp(TownProp.ROCK_SMALL_MOSS), null, false, Behavior.NONE, null),
+    ROCK_LARGE_MOSS(a -> a.townProp(TownProp.ROCK_LARGE_MOSS), null, false, Behavior.NONE, null);
 
 
-    public enum Behavior { NONE, TEXT, CHEST, HEAL, ENTER_WELL, EXIT_WELL, SUMMON_HELL }
+    public enum Behavior { NONE, TEXT, CHEST, HEAL, ENTER_WELL, EXIT_WELL, SUMMON_HELL, ENTER_INN, EXIT_INN }
 
     private final Function<ObjectArt, ObjectArt.Sprite> factory;
     private final Function<ObjectArt, ObjectArt.Sprite> altFactory;
@@ -83,16 +98,17 @@ public enum WorldObjectType {
         };
     }
 
-    private static final double[][] NO_LIGHTS = {};
-    private static final double[][] LANTERN_LIGHTS = {{0, -66, 150, 1.0}};
-    private static final double[][] HOUSE_LIGHTS = {{-51, -57, 80, 0.8}, {47, -57, 80, 0.8}};
+    private static final List<Light> LANTERN_LIGHTS = List.of(new Light(0, -66, 150, 1f));
+    private static final List<Light> HANGING_LANTERN_LIGHTS = List.of(new Light(25, -53, 142, 0.9f));
+    private static final List<Light> HOUSE_LIGHTS = List.of(new Light(-51, -57, 80, 0.8f), new Light(47, -57, 80, 0.8f));
 
     // light sources relative to the object's foot point: {dx, dy, radius, intensity}, in 48-unit art coordinates
-    public double[][] lights(){
+    public List<Light> lights(){
         return switch(this){
             case LANTERN -> LANTERN_LIGHTS;
+            case LANTERN_HANGING -> HANGING_LANTERN_LIGHTS;
             case HOUSE_CORAL, HOUSE_THATCH, HOUSE_SLATE -> HOUSE_LIGHTS;
-            default -> NO_LIGHTS;
+            default -> List.of();
         };
     }
 }

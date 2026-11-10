@@ -92,6 +92,10 @@ public class Lighting {
         return mood;
     }
 
+    public float nightStrength(){
+        return enabled ? Math.clamp((glow - Mood.GOLDEN.glow) / (Mood.DUSK.glow - Mood.GOLDEN.glow), 0f, 1f) : 0f;
+    }
+
     public void setMood(Mood m, boolean instant){
         mood = m;
         if(instant){
@@ -121,7 +125,7 @@ public class Lighting {
     public void draw(Graphics2D g2, int shakeX, int shakeY){
         if(!enabled) return;
         Player cam = gp.localPlayer();
-        if(cam == null) return;
+        if(cam == null || InnInterior.contains(gp, cam)) return;
         int camLeft = cam.worldX - cam.screenX - shakeX;
         int camTop = cam.worldY - cam.screenY - shakeY;
 
@@ -188,22 +192,26 @@ public class Lighting {
         int n = 0;
         double s = gp.tileSize / 48.0;
         float objectPower = Math.min(1f, glow);
+        float night = nightStrength();
 
         if(glow > 0.02f){
             for(WorldObject o : gp.worldObjects){
-                double[][] defs = o.kind.lights();
-                if(defs.length == 0) continue;
-                if(Math.abs(o.worldX - cam.worldX) > 800 || Math.abs(o.worldY - cam.worldY) > 600) continue;
-                for(double[] d : defs){
-                    if(n >= MAX_LIGHTS) return n;
-                    float flicker = (float) (1 + 0.05 * Math.sin(time * 0.13 + o.col * 1.7)
-                            + 0.03 * Math.sin(time * 0.31 + o.row * 2.3));
-                    sx[n] = (float) (o.worldX + d[0] * s - camLeft);
-                    sy[n] = (float) (o.worldY + d[1] * s - camTop);
-                    rad[n] = (float) (d[2] * s);
-                    pow[n] = (float) d[3] * objectPower * flicker;
-                    warm[n] = (float) d[3] * glow * flicker;
-                    if(onScreen(n)) n++;
+                if(n == MAX_LIGHTS) break;
+                var defs = o.lights();
+                if(defs.isEmpty()) continue;
+                float darkness = o.building == null ? 1f : night;
+                if(darkness == 0f) continue;
+                float flicker = (float) (1 + 0.05 * Math.sin(time * 0.13 + o.col * 1.7)
+                        + 0.03 * Math.sin(time * 0.31 + o.row * 2.3));
+                for(int i = 0; i < defs.size() && n < MAX_LIGHTS; i++){
+                    var light = defs.get(i);
+                    sx[n] = (float) (o.worldX + light.x() * s - camLeft);
+                    sy[n] = (float) (o.worldY + light.y() * s - camTop);
+                    rad[n] = (float) (light.radius() * s);
+                    if(!onScreen(n)) continue;
+                    pow[n] = light.intensity() * objectPower * flicker * darkness;
+                    warm[n] = light.intensity() * glow * flicker * darkness;
+                    n++;
                 }
             }
         }

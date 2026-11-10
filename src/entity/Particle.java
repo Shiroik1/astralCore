@@ -1,6 +1,7 @@
 package entity;
 
 import art.ArtKit;
+import main.Gamepanel;
 
 import java.awt.*;
 import java.awt.geom.*;
@@ -9,8 +10,10 @@ import java.util.concurrent.ThreadLocalRandom;
 /** A short-lived vector mark. Gameplay emits it once and the game clock handles motion and fading. */
 public final class Particle extends Entity {
     private static final int MAX_ACTIVE = 180;
+    private static final int AMBIENT_LIMIT = 24;
     public enum Style {
         DUST(0.86f, -0.015f, 1f, dust()),
+        SMOKE(0.992f, -0.004f, 0.76f, DUST.shape),
         SQUARE(0.96f, 0, 1f, null),
         CHIP(0.94f, 0.12f, 1f, polygon(-0.68f, -0.24f, 0.2f, -0.7f, 0.76f, 0.06f, 0.13f, 0.58f, -0.52f, 0.35f)),
         SPARK(0.89f, 0, 1f, star()),
@@ -30,6 +33,7 @@ public final class Particle extends Entity {
 
     private static final Color IVORY = new Color(0xFFF1D7);
     private static final Color DUST_SHADE = new Color(0xDFE2EA);
+    private static final Color SMOKE_SHADE = DUST_SHADE.darker();
     private static final Shape DUST_TOP = dustTop();
     private static final Shape CHIP_FACE = polygon(-0.68f, -0.24f, 0.2f, -0.7f, 0.42f, 0.04f, -0.52f, 0.35f);
 
@@ -43,21 +47,40 @@ public final class Particle extends Entity {
 
     private Particle(Entity source, Style style, Color color, float size, int lifetime,
                     float vx, float vy, float offsetX, float offsetY){
-        super(source.gp);
+        this(source.gp, style, color, size, lifetime, vx, vy,
+                source.worldX + source.solidArea.x + source.solidArea.width * 0.5f + offsetX,
+                source.worldY + source.solidArea.y + source.solidArea.height * (style == Style.DUST ? 1f : 0.5f) + offsetY,
+                source.sortY() + 1);
+    }
+
+    private Particle(Gamepanel gp, Style style, Color color, float size, int lifetime,
+                     float vx, float vy, float x, float y, int depth){
+        super(gp);
         this.style = style;
         this.color = color;
-        this.light = style == Style.CHIP ? ArtKit.mix(color, IVORY, 0.5f) : color;
+        this.light = switch(style){
+            case CHIP -> ArtKit.mix(color, IVORY, 0.5f);
+            case SMOKE -> ArtKit.mix(color, SMOKE_SHADE, 0.55f);
+            default -> color;
+        };
         this.size = size;
         this.lifetime = lifetime;
         this.vx = vx;
         this.vy = vy;
         this.angle = (float)Math.atan2(vy, vx);
-        x = source.worldX + source.solidArea.x + source.solidArea.width * 0.5f + offsetX;
-        y = source.worldY + source.solidArea.y + source.solidArea.height * (style == Style.DUST ? 1f : 0.5f) + offsetY;
+        this.x = x;
+        this.y = y;
         worldX = Math.round(x);
         worldY = Math.round(y);
-        depth = source.sortY() + 1;
+        this.depth = depth;
         groundEffect = style == Style.DUST;
+    }
+
+    public static void emitAmbient(Gamepanel gp, Style style, Color color, float size, int lifetime,
+                                   float vx, float vy, float worldX, float worldY, int depth){
+        if(gp.ambientParticles.size() < AMBIENT_LIMIT){
+            gp.ambientParticles.add(new Particle(gp, style, color, size, lifetime, vx, vy, worldX, worldY, depth));
+        }
     }
 
     public static void emit(Entity source, Style style, Color color, float size, int lifetime,
@@ -154,14 +177,14 @@ public final class Particle extends Entity {
         }
 
         float scale = size * switch(style){
-            case DUST -> 0.74f + 0.58f * progress;
+            case DUST, SMOKE -> 0.74f + 0.58f * progress;
             case RING -> 0.60f + progress * 1.05f;
             case MOTE -> 0.62f + 0.38f * (float)Math.sin(progress * Math.PI);
             default -> 0.45f + 0.55f * fade;
         };
         if(style == Style.MOTE || style == Style.SPARK) scale = Math.max(3.5f, scale);
         AffineTransform transform = g.getTransform();
-        if(style == Style.DUST) g.translate(sx, sy);
+        if(style == Style.DUST || style == Style.SMOKE) g.translate(sx, sy);
         else g.translate(Math.round(sx), Math.round(sy));
         switch(style){
             case CHIP -> g.rotate(angle + age * 0.15f);
@@ -170,14 +193,14 @@ public final class Particle extends Entity {
         }
         g.scale(scale, scale);
         float opacity = switch(style){
-            case DUST -> fade * fade * (3 - 2 * fade);
+            case DUST, SMOKE -> style.opacity * fade * fade * (3 - 2 * fade);
             case MOTE, SPARK, RING -> style.opacity * Math.min(1f, fade * 1.5f);
             default -> style.opacity * fade;
         };
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
-        g.setColor(style == Style.DUST ? DUST_SHADE : color);
+        g.setColor(style == Style.DUST ? DUST_SHADE : style == Style.SMOKE ? light : color);
         g.fill(style.shape);
-        if(style == Style.DUST){
+        if(style == Style.DUST || style == Style.SMOKE){
             g.setColor(color);
             g.fill(DUST_TOP);
         } else if(style == Style.CHIP){

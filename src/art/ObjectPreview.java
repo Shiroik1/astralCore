@@ -28,8 +28,8 @@ public class ObjectPreview {
         list.add(a.pine(2));
         list.add(a.bush(false));
         list.add(a.bush(true));
-        list.add(a.rockSmall(1));
-        list.add(a.rockLarge(1));
+        list.add(a.rockSmall());
+        list.add(a.rockLarge());
         list.add(a.stump());
         list.add(a.fenceH());
         list.add(a.fenceV());
@@ -103,7 +103,7 @@ public class ObjectPreview {
 
         ObjectArt.Sprite oak1 = art.oak(1), oak2 = art.oak(2), pine1 = art.pine(1), pine2 = art.pine(2);
         ObjectArt.Sprite bush = art.bush(false), flowerBush = art.bush(true);
-        ObjectArt.Sprite rock = art.rockSmall(1), bigRock = art.rockLarge(1), stump = art.stump();
+        ObjectArt.Sprite rock = art.rockSmall(), bigRock = art.rockLarge(), stump = art.stump();
         ObjectArt.Sprite fenceH = art.fenceH(), fenceV = art.fenceV();
         ObjectArt.Sprite coral = art.house("house_coral", Palette.ROOF_CORAL, 1);
         ObjectArt.Sprite thatch = art.house("house_thatch", Palette.ROOF_THATCH, 2);

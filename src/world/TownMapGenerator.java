@@ -18,7 +18,11 @@ import java.util.Random;
 public class TownMapGenerator {
     public static final int SIZE = 50;
 
-    private record Obj(String type, int col, int row, String text){}
+    private record Obj(String type, int col, int row, String text, String building){
+        Obj(String type, int col, int row, String text){
+            this(type, col, row, text, null);
+        }
+    }
 
     public static void main(String[] args) throws IOException {
         writeFiles();
@@ -100,11 +104,11 @@ public class TownMapGenerator {
         }
 
         //3. HAND-PLACED TOWN OBJECTS
-        add(out, reserved, "house_coral", 17, 19, null);
+        add(out, reserved, "inn", InnInterior.ENTRANCE_COL, InnInterior.ENTRANCE_ROW, null);
         add(out, reserved, "well", 25, 25, null);
         add(out, reserved, "lantern", 22, 22, null);
-        add(out, reserved, "lantern", 28, 22, null);
-        add(out, reserved, "lantern", 22, 28, null);
+        add(out, reserved, "lantern_hanging", 28, 22, null);
+        add(out, reserved, "lantern_hanging", 22, 28, null);
         add(out, reserved, "lantern", 28, 28, null);
         add(out, reserved, "sign", 23, 31, "OAKVALE\nA quiet village.");
         add(out, reserved, "sign", 9, 27, "The old forest path.\nTurn back, traveler.");
@@ -149,6 +153,40 @@ public class TownMapGenerator {
         }
         forestPond(t, level, out);
         eastTerraces(t, level, out);
+        townBuildings(t, out);
+        townProps(out);
+    }
+
+    private static void townProps(List<Obj> objects){
+        objects.add(new Obj("crate_stack", 31, 21, null));
+        objects.add(new Obj("barrel_stack", 32, 22, null));
+        objects.add(new Obj("logs_covered", 20, 20, null));
+        objects.add(new Obj("logs_stacked", 39, 31, null));
+        objects.add(new Obj("fence_short", 19, 34, null));
+        objects.add(new Obj("fence_tall", 32, 34, null));
+        // Keep the pine canopy clear of the shop's storage props.
+        objects.removeIf(o -> o.type().equals("pine_1") && o.col() == 31 && o.row() == 23);
+        objects.add(new Obj("pine_1", 34, 22, null));
+        objects.replaceAll(o -> o.type().equals("rock_large") && o.col() == 37 && o.row() == 22
+                ? new Obj("rock_large_moss", o.col(), o.row(), o.text()) : o);
+    }
+
+    private static void townBuildings(Terrain[][] terrain, List<Obj> objects){
+        // Keep the shop off the north road and connect the houses along the south lane.
+        placeBuilding(objects, "general_shop", 30, 20);
+        placeBuilding(objects, "house_open", 17, 30);
+        placeBuilding(objects, "house_closed", 35, 30);
+        terrain[30][21] = Terrain.PATH;
+        for(int col = 17; col <= 35; col++) terrain[col][31] = Terrain.PATH;
+        objects.removeIf(o -> o.row() == 31 && o.col() >= 17 && o.col() <= 35 && !o.type().equals("sign"));
+        // Shift the oak west of the open house so its canopy leaves the doorway visible.
+        objects.removeIf(o -> o.type().equals("oak_1") && o.col() == 16 && o.row() == 31);
+        objects.add(new Obj("oak_1", 15, 33, null));
+    }
+
+    private static void placeBuilding(List<Obj> objects, String id, int col, int row){
+        objects.removeIf(o -> Math.abs(o.col() - col) <= 3 && o.row() >= row - 1 && o.row() <= row);
+        objects.add(new Obj("building", col, row, null, id));
     }
 
     private static void eastTerraces(Terrain[][] terrain, int[][] levels, List<Obj> objects) {
@@ -192,7 +230,7 @@ public class TownMapGenerator {
         for(int i=0;i<trees.length;i++)out.add(new Obj(i%2==0?"pine_1":"oak_2",trees[i][0],trees[i][1],null));
         out.add(new Obj("healing_pond",7,21,null));
         out.add(new Obj("flower_bush",10,21,null));
-        out.add(new Obj("rock_small",4,21,null));
+        out.add(new Obj("rock_small_moss",4,21,null));
         out.add(new Obj("sign",9,23,"FOREST POND\nRest at the pale stone by the water to restore HP."));
         out.removeIf(o -> o.col()==9 && o.row()==27 && o.type().equals("sign"));
         out.add(new Obj("sign",9,27,"FOREST POND\nFollow the west path, then north into the trees."));
@@ -324,6 +362,7 @@ public class TownMapGenerator {
             if(o.text() != null){
                 sb.append(", \"text\": \"").append(o.text().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")).append("\"");
             }
+            if(o.building() != null) sb.append(", \"building\": \"").append(o.building()).append("\"");
             sb.append("}").append(i < sorted.size() - 1 ? "," : "").append("\n");
         }
         sb.append("  ]\n}\n");

@@ -1,5 +1,6 @@
 package world;
 
+import art.BuildingCatalog;
 import main.Gamepanel;
 import main.MiniJson;
 
@@ -26,11 +27,10 @@ public class SceneryLoader {
         if(json == null) json = readResource();
         if(json == null){
             System.out.println("[SCENERY] no scenery.json found (looked in " + EXTERNAL_PATH + " and " + RESOURCE_PATH + ")");
-            return;
         }
 
         try{
-            Object parsed = MiniJson.parse(json);
+            Object parsed = json == null ? null : MiniJson.parse(json);
             if(parsed instanceof Map<?, ?> root && root.get("objects") instanceof List<?> list){
                 for(Object item : list){
                     if(!(item instanceof Map<?, ?> o)) continue;
@@ -42,19 +42,33 @@ public class SceneryLoader {
                     }
                     int col = ((Number) o.get("col")).intValue();
                     int row = ((Number) o.get("row")).intValue();
+                    if(type == WorldObjectType.INN_EXIT) continue;
+                    if(type == WorldObjectType.HOUSE_CORAL && col == InnInterior.ENTRANCE_COL && row == InnInterior.ENTRANCE_ROW){
+                        type = WorldObjectType.INN;
+                    }
                     Object t = o.get("text");
-                    gp.worldObjects.add(new WorldObject(gp, type, col, row, t != null ? t.toString() : null));
+                    String building = o.get("building") instanceof String id ? id
+                            : type == WorldObjectType.INN ? "inn" : null;
+                    Object palette = o.get("palette");
+                    try{
+                        gp.worldObjects.add(new WorldObject(gp, type, col, row, t != null ? t.toString() : null,
+                                building, palette == null ? Map.of() : BuildingCatalog.parsePalette(palette)));
+                    } catch(IllegalArgumentException | java.io.UncheckedIOException e){
+                        System.out.println("[SCENERY] skipped " + type + " at " + col + "," + row + " (" + e.getMessage() + ")");
+                    }
                 }
             }
         } catch(Exception e){
             e.printStackTrace();
         }
+        gp.worldObjects.add(InnInterior.createExit(gp));
         System.out.println("[SCENERY] loaded " + gp.worldObjects.size() + " objects");
     }
 
     public static boolean save(Gamepanel gp){
         if(gp.quests.inDungeon())return false;
         List<WorldObject> sorted = new ArrayList<>(gp.worldObjects);
+        sorted.removeIf(o -> o.kind == WorldObjectType.INN_EXIT);
         sorted.sort(Comparator.comparingInt((WorldObject o) -> o.row).thenComparingInt(o -> o.col));
 
         StringBuilder sb = new StringBuilder("{\n  \"objects\": [\n");
@@ -65,6 +79,22 @@ public class SceneryLoader {
                     .append(", \"row\": ").append(o.row);
             if(o.text != null && !o.text.isEmpty()){
                 sb.append(", \"text\": \"").append(escape(o.text)).append("\"");
+            }
+            if(o.building != null){
+                if(o.kind != WorldObjectType.INN || !o.building.id().equals("inn")){
+                    sb.append(", \"building\": \"").append(escape(o.building.id())).append("\"");
+                }
+                if(!o.paletteOverrides.isEmpty()){
+                    sb.append(", \"palette\": {");
+                    boolean first = true;
+                    for(var entry : new java.util.TreeMap<>(o.paletteOverrides).entrySet()){
+                        if(!first) sb.append(", ");
+                        first = false;
+                        sb.append("\"").append(escape(entry.getKey())).append("\": \"")
+                                .append(String.format(Locale.ROOT, "#%06X", entry.getValue())).append("\"");
+                    }
+                    sb.append("}");
+                }
             }
             sb.append("}").append(i < sorted.size() - 1 ? "," : "").append("\n");
         }

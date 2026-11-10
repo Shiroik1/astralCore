@@ -612,7 +612,9 @@ public class UI {
             g2.drawString(objective.substring(split+1),x+14,y+63);
         }else g2.drawString(objective,x+14,y+51);
         g2.setColor(new Color(169,192,198));
-        g2.drawString(gp.quests.inDungeon()?"Well Depths  |  Ladder: return [E]":"Astravale",x+14,y+88);
+        String location = gp.quests.inDungeon() ? "Well Depths  |  Ladder: return [E]"
+                : world.InnInterior.contains(gp, gp.localPlayer()) ? "Astravale Inn  |  Door: return [E]" : "Astravale";
+        g2.drawString(location,x+14,y+88);
     }
 
     private void drawBossHealth(){

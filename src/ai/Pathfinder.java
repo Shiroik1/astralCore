@@ -49,7 +49,7 @@ public final class Pathfinder {
     private boolean walkable(Monster m,int x,int y,List<WorldObject> scenery){
         int left=x+m.solidArea.x,top=y+m.solidArea.y,right=left+m.solidArea.width,bottom=top+m.solidArea.height;
         if(gp.tileM.blocksMovement(left,top,right,bottom))return false;
-        for(WorldObject o:scenery!=null?scenery:gp.worldObjects)if(o.blocks && o.blockRect.intersects(left,top,right-left,bottom-top))return false;
+        for(WorldObject o:scenery!=null?scenery:gp.worldObjects)if(o.blocksArea(left,top,right-left,bottom-top))return false;
         for(var tile:gp.interactable)if(tile!=null && tile.collision && new Rectangle(tile.worldX+tile.solidArea.x,tile.worldY+tile.solidArea.y,tile.solidArea.width,tile.solidArea.height).intersects(left,top,right-left,bottom-top))return false;
         return true;
     }
@@ -60,8 +60,8 @@ public final class Pathfinder {
         int minX=Math.max(0,Math.min(sx,gx)-5),minY=Math.max(0,Math.min(sy,gy)-5);
         int maxX=Math.min(gp.maxWorldCol-1,Math.max(sx,gx)+5),maxY=Math.min(gp.maxWorldRow-1,Math.max(sy,gy)+5);
         int width=maxX-minX+1,height=maxY-minY+1;if(width<=0 || height<=0)return List.of();
-        var nearby=new ArrayList<WorldObject>();Rectangle region=new Rectangle(minX*ts,minY*ts,(width+3)*ts,(height+3)*ts);
-        for(WorldObject o:gp.worldObjects)if(o.blocks && region.intersects(o.blockRect))nearby.add(o);
+        var nearby=new ArrayList<WorldObject>();
+        for(WorldObject o:gp.worldObjects)if(o.blocksArea(minX*ts,minY*ts,(width+3)*ts,(height+3)*ts))nearby.add(o);
         int[] distance=new int[width*height],parent=new int[width*height];Arrays.fill(distance,Integer.MAX_VALUE);Arrays.fill(parent,-1);
         byte[] valid=new byte[width*height];boolean[] closed=new boolean[width*height];
         int start=(sy-minY)*width+sx-minX;if(start<0 || start>=distance.length)return List.of();

@@ -959,8 +959,9 @@ public class Player extends Entity{
                 int npcIndex = gp.collisionChecker.checkEntity(this, gp.npc);
                 interactNPC(npcIndex);
                 int sceneVersion=gp.quests.areaVersion();
+                int beforeInteractX=worldX, beforeInteractY=worldY;
                 interactScenery();
-                if(sceneVersion!=gp.quests.areaVersion())return;
+                if(sceneVersion!=gp.quests.areaVersion() || worldX!=beforeInteractX || worldY!=beforeInteractY)return;
 
                 //CHECK MONSTER COLLISION
                 int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);

@@ -4,6 +4,7 @@ import net.GameEventType;
 import monster.MonsterType;
 import entity.Entity;
 import entity.Monster;
+import entity.Particle;
 import entity.Player;
 import entity.SkillParticles;
 import net.InputState;
@@ -22,6 +23,7 @@ import world.WorldObject;
 import world.AmbientFX;
 import world.GrassEditor;
 import world.GrassLayer;
+import world.InnInterior;
 import world.Lighting;
 
 public class Gamepanel extends JPanel implements Runnable{
@@ -112,6 +114,8 @@ public class Gamepanel extends JPanel implements Runnable{
     public java.util.List<WorldObject> worldObjects = new ArrayList<>();
     public ArrayList<Entity> projectileList = new ArrayList<>();
     public ArrayList<Entity> particleList = new ArrayList<>();
+    public final ArrayList<Particle> ambientParticles = new ArrayList<>();
+    private boolean ambientInWell;
     public java.util.List<entity.FloatingText> floatingTextList = new java.util.ArrayList<>();
 
     //GAME STATE
@@ -394,16 +398,13 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
-            //WORLD OBJECTS (visual only: trees and roofs fade when the player is behind them)
-            for(WorldObject o : worldObjects){
-                o.update();
-            }
-
             //AMBIENT, LIGHTING AND GRASS
             ambient.update();
             lighting.update();
-            grass.update();
-            grassEditor.update();
+            if(!InnInterior.contains(this, localPlayer())){
+                grass.update();
+                grassEditor.update();
+            }
 
             //FLOATING TEXT
             for(int i = floatingTextList.size() - 1; i >= 0; i--){
@@ -415,6 +416,16 @@ public class Gamepanel extends JPanel implements Runnable{
             if(isNetworked && isHost && currentTick % SNAPSHOT_INTERVAL_TICKS == 0){
                 gameServer.broadcastSnapshot(net.SnapshotBuilder.build(this));
             }
+
+            // Visual scenery belongs to the local view even when another player is in the well.
+            quests.activateArea(localPlayer().inWell);
+            if(ambientInWell != localPlayer().inWell){
+                ambientInWell = localPlayer().inWell;
+                ambientParticles.clear();
+            }
+            for(Particle particle : ambientParticles) particle.update();
+            ambientParticles.removeIf(particle -> !particle.alive);
+            for(WorldObject o : worldObjects) o.update();
         }
         updateScreenShake();
         saves.tick();
@@ -474,6 +485,8 @@ public class Gamepanel extends JPanel implements Runnable{
 
         if(gameState == playState){
 
+            boolean insideInn = InnInterior.contains(this, localPlayer());
+            boolean outdoors = !quests.inDungeon() && !insideInn;
             if(pixelBuffer) beginPixelBuffer();
 
             //SCREENSHAKE
@@ -484,7 +497,7 @@ public class Gamepanel extends JPanel implements Runnable{
 
             for(WorldObject o : worldObjects){
                 if(o.onScreen()){
-                    entityList.add(o);
+                    o.addDrawLayers(entityList);
                 }
             }
 
@@ -501,7 +514,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
-            if(!quests.inDungeon())grass.drawBase(g2);
+            if(outdoors)grass.drawBase(g2);
             entity.PriestCombat.drawSanctuaries(this,g2);
 
             //ADD ENTITIES TO THE LIST
@@ -534,6 +547,7 @@ public class Gamepanel extends JPanel implements Runnable{
                     entityList.add(particleList.get(i));
                 }
             }
+            entityList.addAll(ambientParticles);
 
             for(int i = 0; i < projectileList.size(); i++){
                 if(projectileList.get(i) != null){
@@ -546,7 +560,7 @@ public class Gamepanel extends JPanel implements Runnable{
             //DRAW ENTITIES
             for(int i = 0; i < entityList.size(); i++){
                 entityList.get(i).draw(g2);
-                if(!quests.inDungeon())grass.drawFront(g2, entityList.get(i));
+                if(outdoors)grass.drawFront(g2, entityList.get(i));
             }
 
             for(Player p:players){
@@ -560,8 +574,8 @@ public class Gamepanel extends JPanel implements Runnable{
                 ft.draw(g2);
             }
 
-            if(!quests.inDungeon())ambient.drawLeaves(g2);
-            grassEditor.drawBrush(g2);
+            if(outdoors)ambient.drawLeaves(g2);
+            if(!insideInn)grassEditor.drawBrush(g2);
 
             g2.translate(-shakeOffsetX, -shakeOffsetY);
 
@@ -692,6 +706,7 @@ public class Gamepanel extends JPanel implements Runnable{
         java.util.Arrays.fill(npc, null);
         projectileList.clear();
         particleList.clear();
+        ambientParticles.clear();
         floatingTextList.clear();
 
         local.setDefaultPosition();

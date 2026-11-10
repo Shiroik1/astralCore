@@ -231,7 +231,7 @@ public class CollisionChecker {
         for(WorldObject o : gp.worldObjects){
             if(!o.blocks) continue;
             if(Math.abs(o.worldX - entity.worldX) > 300 || Math.abs(o.worldY - entity.worldY) > 300) continue; // cheap reject
-            if(moved.intersects(o.blockRect) && !now.intersects(o.blockRect)){
+            if(o.blocksEntry(now, moved)){
                 entity.collisionOn = true;
                 return;
             }

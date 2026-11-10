@@ -197,9 +197,10 @@ public class GrassLayer {
                 int v = cells[c][r];
                 if(v == 0) continue;
                 int type = (v - 1) / 4;
+                int level = gp.tileM.level(c, r);
                 int count = COUNT[(v - 1) % 4 + 1];
                 for(int i = 0; i < count; i++){
-                    drawTuft(g2, cam, c, r, i, type);
+                    drawTuft(g2, cam, c, r, i, type, level);
                 }
             }
         }
@@ -223,39 +224,41 @@ public class GrassLayer {
                 int v = cells[c][r];
                 if(v == 0) continue;
                 int type = (v - 1) / 4;
+                int level = gp.tileM.level(c, r);
                 int count = COUNT[(v - 1) % 4 + 1];
                 int base = (r * cols + c) * MAX_PER_TILE;
                 for(int i = 0; i < count; i++){
                     int wx = c * ts + tuftX[base + i];
                     int wy = r * ts + tuftY[base + i];
                     if(wy <= fy || wy > fy + 26 || Math.abs(wx - fx) > 34) continue;
-                    drawTuft(g2, cam, c, r, i, type);
+                    drawTuft(g2, cam, c, r, i, type, level);
                 }
             }
         }
     }
 
-    private void drawTuft(Graphics2D g2, Player cam, int c, int r, int i, int type){
+    private void drawTuft(Graphics2D g2, Player cam, int c, int r, int i, int type, int level){
         int idx = (r * cols + c) * MAX_PER_TILE + i;
         int ts = gp.tileSize;
         float wx = c * ts + tuftX[idx];
         float wy = r * ts + tuftY[idx];
         int hash = tuftHash[idx];
         int bend = bendIndex(c, r, wx, wy, hash);
-        BufferedImage img = art.frame(type, (hash >>> 3) % GrassArt.VARIANTS[type], bend);
+        BufferedImage img = art.frame(type, level, (hash >>> 3) % GrassArt.VARIANTS[type], bend);
         g2.drawImage(img, (int) wx - art.footX - cam.worldX + cam.screenX,
                 (int) wy - art.footY - cam.worldY + cam.screenY, null);
     }
 
     // wind sway + lingering wobble + creatures + bursts, quantised to one of the baked lean frames
     private int bendIndex(int c, int r, float wx, float wy, int hash){
-        double phase = (hash & 255) * 0.0245;
+        double phase = (hash & 255) * 0.012;
         double wind = gp.ambient.wind;
-        double lean = Math.sin(time * 0.045 + wx * 0.011 + wy * 0.007 + phase) * (0.10 + 0.14 * wind)
-                + (wind - 0.4) * 0.25;
+        double wave = Math.sin(time * 0.047 - wx * 0.013 - wy * 0.008);
+        double flutter = Math.sin(time * 0.081 + phase - wx * 0.020);
+        double lean = wave * (0.15 + 0.20 * wind) + flutter * 0.07 + (wind - 0.35) * 0.25;
 
         float e = energy[c][r];
-        if(e > 0) lean += Math.sin(time * 0.33 + phase * 3) * e * 0.5;
+        if(e > 0) lean += Math.sin(time * 0.22 + phase * 3) * e * 0.34;
 
         for(int k = 0; k < pushers; k++){
             float dx = wx - px[k];
@@ -265,8 +268,8 @@ public class GrassLayer {
             float d2 = dx * dx + dy * dy;
             if(d2 >= pr[k] * pr[k]) continue;
             double f = 1 - Math.sqrt(d2) / pr[k];
-            double dir = dx > 0.5f ? 1 : (dx < -0.5f ? -1 : ((hash & 1) == 0 ? 1 : -1));
-            lean += dir * f * 1.2;
+            double dir = Math.clamp(dx / (pr[k] * 0.25), -1, 1);
+            lean += dir * f * f * (3 - 2 * f) * 1.1;
         }
 
         for(int k = 0; k < burstCount; k++){
@@ -275,7 +278,7 @@ public class GrassLayer {
             float d2 = dx * dx + dy * dy;
             if(d2 >= b[2] * b[2]) continue;
             double f = (1 - Math.sqrt(d2) / b[2]) * b[3] * Math.min(1f, b[4] / 10f);
-            lean += (dx >= 0 ? 1 : -1) * f * 1.6;
+            lean += Math.clamp(dx / (b[2] * 0.2), -1, 1) * f * 1.6;
         }
 
         lean = Math.max(-1, Math.min(1, lean));

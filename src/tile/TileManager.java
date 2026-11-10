@@ -5,6 +5,7 @@ import art.Palette;
 import art.Terrain;
 import entity.Player;
 import main.Gamepanel;
+import world.InnInterior;
 import world.TownMapGenerator;
 
 import java.awt.*;
@@ -111,6 +112,11 @@ public class TileManager implements GroundTiles.World {
     // Coarse tile query for spawn placement. Movement uses the partial terrace boundaries below.
     public boolean isSolid(int col, int row){
         if(gp.quests!=null && gp.quests.inDungeon())return gp.quests.isDungeonSolid(col,row);
+        if(InnInterior.isTile(col, row)){
+            int x = col * gp.tileSize + gp.tileSize / 2;
+            int y = row * gp.tileSize + gp.tileSize / 2;
+            return InnInterior.blocksMovement(gp, x, y, x, y);
+        }
         if(col < 0 || row < 0 || col >= gp.maxWorldCol || row >= gp.maxWorldRow) return true;
         return switch (terrainGrid[col][row]) {
             case DEEP, WATER, RIM, LEDGE -> true;
@@ -121,6 +127,9 @@ public class TileManager implements GroundTiles.World {
     public boolean blocksMovement(int left, int top, int right, int bottom){
         int ts = gp.tileSize;
         boolean dungeon = gp.quests != null && gp.quests.inDungeon();
+        if(!dungeon && InnInterior.containsPosition(gp, left, top)){
+            return InnInterior.blocksMovement(gp, left, top, right, bottom);
+        }
         int inset = ts * GroundTiles.GRASS_INSET / GroundTiles.ART_TILE_SIZE;
         for (int row = Math.floorDiv(top, ts); row <= Math.floorDiv(bottom, ts); row++) {
             for (int col = Math.floorDiv(left, ts); col <= Math.floorDiv(right, ts); col++) {
@@ -180,6 +189,7 @@ public class TileManager implements GroundTiles.World {
     public void draw(Graphics2D g2){
         if(gp.quests.inDungeon()){gp.quests.drawDungeon(g2);return;}
         Player camera = gp.localPlayer();
+        if(InnInterior.contains(gp, camera)){InnInterior.draw(g2, gp, camera);return;}
         int viewLeft = camera.worldX - camera.screenX;
         int viewTop = camera.worldY - camera.screenY;
         int ts = gp.tileSize;

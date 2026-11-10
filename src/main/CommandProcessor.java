@@ -317,6 +317,15 @@ public class CommandProcessor {
             return;
         }
         int[] tile = facingTile(me);
+        if(type == WorldObjectType.BUILDING){
+            if(args.length != 3 || !art.BuildingCatalog.has(args[2])){
+                reply("Use /place building <catalog-id>.", ERROR);
+                return;
+            }
+            gp.worldObjects.add(new WorldObject(gp, type, tile[0], tile[1], null, args[2], java.util.Map.of()));
+            reply("Placed " + args[2] + ".", INFO);
+            return;
+        }
         String text = args.length > 2
                 ? String.join(" ", Arrays.copyOfRange(args, 2, args.length)).replace("\\n", "\n")
                 : null;
