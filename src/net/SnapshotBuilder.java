@@ -20,6 +20,7 @@ public class SnapshotBuilder {
         WorldSnapshot snapshot = new WorldSnapshot();
         snapshot.tick = gp.currentTick;
         snapshot.quest = gp.quests.snapshot();
+        snapshot.dayTime = gp.lighting.cycle.time();
         snapshot.players = buildPlayers(gp);
         fillArea(snapshot,gp);
         if(gp.quests.hasOtherScene()){
@@ -84,6 +85,7 @@ public class SnapshotBuilder {
             ps.strength = p.strength;
             ps.dexterity = p.dexterity;
             ps.intelligence = p.intelligence;
+            ps.vitality = p.vitality;
             ps.coin = p.coin;
             ps.rage = p.rage;
             ps.maxRage = p.maxRage;

@@ -24,7 +24,7 @@ public class PlayerState {
     public String gender;
     public int hairStyle=-1,hairColor=-1;
     public int level, exp, nextLevelExp;
-    public int strength, dexterity, intelligence;
+    public int strength, dexterity, intelligence, vitality;
     public int coin;
     public int rage, maxRage;
     public int arcaneCharge;

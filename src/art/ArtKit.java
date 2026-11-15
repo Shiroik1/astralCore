@@ -199,4 +199,14 @@ public final class ArtKit {
         g.setColor(center);
         g.fill(new Ellipse2D.Double(x - r * 0.45, y - r * 0.45, r * 0.9, r * 0.9));
     }
+
+    public static BufferedImage toArgb(BufferedImage src){
+        if(src.getType() == BufferedImage.TYPE_INT_ARGB) return src;
+        BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = out.createGraphics();
+        g.setComposite(AlphaComposite.Src);
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        return out;
+    }
 }

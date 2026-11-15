@@ -22,7 +22,7 @@ public final class DisplaySettings {
     private volatile Resolution nativeResolution;
     private volatile Resolution selected;
     private volatile List<Resolution> resolutions;
-    private static final int MAX_RENDER_FPS = 120;
+    private static final int MAX_RENDER_FPS = 60;
     private volatile int renderFps = MAX_RENDER_FPS;
     private final AtomicInteger revision=new AtomicInteger();
     private BufferedImage presentation;
@@ -147,7 +147,7 @@ public final class DisplaySettings {
         var transform=configuration==null?null:configuration.getDefaultTransform();
         double sx=transform==null?1:transform.getScaleX(),sy=transform==null?1:transform.getScaleY();
         // Keep the world staging buffer fixed. The separate UI layer can use up to twice its pixel density.
-        double scale=Math.min(2,Math.min(view.width*sx/panel.screenWidth,view.height*sy/panel.screenHeight));
+        double scale=Math.min(1.5,Math.min(view.width*sx/panel.screenWidth,view.height*sy/panel.screenHeight));
         if(panel.getWidth()<=0 || panel.getHeight()<=0)scale=1;
         return new Resolution(Math.max(1,(int)Math.round(panel.screenWidth*scale)),
                 Math.max(1,(int)Math.round(panel.screenHeight*scale)));

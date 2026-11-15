@@ -459,7 +459,7 @@ public class UI {
         final int frameX = gp.tileSize * 2;
         final int frameY = gp.tileSize;
         final int frameWidth = gp.tileSize * 7;
-        final int frameHeight = gp.tileSize * 11;
+        final int frameHeight = gp.tileSize * 11 + 60;
         drawSubWindow(frameX, frameY, frameWidth, frameHeight);
 
         g2.setColor(Color.white);
@@ -483,6 +483,10 @@ public class UI {
         g2.drawString("Strength", textX, textY);
         textY += lineHeight;
         g2.drawString("Dexterity", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Intellect", textX, textY);
+        textY += lineHeight;
+        g2.drawString("Vitality", textX, textY);
         textY += lineHeight;
         g2.drawString("Attack", textX, textY);
         textY += lineHeight;
@@ -542,6 +546,16 @@ public class UI {
         textY += lineHeight;
 
         value = String.valueOf(gp.localPlayer().dexterity);
+        textX = getXforRightAlignText(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gp.localPlayer().intelligence);
+        textX = getXforRightAlignText(value, tailX);
+        g2.drawString(value, textX, textY);
+        textY += lineHeight;
+
+        value = String.valueOf(gp.localPlayer().vitality);
         textX = getXforRightAlignText(value, tailX);
         g2.drawString(value, textX, textY);
         textY += lineHeight;
@@ -1069,6 +1083,8 @@ public class UI {
         g2.drawString("X:" + playerTileX + ",Y:" + playerTileY, x, y);
         y += lineHeight;
         g2.drawString("Time: " + decimalFormat.format(playTime), x, y);
+        y += lineHeight;
+        g2.drawString("Clock: " + gp.lighting.cycle.clock(), x, y);
     }
 
 
@@ -1325,7 +1341,7 @@ public class UI {
     }
 
     public void startHostFlow(){
-        System.out.println("[UI] startHostFlow() called");
+        Log.debug("[UI] startHostFlow() called");
         try{
             gp.hostGame(Gamepanel.NETWORK_PORT);
             gp.gameState = gp.playState;
@@ -1339,12 +1355,12 @@ public class UI {
     }
 
     public void startJoinFlow(){
-        System.out.println("[UI] startJoinFlow() called");
+        Log.debug("[UI] startJoinFlow() called");
         gp.keyH.beginEnteringNetworkAddress();
     }
 
     public void submitJoinAddress(String address){
-        System.out.println("[UI] submitJoinAddress() called with address='" + address + "'");
+        Log.debug("[UI] submitJoinAddress() called with address='" + address + "'");
         if(address.isEmpty()){
             joinStatusMessage = "Enter a host IP address.";
             return;

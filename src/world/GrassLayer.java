@@ -6,6 +6,7 @@ import art.Terrain;
 import entity.Entity;
 import entity.Player;
 import main.Gamepanel;
+import main.Log;
 
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -22,7 +23,7 @@ public class GrassLayer {
     public static final String PATH = "maps/grass.txt";
     private static final String RESOURCE = "/maps/grass.txt";
     private static final int MAX_PER_TILE = 5;
-    private static final int[] COUNT = {0, 1, 2, 3, 5};   // tufts per tile for density 0..4
+    private static final int[] COUNT = {0, 1, 2, 3, 4};   // tufts per tile for density 0..4
 
     private final Gamepanel gp;
     private final GrassArt art;
@@ -59,7 +60,7 @@ public class GrassLayer {
         if(text == null){
             paintDefault();
             save();
-            System.out.println("[GRASS] no grass.txt found: painted the default and saved " + PATH);
+            Log.warn("[GRASS] no grass.txt found: painted the default and saved " + PATH);
         } else {
             parse(text);
         }

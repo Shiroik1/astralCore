@@ -162,7 +162,7 @@ public class Gamepanel extends JPanel implements Runnable{
         soundEffect.preloadFrom(1);
         gameState = titleState;
 
-        tempScreen = new BufferedImage(screenWidth, screenHeight, BufferedImage.TYPE_INT_ARGB);
+        tempScreen = new BufferedImage(screenWidth, screenHeight, BufferedImage.TYPE_INT_RGB);
         g2 = (Graphics2D) tempScreen.getGraphics();
 
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
@@ -220,7 +220,7 @@ public class Gamepanel extends JPanel implements Runnable{
                     nextFrame += frameInterval;
                     if(now - nextFrame >= 0) nextFrame = now + frameInterval;
                     drawToTempscreen();
-                    presentGameFrame();
+                    Prof.begin(); presentGameFrame(); Prof.lap(6); Prof.frameDone();
                 }
 
                 now = System.nanoTime();
@@ -480,6 +480,7 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void drawToTempscreen() throws IOException {
+        Prof.begin();
         g2.setColor(Color.black);
         g2.fillRect(0, 0, screenWidth, screenHeight);
 
@@ -494,6 +495,7 @@ public class Gamepanel extends JPanel implements Runnable{
 
             //TILE
             tileM.draw(g2);
+            Prof.lap(0);
 
             for(WorldObject o : worldObjects){
                 if(o.onScreen()){
@@ -514,8 +516,10 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            Prof.lap(1);
             if(outdoors)grass.drawBase(g2);
             entity.PriestCombat.drawSanctuaries(this,g2);
+            Prof.lap(2);
 
             //ADD ENTITIES TO THE LIST
             for(Player p : players){
@@ -556,6 +560,7 @@ public class Gamepanel extends JPanel implements Runnable{
             }
 
             entityList.sort(Comparator.comparingInt(Entity::sortY));
+            Prof.lap(3);
 
             //DRAW ENTITIES
             for(int i = 0; i < entityList.size(); i++){
@@ -566,6 +571,7 @@ public class Gamepanel extends JPanel implements Runnable{
             for(Player p:players){
                 if(p!=null && p.inWell==quests.inDungeon() && p.isBerserker())p.berserker.drawImpact(g2);
             }
+            Prof.lap(4);
 
             //EMPTY ENTITY LIST
             entityList.clear();
@@ -585,6 +591,7 @@ public class Gamepanel extends JPanel implements Runnable{
             } else {
                 lighting.draw(g2, shakeOffsetX, shakeOffsetY);
             }
+            Prof.lap(5);
 
         }
         // Direct captures still include the UI. The live presenter draws it into its own layer.
@@ -641,20 +648,20 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void hostGame(int port) throws java.io.IOException {
-        System.out.println("[HOST] hostGame() called, port=" + port);
+        Log.debug("[HOST] hostGame() called, port=" + port);
         if(isNetworked){
-            System.out.println("[HOST] already networked, aborting");
+            Log.warn("[HOST] already networked, aborting");
             return;
         }
         isNetworked = true;
         isHost = true;
         gameServer = new net.GameServer(this);
         gameServer.start(port);
-        System.out.println("[HOST] gameServer.start() returned successfully");
+        Log.debug("[HOST] gameServer.start() returned successfully");
     }
 
     public void joinGame(String hostAddress, int port) throws java.io.IOException {
-        System.out.println("[CLIENT] joinGame() called, target=" + hostAddress + ":" + port);
+        Log.debug("[CLIENT] joinGame() called, target=" + hostAddress + ":" + port);
         if(!saves.saveActive())throw new java.io.IOException(saves.error());
         net.PlayerState carried=save.CharacterState.capture(this,localPlayer());
         resetAfterNetworkSession();save.CharacterState.apply(this,localPlayer(),carried);
@@ -664,7 +671,7 @@ public class Gamepanel extends JPanel implements Runnable{
         isHost = false;
         gameClient = new net.GameClient(this);
         gameClient.connect(hostAddress, port);
-        System.out.println("[CLIENT] gameClient.connect() returned successfully");
+        Log.debug("[CLIENT] gameClient.connect() returned successfully");
     }
 
     public void shutdownNetwork(){

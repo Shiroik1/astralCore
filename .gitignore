@@ -7,6 +7,7 @@ out/
 *.iml
 build/
 target/
+tools/dialogue-editor/target
 
 ### Eclipse ###
 .apt_generated
@@ -36,3 +37,8 @@ bin/
 # Python release tooling
 __pycache__/
 *.py[cod]
+
+# Local generated previews and editor backups
+/art_preview/
+*.blend1
+*.class

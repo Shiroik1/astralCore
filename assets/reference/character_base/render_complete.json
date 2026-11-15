@@ -1,0 +1,13 @@
+{
+  "directions": [
+    "down",
+    "up",
+    "left",
+    "right"
+  ],
+  "animations": {
+    "idle": 4,
+    "run": 8,
+    "attack": 8
+  }
+}

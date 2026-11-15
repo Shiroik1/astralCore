@@ -5,6 +5,7 @@ import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
 import entity.Player;
 import main.Gamepanel;
+import main.Log;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +34,7 @@ public class GameServer {
         server.addListener(new Listener(){
             @Override
             public void connected(Connection connection){
-                System.out.println("[HOST] connected() fired, raw connection id=" + connection.getID());
+                Log.debug("[HOST] connected() fired, raw connection id=" + connection.getID());
                 pendingConnectionObjects.put(connection.getID(), connection);
                 pendingConnections.add(connection.getID());
             }
@@ -71,7 +72,7 @@ public class GameServer {
 
             @Override
             public void disconnected(Connection connection){
-                System.out.println("[HOST] disconnected() fired for connection id=" + connection.getID());
+                Log.debug("[HOST] disconnected() fired for connection id=" + connection.getID());
                 Integer playerId = connectionToPlayerId.remove(connection.getID());
                 pendingConnectionObjects.remove(connection.getID());pendingJoinRequests.remove(connection.getID());
                 if(playerId != null){
@@ -82,7 +83,7 @@ public class GameServer {
 
         server.start();
         server.bind(port);
-        System.out.println("[HOST] server.bind + server.start completed on port " + port);
+        Log.debug("[HOST] server.bind + server.start completed on port " + port);
     }
 
     // Called once per tick from Gamepanel.update(), on the game thread —

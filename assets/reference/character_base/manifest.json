@@ -1,0 +1,54 @@
+{
+  "name": "reference_chibi_base",
+  "version": 1,
+  "canvas": [
+    90,
+    90
+  ],
+  "sourceCanvas": [
+    180,
+    180
+  ],
+  "anchor": [
+    45,
+    85.5
+  ],
+  "anchorMeaning": "Projected ground point, measured from top left; feet can lift in run.",
+  "directions": [
+    "down",
+    "up",
+    "left",
+    "right"
+  ],
+  "directionMeaning": "down faces camera, up faces away",
+  "shadow": "none; game supplies ground shadow",
+  "sheetLayout": "columns are frames, rows are down/up/left/right",
+  "animations": {
+    "idle": {
+      "framesPerDirection": 4,
+      "frameDurationMs": 200,
+      "loop": true,
+      "sheet": "sheets_90/idle.png",
+      "framePattern": "frames_90/idle_{direction}/{index:02}.png"
+    },
+    "run": {
+      "framesPerDirection": 8,
+      "frameDurationMs": 83,
+      "loop": true,
+      "sheet": "sheets_90/run.png",
+      "framePattern": "frames_90/run_{direction}/{index:02}.png"
+    },
+    "attack": {
+      "framesPerDirection": 8,
+      "frameDurationMs": 83,
+      "loop": false,
+      "sheet": "sheets_90/attack.png",
+      "framePattern": "frames_90/attack_{direction}/{index:02}.png"
+    }
+  },
+  "notes": [
+    "Unarmed attack; impact is frame index 4.",
+    "PNG assets are generated but not connected to the game loader.",
+    "Back and hidden anatomy are interpretations of the supplied front/side reference."
+  ]
+}

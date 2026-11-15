@@ -1,0 +1,812 @@
+{
+  "passed": true,
+  "frameCount": 80,
+  "checks": [
+    "All 80 frames present",
+    "RGBA transparency",
+    "Expected dimensions",
+    "No frame-edge clipping"
+  ],
+  "frames": [
+    {
+      "animation": "idle_down",
+      "frame": 0,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "idle_down",
+      "frame": 1,
+      "alphaBounds": [
+        18,
+        16,
+        72,
+        88
+      ]
+    },
+    {
+      "animation": "idle_down",
+      "frame": 2,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "idle_down",
+      "frame": 3,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "idle_up",
+      "frame": 0,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "idle_up",
+      "frame": 1,
+      "alphaBounds": [
+        18,
+        16,
+        72,
+        88
+      ]
+    },
+    {
+      "animation": "idle_up",
+      "frame": 2,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "idle_up",
+      "frame": 3,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "idle_left",
+      "frame": 0,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "idle_left",
+      "frame": 1,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "idle_left",
+      "frame": 2,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "idle_left",
+      "frame": 3,
+      "alphaBounds": [
+        27,
+        17,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "idle_right",
+      "frame": 0,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "idle_right",
+      "frame": 1,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "idle_right",
+      "frame": 2,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "idle_right",
+      "frame": 3,
+      "alphaBounds": [
+        27,
+        17,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "run_down",
+      "frame": 0,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "run_down",
+      "frame": 1,
+      "alphaBounds": [
+        18,
+        18,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "run_down",
+      "frame": 2,
+      "alphaBounds": [
+        18,
+        18,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "run_down",
+      "frame": 3,
+      "alphaBounds": [
+        18,
+        18,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "run_down",
+      "frame": 4,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "run_down",
+      "frame": 5,
+      "alphaBounds": [
+        19,
+        17,
+        72,
+        88
+      ]
+    },
+    {
+      "animation": "run_down",
+      "frame": 6,
+      "alphaBounds": [
+        19,
+        18,
+        72,
+        88
+      ]
+    },
+    {
+      "animation": "run_down",
+      "frame": 7,
+      "alphaBounds": [
+        19,
+        17,
+        72,
+        88
+      ]
+    },
+    {
+      "animation": "run_up",
+      "frame": 0,
+      "alphaBounds": [
+        19,
+        16,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "run_up",
+      "frame": 1,
+      "alphaBounds": [
+        19,
+        16,
+        72,
+        88
+      ]
+    },
+    {
+      "animation": "run_up",
+      "frame": 2,
+      "alphaBounds": [
+        19,
+        16,
+        72,
+        87
+      ]
+    },
+    {
+      "animation": "run_up",
+      "frame": 3,
+      "alphaBounds": [
+        19,
+        16,
+        72,
+        88
+      ]
+    },
+    {
+      "animation": "run_up",
+      "frame": 4,
+      "alphaBounds": [
+        19,
+        16,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "run_up",
+      "frame": 5,
+      "alphaBounds": [
+        18,
+        16,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "run_up",
+      "frame": 6,
+      "alphaBounds": [
+        18,
+        16,
+        71,
+        87
+      ]
+    },
+    {
+      "animation": "run_up",
+      "frame": 7,
+      "alphaBounds": [
+        18,
+        16,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "run_left",
+      "frame": 0,
+      "alphaBounds": [
+        23,
+        17,
+        60,
+        89
+      ]
+    },
+    {
+      "animation": "run_left",
+      "frame": 1,
+      "alphaBounds": [
+        22,
+        16,
+        59,
+        88
+      ]
+    },
+    {
+      "animation": "run_left",
+      "frame": 2,
+      "alphaBounds": [
+        21,
+        16,
+        58,
+        88
+      ]
+    },
+    {
+      "animation": "run_left",
+      "frame": 3,
+      "alphaBounds": [
+        22,
+        16,
+        59,
+        88
+      ]
+    },
+    {
+      "animation": "run_left",
+      "frame": 4,
+      "alphaBounds": [
+        23,
+        17,
+        60,
+        89
+      ]
+    },
+    {
+      "animation": "run_left",
+      "frame": 5,
+      "alphaBounds": [
+        22,
+        17,
+        59,
+        88
+      ]
+    },
+    {
+      "animation": "run_left",
+      "frame": 6,
+      "alphaBounds": [
+        21,
+        17,
+        58,
+        88
+      ]
+    },
+    {
+      "animation": "run_left",
+      "frame": 7,
+      "alphaBounds": [
+        22,
+        17,
+        59,
+        88
+      ]
+    },
+    {
+      "animation": "run_right",
+      "frame": 0,
+      "alphaBounds": [
+        30,
+        17,
+        67,
+        89
+      ]
+    },
+    {
+      "animation": "run_right",
+      "frame": 1,
+      "alphaBounds": [
+        31,
+        16,
+        68,
+        88
+      ]
+    },
+    {
+      "animation": "run_right",
+      "frame": 2,
+      "alphaBounds": [
+        32,
+        17,
+        69,
+        88
+      ]
+    },
+    {
+      "animation": "run_right",
+      "frame": 3,
+      "alphaBounds": [
+        31,
+        16,
+        68,
+        88
+      ]
+    },
+    {
+      "animation": "run_right",
+      "frame": 4,
+      "alphaBounds": [
+        30,
+        17,
+        67,
+        89
+      ]
+    },
+    {
+      "animation": "run_right",
+      "frame": 5,
+      "alphaBounds": [
+        31,
+        16,
+        68,
+        88
+      ]
+    },
+    {
+      "animation": "run_right",
+      "frame": 6,
+      "alphaBounds": [
+        32,
+        16,
+        69,
+        88
+      ]
+    },
+    {
+      "animation": "run_right",
+      "frame": 7,
+      "alphaBounds": [
+        31,
+        16,
+        68,
+        88
+      ]
+    },
+    {
+      "animation": "attack_down",
+      "frame": 0,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "attack_down",
+      "frame": 1,
+      "alphaBounds": [
+        20,
+        17,
+        72,
+        88
+      ]
+    },
+    {
+      "animation": "attack_down",
+      "frame": 2,
+      "alphaBounds": [
+        20,
+        17,
+        73,
+        88
+      ]
+    },
+    {
+      "animation": "attack_down",
+      "frame": 3,
+      "alphaBounds": [
+        16,
+        17,
+        69,
+        88
+      ]
+    },
+    {
+      "animation": "attack_down",
+      "frame": 4,
+      "alphaBounds": [
+        14,
+        17,
+        67,
+        88
+      ]
+    },
+    {
+      "animation": "attack_down",
+      "frame": 5,
+      "alphaBounds": [
+        16,
+        17,
+        69,
+        88
+      ]
+    },
+    {
+      "animation": "attack_down",
+      "frame": 6,
+      "alphaBounds": [
+        18,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "attack_down",
+      "frame": 7,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "attack_up",
+      "frame": 0,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "attack_up",
+      "frame": 1,
+      "alphaBounds": [
+        18,
+        17,
+        70,
+        88
+      ]
+    },
+    {
+      "animation": "attack_up",
+      "frame": 2,
+      "alphaBounds": [
+        17,
+        17,
+        70,
+        88
+      ]
+    },
+    {
+      "animation": "attack_up",
+      "frame": 3,
+      "alphaBounds": [
+        21,
+        17,
+        74,
+        88
+      ]
+    },
+    {
+      "animation": "attack_up",
+      "frame": 4,
+      "alphaBounds": [
+        23,
+        17,
+        76,
+        88
+      ]
+    },
+    {
+      "animation": "attack_up",
+      "frame": 5,
+      "alphaBounds": [
+        21,
+        17,
+        74,
+        88
+      ]
+    },
+    {
+      "animation": "attack_up",
+      "frame": 6,
+      "alphaBounds": [
+        19,
+        17,
+        72,
+        88
+      ]
+    },
+    {
+      "animation": "attack_up",
+      "frame": 7,
+      "alphaBounds": [
+        19,
+        17,
+        71,
+        88
+      ]
+    },
+    {
+      "animation": "attack_left",
+      "frame": 0,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_left",
+      "frame": 1,
+      "alphaBounds": [
+        27,
+        17,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_left",
+      "frame": 2,
+      "alphaBounds": [
+        27,
+        17,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_left",
+      "frame": 3,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_left",
+      "frame": 4,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_left",
+      "frame": 5,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_left",
+      "frame": 6,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_left",
+      "frame": 7,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_right",
+      "frame": 0,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_right",
+      "frame": 1,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_right",
+      "frame": 2,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_right",
+      "frame": 3,
+      "alphaBounds": [
+        27,
+        17,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_right",
+      "frame": 4,
+      "alphaBounds": [
+        27,
+        17,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_right",
+      "frame": 5,
+      "alphaBounds": [
+        27,
+        17,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_right",
+      "frame": 6,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    },
+    {
+      "animation": "attack_right",
+      "frame": 7,
+      "alphaBounds": [
+        27,
+        16,
+        63,
+        89
+      ]
+    }
+  ]
+}

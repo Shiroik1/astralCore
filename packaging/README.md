@@ -31,16 +31,15 @@ Installed settings, edited maps and logs live in:
 - Windows: `%LOCALAPPDATA%/AstralCore/`
 
 A developer run without the packaged flag keeps the existing working-directory behavior.
-`-Dastral.dataDir=/path/to/folder` overrides the packaged data location for isolated tests.
+`-Dastral.dataDir=/path/to/folder` overrides the packaged data location for an isolated user-data folder.
 
 ## Checks
 
-Run the packaged launcher with `--verify-install` from an empty folder. This checks runtime loading,
+After explicit approval, run the packaged launcher with `--verify-install` from an empty folder. This checks runtime loading,
 embedded fonts/audio/maps, item artwork, town NPCs and the tutorial dungeon without opening a window.
-The flag exits nonzero if required content is missing. `tests/PackagedPathsTest.java` additionally checks
-that settings and edited maps remain outside the install directory.
+The flag exits nonzero if required content is missing. Automated test sources have been removed.
 
-The GitHub workflow builds the archives on macOS and runs the Windows executable on a Windows runner.
+The GitHub workflow builds the archives on macOS. Package verification is opt-in through the manual workflow input.
 It uploads workflow artifacts only; it does not publish a GitHub Release or Pages site automatically.
 A real Windows playtest is still appropriate before calling the release verified on Windows.
 

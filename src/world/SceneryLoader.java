@@ -2,6 +2,7 @@ package world;
 
 import art.BuildingCatalog;
 import main.Gamepanel;
+import main.Log;
 import main.MiniJson;
 
 import java.io.File;
@@ -26,7 +27,7 @@ public class SceneryLoader {
         String json = readExternal();
         if(json == null) json = readResource();
         if(json == null){
-            System.out.println("[SCENERY] no scenery.json found (looked in " + EXTERNAL_PATH + " and " + RESOURCE_PATH + ")");
+            Log.warn("[SCENERY] no scenery.json found (looked in " + EXTERNAL_PATH + " and " + RESOURCE_PATH + ")");
         }
 
         try{
@@ -37,7 +38,7 @@ public class SceneryLoader {
 
                     WorldObjectType type = WorldObjectType.fromName(String.valueOf(o.get("type")));
                     if(type == null){
-                        System.out.println("[SCENERY] unknown object type: " + o.get("type"));
+                        Log.warn("[SCENERY] unknown object type: " + o.get("type"));
                         continue;
                     }
                     int col = ((Number) o.get("col")).intValue();
@@ -54,7 +55,7 @@ public class SceneryLoader {
                         gp.worldObjects.add(new WorldObject(gp, type, col, row, t != null ? t.toString() : null,
                                 building, palette == null ? Map.of() : BuildingCatalog.parsePalette(palette)));
                     } catch(IllegalArgumentException | java.io.UncheckedIOException e){
-                        System.out.println("[SCENERY] skipped " + type + " at " + col + "," + row + " (" + e.getMessage() + ")");
+                        Log.warn("[SCENERY] skipped " + type + " at " + col + "," + row + " (" + e.getMessage() + ")");
                     }
                 }
             }
@@ -62,7 +63,7 @@ public class SceneryLoader {
             e.printStackTrace();
         }
         gp.worldObjects.add(InnInterior.createExit(gp));
-        System.out.println("[SCENERY] loaded " + gp.worldObjects.size() + " objects");
+        Log.debug("[SCENERY] loaded " + gp.worldObjects.size() + " objects");
     }
 
     public static boolean save(Gamepanel gp){

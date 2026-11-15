@@ -44,6 +44,7 @@ public class CommandProcessor {
             case "pos" -> pos(me);
             case "heal" -> heal(me);
             case "level" -> level(me, args);
+            case "stats" -> reply(me.statSummary(), INFO);
             case "tp" -> teleport(me, args);
             case "spawn" -> spawn(me, args);
             case "give" -> give(me, args);
@@ -56,19 +57,21 @@ public class CommandProcessor {
             case "paint" -> paint(args);
             case "savegrass" -> saveGrass();
             case "pixel" -> pixel(args);
+            case "time" -> time(args);
             default -> reply("Unknown command: /" + cmd + "  (try /help)", ERROR);
         }
     }
 
     private void help(){
         reply("/pos  /heal  /kill  /clear  /list", INFO);
-        reply("/level [n]   /tp <col> <row>", INFO);
+        reply("/level <1-25>|+<n>  /stats  /tp <col> <row>", INFO);
         reply("/spawn <monster> [n]", INFO);
         reply("/give <item> [n]", INFO);
         reply("/place <obj> [text]  /remove  /saveobjects", INFO);
         reply("/mood <day|golden|dusk|night|off>", INFO);
         reply("/paint <short|tall|flowers|erase|off>", INFO);
         reply("/savegrass", INFO);
+        reply("/time [hour]", INFO);
     }
 
     private void list(){
@@ -95,13 +98,21 @@ public class CommandProcessor {
     }
 
     private void level(Player me, String[] args){
-        int n = parseInt(args, 1, 1);
-        if(n < 1 || n > 10){
-            reply("Usage: /level [1-10]", ERROR);
+        String a = args.length > 1 ? args[1] : "";
+        int n;
+        try{
+            n = a.startsWith("+") ? Integer.parseInt(a.substring(1)) : Integer.parseInt(a);
+        } catch(NumberFormatException e){
+            reply("Usage: /level <1-25>  (set)   /level +<n>  (add)", ERROR);
             return;
         }
-        me.debugGrantLevels(n);
-        reply("You are level " + me.level + ".", INFO);
+        int target = a.startsWith("+") ? me.level + n : n;
+        if(target < 1 || target > 25){
+            reply("Level must be between 1 and 25.", ERROR);
+            return;
+        }
+        me.debugSetLevel(target);
+        reply(me.statSummary(), INFO);
     }
 
     private void pixel(String[] args){
@@ -382,10 +393,16 @@ public class CommandProcessor {
 
     private void mood(String[] args){
         if(args.length < 2){
-            reply("Usage: /mood <day|golden|dusk|night|off>", ERROR);
+            reply("Usage: /mood <auto|day|golden|dusk|night|off>", ERROR);
             return;
         }
         String name = args[1].toLowerCase(Locale.ROOT);
+        if(name.equals("auto")){
+            gp.lighting.enabled = true;
+            gp.lighting.cycleOn = true;
+            reply("Day/night cycle on.", INFO);
+            return;
+        }
         if(name.equals("off")){
             gp.lighting.enabled = false;
             reply("Lighting off.", INFO);
@@ -397,6 +414,7 @@ public class CommandProcessor {
             return;
         }
         gp.lighting.enabled = true;
+        gp.lighting.cycleOn = false;
         gp.lighting.setMood(m, false);
         reply("Mood: " + name + ".", INFO);
     }
@@ -440,5 +458,27 @@ public class CommandProcessor {
     private void saveGrass(){
         boolean ok = gp.grass.save();
         reply(ok ? "Saved grass to " + GrassLayer.PATH + "." : "Could not save (see the console).", ok ? INFO : ERROR);
+    }
+
+    private void time(String[] args){
+        var cycle = gp.lighting.cycle;
+        if(args.length < 2){
+            reply("It is " + cycle.clock() + (gp.lighting.cycleOn ? "." : " (cycle off, use /mood auto)."), INFO);
+            return;
+        }
+        float hour;
+        try{
+            String[] parts = args[1].split(":");
+            hour = Float.parseFloat(parts[0]) + (parts.length > 1 ? Float.parseFloat(parts[1]) / 60f : 0f);
+        } catch(NumberFormatException e){
+            hour = -1;
+        }
+        if(hour < 0 || hour >= 24){
+            reply("Usage: /time [hour 0-24, e.g. 18 or 6:30]", ERROR);
+            return;
+        }
+        cycle.setHour(hour);
+        gp.lighting.cycleOn = true;
+        reply("It is now " + cycle.clock() + ".", INFO);
     }
 }

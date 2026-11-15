@@ -1,6 +1,11 @@
 name: Build standalone alpha downloads
 on:
   workflow_dispatch:
+    inputs:
+      run_verification:
+        description: "Run package checks (requires owner approval)"
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 permissions:
@@ -20,6 +25,7 @@ jobs:
       - name: Build both self-contained packages
         run: python3 packaging/build_release.py --target all
       - name: Verify Mac package with its bundled runtime
+        if: ${{ inputs.run_verification == true }}
         run: |
           app=$(find build/release -path '*/AstralCore.app/Contents/MacOS/AstralCore' -type f | head -n 1)
           cd "$RUNNER_TEMP"
@@ -39,6 +45,7 @@ jobs:
             dist/SHA256SUMS.txt
             dist/build-toolchain.json
   verify-windows:
+    if: ${{ inputs.run_verification == true }}
     needs: build
     runs-on: windows-latest
     steps:

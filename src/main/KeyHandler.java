@@ -273,7 +273,7 @@ public class KeyHandler implements KeyListener {
     private void handleNetworkAddressKeyPress(int code){
         if(code == KeyEvent.VK_ENTER){
             String address = networkAddressInput.toString().trim();
-            System.out.println("[UI] Enter pressed in address box, raw text='" + address + "'");
+            Log.debug("[UI] Enter pressed in address box, raw text='" + address + "'");
             enteringNetworkAddress = false;
             networkAddressInput.setLength(0);
             gp.ui.submitJoinAddress(address);
@@ -291,7 +291,7 @@ public class KeyHandler implements KeyListener {
     }
 
     public void beginEnteringNetworkAddress(){
-        System.out.println("[UI] beginEnteringNetworkAddress() called, opening text input");
+        Log.debug("[UI] beginEnteringNetworkAddress() called, opening text input");
         enteringNetworkAddress = true;
         networkAddressInput.setLength(0);
     }

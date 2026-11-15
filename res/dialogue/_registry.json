@@ -1,0 +1,4 @@
+{
+  "stages": ["NOT_STARTED", "SLAY", "BOSS_INTRO", "KING", "RETURN", "COMPLETE", "HELL_INTRO", "HELL"],
+  "flags": []
+}

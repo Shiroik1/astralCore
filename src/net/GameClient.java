@@ -8,6 +8,7 @@ import entity.Player;
 import entity.RangerEffect;
 import entity.MageEffect;
 import main.Gamepanel;
+import main.Log;
 import monster.MON_GreenSlime;
 import monster.MON_SlimeBoss;
 import monster.MonsterType;
@@ -37,7 +38,7 @@ public class GameClient {
         client = new Client();
         NetworkRegistration.register(client);
         client.start();
-        System.out.println("[CLIENT] client.start() done, attempting connect to " + hostAddress + ":" + port);
+        Log.debug("[CLIENT] client.start() done, attempting connect to " + hostAddress + ":" + port);
 
         client.addListener(new Listener(){
             @Override
@@ -47,7 +48,7 @@ public class GameClient {
 
             @Override
             public void disconnected(Connection connection){
-                System.out.println("[CLIENT] disconnected() fired");
+                Log.debug("[CLIENT] disconnected() fired");
                 hostLost = true;
             }
 
@@ -66,7 +67,7 @@ public class GameClient {
         });
 
         client.connect(5000, hostAddress, port);
-        System.out.println("[CLIENT] client.connect() call itself returned (no exception thrown)");
+        Log.debug("[CLIENT] client.connect() call itself returned (no exception thrown)");
 
         JoinRequest request = new JoinRequest();
         request.playerName = gp.localPlayer().playerName;
@@ -75,7 +76,7 @@ public class GameClient {
         request.characterState=save.CharacterState.capture(gp,gp.localPlayer());
         client.sendTCP(request);
 
-        System.out.println("[CLIENT] JoinRequest sent");
+        Log.debug("[CLIENT] JoinRequest sent");
     }
 
     public void sendInput(InputState input){
@@ -107,7 +108,6 @@ public class GameClient {
             latest = next; // only the newest matters for now — interpolation buffering is Step 5
         }
         if(latest != null){
-            gp.ui.addMessage("Snapshot received, tick " + latest.tick, java.awt.Color.cyan);
             applySnapshot(latest);
         }
     }
@@ -131,6 +131,7 @@ public class GameClient {
     }
 
     private void applySnapshot(WorldSnapshot snapshot){
+        gp.lighting.cycle.syncFromHost(snapshot.dayTime);
         gp.quests.applySnapshot(snapshot.quest);
         for(PlayerState ps : snapshot.players){
             if(ps == null) continue;
@@ -205,6 +206,7 @@ public class GameClient {
                 p.strength = ps.strength;
                 p.dexterity = ps.dexterity;
                 p.intelligence = ps.intelligence;
+                p.vitality = ps.vitality;
                 p.coin = ps.coin;
                 p.rage = ps.rage;
                 p.maxRage = ps.maxRage;
@@ -362,7 +364,7 @@ public class GameClient {
                 }
             } else if(!warnedSceneryMismatch){
                 warnedSceneryMismatch = true;
-                System.out.println("[CLIENT] scenery mismatch: host has " + snapshot.sceneryState.length
+                Log.warn("[CLIENT] scenery mismatch: host has " + snapshot.sceneryState.length
                         + " stateful objects, this client has " + expected + ". Use the same maps/ files.");
             }
         }

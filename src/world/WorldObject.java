@@ -52,6 +52,7 @@ public class WorldObject extends Entity {
         this.paletteOverrides = Map.copyOf(paletteOverrides);
         this.sprite = usesBuilding ? building.sprite() : kind.sprite(gp);
         this.altSprite = usesBuilding ? sprite : kind.altSprite(gp);
+        if(kind.swaysInWind()) SwayCache.warm(sprite);
         buildingLayers = usesBuilding ? building.depthStrips().stream().map(BuildingLayer::new).toList() : List.of();
         emitterTimers = usesBuilding && !building.emitters().isEmpty() ? new int[building.emitters().size()] : null;
 
@@ -232,14 +233,8 @@ public class WorldObject extends Entity {
         }
         changeAlpha(g2, alpha);
         if(kind.swaysInWind()){
-            // The shear tapers to zero at the trunk base, keeping the tree rooted to its collision box.
-            double sway = gp.ambient.treeSway(worldX, worldY);
-            AffineTransform lean = new AffineTransform(1, 0, -sway, 1, sx + sway * sprite.footY, sy);
-            Object interpolation = g2.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g2.drawImage(img, lean, null);
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, interpolation == null
-                    ? RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR : interpolation);
+            int step = SwayCache.stepFor(gp.ambient.treeSway(worldX, worldY));
+            g2.drawImage(SwayCache.frame(sprite, step), sx - SwayCache.pad(sprite), sy, null);
         } else {
             g2.drawImage(img, sx, sy, null);
         }

@@ -46,6 +46,7 @@ public final class GrassArt {
                 if(sheet == null || sheet.getWidth() != WIDTH * BEND_FRAMES || sheet.getHeight() != HEIGHT * rows){
                     throw new IOException("Invalid meadow sheet " + path);
                 }
+                sheet = ArtKit.toArgb(sheet);
                 frames[type] = new BufferedImage[rows * BEND_FRAMES];
                 for(int row = 0; row < rows; row++) for(int bend = 0; bend < BEND_FRAMES; bend++){
                     var frame = sheet.getSubimage(bend * WIDTH, row * HEIGHT, WIDTH, HEIGHT);

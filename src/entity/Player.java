@@ -158,37 +158,47 @@ public class Player extends Entity{
         coin = 0;
 
         if(usesMana()){
-            maxHP = (isPriest()?9:8)+outfitHealth(equippedItem(EQUIP_TORSO));
-            HP = maxHP;
-            maxMP = (isPriest()?12:10)+outfitMana(equippedItem(EQUIP_TORSO));
-            MP = maxMP;
             maxRage = 0;
             rage = 0;
-            strength = 1;
-            dexterity = 1;
-            intelligence = isPriest()?1:2;
             arcaneCharge=0;
             currentWeapon = isPriest()?ItemRegistry.create(ItemType.WAYLIGHT_STAFF,gp):new OBJ_staff(gp);
             rightHandItem = currentWeapon;
             currentShield = new OBJ_no_shield(gp);
         } else {
-            maxHP = isPaladin()?14+outfitHealth(equippedItem(EQUIP_TORSO)):isBerserker()?12+outfitHealth(equippedItem(EQUIP_TORSO)):isRanger()?10+rangerHealth(equippedItem(EQUIP_TORSO)):playerClass.equals("warrior")?12:10;
-            HP = maxHP;
-            maxMP = 0;
-            MP = 0;
             maxRage = isPaladin()?0:100;
             if(isPaladin())resolve=0;
             rage = 0;
-            strength = isRanger()?2:1;
-            dexterity = 1;
-            intelligence = 0;
             currentWeapon = isPaladin()?ItemRegistry.create(ItemType.GATEKEEPER_SWORD,gp):isBerserker()?ItemRegistry.create(ItemType.FIELDBREAKER,gp):isRanger()?ItemRegistry.create(ItemType.TRAILWOOD_BOW,gp):playerClass.equals("hunter")?new OBJ_dualdaggers(gp):new OBJ_sword_normal(gp);
             rightHandItem = currentWeapon;
             currentShield = isPaladin()?ItemRegistry.create(ItemType.GATEKEEPER_ROUNDSHIELD,gp):usesFocus() || isBerserker()?new OBJ_no_shield(gp):new OBJ_shield_wood(gp);
         }
 
+        applyBaseStats();
         attack = getAttack();
         defense = getDefense();
+    }
+
+    /** Level-1 HP / MP / attributes from the class table; torso gear is added on top. */
+    private void applyBaseStats(){
+        ClassStats table = ClassStats.of(playerClass);
+        Entity torso = equippedItem(EQUIP_TORSO);
+        maxHP = table.startHP + outfitHealth(torso);
+        HP = maxHP;
+        maxMP = table.startMP + outfitMana(torso);
+        MP = maxMP;
+        strength = table.startStat(ClassStats.Primary.STR);
+        dexterity = table.startStat(ClassStats.Primary.DEX);
+        intelligence = table.startStat(ClassStats.Primary.INT);
+        vitality = ClassStats.START_VIT;
+    }
+
+    /** The attribute this class's abilities and weapon damage scale with. */
+    public int primaryStat(){
+        return switch(ClassStats.of(playerClass).primary){
+            case STR -> strength;
+            case DEX -> dexterity;
+            case INT -> intelligence;
+        };
     }
 
     public void setDefaultPosition(){
@@ -313,10 +323,10 @@ public class Player extends Entity{
         attackArea = currentWeapon.attackArea;
         if(isPaladin())return attack=hasPaladinSword()?strength+currentWeapon.attackValue:0;
         if(isBerserker())return attack=hasGreatsword()?strength+currentWeapon.attackValue:0;
-        if(isRanger())return attack=hasBow()?strength+currentWeapon.attackValue:0;
+        if(isRanger())return attack=hasBow()?dexterity+currentWeapon.attackValue:0;
         if(isAssassin() && hasDaggers()){
             int power=currentWeapon instanceof OBJ_rewardweapon reward?(reward.kind.isHell()?13:9):currentWeapon.attackValue;
-            return attack=strength+power;
+            return attack=dexterity+power;
         }
         if(usesMana()){
             if(!hasStaff())return attack=0;
@@ -1301,23 +1311,16 @@ public class Player extends Entity{
         while(level < 25 && exp >= nextLevelExp) checkLevelUp();
     }
 
-    private void checkLevelUp() {
-        if(level < 25 && exp >= nextLevelExp){
+    private void checkLevelUp() { levelUp(true); }
+
+    private void levelUp(boolean announce) {
+        if(level < ClassStats.MAX_LEVEL && exp >= nextLevelExp){
             level++;
             nextLevelExp = usesFocus() || usesMana() || isBerserker() || isPaladin()?nextLevelExp+30+4*(level-1):nextLevelExp*2;
-
-            maxHP += 3;
-            if(usesMana()){
-                if(level%2==1)intelligence++;
-                dexterity++;
-            } else {
-                if((!usesFocus() && !isBerserker() && !isPaladin()) || level%2==1)strength++;
-                dexterity++;
-            }
-
+            applyLevelGrowth();
             attack = getAttack();
             defense = getDefense();
-
+            if(!announce) return;
             gp.playSE(7);
             String ambient = "Player " + (playerId + 1) + " reached level " + level + "!";
             String personal = "You are level " + level + " now!\nYour will is stronger than ever!";
@@ -1325,11 +1328,46 @@ public class Player extends Entity{
         }
     }
 
-    public void debugGrantLevels(int count){
-        for(int i = 0; i < count && level < 25; i++){ // the exp threshold doubles each level; this keeps it from overflowing an int
-            exp = nextLevelExp;
-            checkLevelUp();
+    /** Automatic per-level growth (called after level was incremented). Rows come from ClassStats. */
+    private void applyLevelGrowth(){
+        ClassStats table = ClassStats.of(playerClass);
+        maxHP += table.hpPerLevel;
+        HP = Math.min(maxHP, HP + table.hpPerLevel);
+        if(table.mpPerLevel > 0){
+            maxMP += table.mpPerLevel;
+            MP = Math.min(maxMP, MP + table.mpPerLevel);
         }
+        switch(table.primary){
+            case STR -> strength++;
+            case DEX -> dexterity++;
+            case INT -> intelligence++;
+        }
+        if(level % ClassStats.VIT_EVERY == 0) vitality++;
+    }
+
+    public void debugGrantLevels(int count){ debugSetLevel(level + count); }
+
+    /** Debug: jump to an exact level (1-25), up or down. Gear bonuses are kept; only one level-up message is shown. */
+    public void debugSetLevel(int target){
+        target = Math.max(1, Math.min(ClassStats.MAX_LEVEL, target));
+        if(target < level){
+            applyBaseStats();
+            level = 1;
+            exp = 0;
+            nextLevelExp = 30;
+        }
+        while(level < target){
+            exp = nextLevelExp;
+            levelUp(level + 1 == target);
+        }
+        attack = getAttack();
+        defense = getDefense();
+    }
+
+    public String statSummary(){
+        return "Lv " + level + "  HP " + HP + "/" + maxHP + (maxMP > 0 ? "  MP " + MP + "/" + maxMP : "")
+                + "  STR " + strength + "  DEX " + dexterity + "  INT " + intelligence + "  VIT " + vitality
+                + "  ATK " + attack + "  DEF " + defense;
     }
 
     private void contactMonster(int index){

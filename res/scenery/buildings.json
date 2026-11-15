@@ -1,0 +1,173 @@
+{
+  "inn": {
+    "image": "/scenery/buildings/inn-flat.png",
+    "crop": [0, 0, 496, 560],
+    "size": [248, 280],
+    "scale": 1.9,
+    "anchor": [124, 276],
+    "footprint": [[-64, -50, 128, 50], [-117, -126, 231, 77]],
+    "door": [-18, -6.3, 36, 19, 40],
+    "shadows": [[123, 226, 116, 12], [124, 273, 69, 12]],
+    "materials": {
+      "roof": {
+        "mask": "/scenery/buildings/inn-flat-roof.png",
+        "reference": "#C48578",
+        "color": "#C48578"
+      },
+      "ivy": {
+        "mask": "/scenery/buildings/inn-flat-ivy.png",
+        "reference": "#6FB16B",
+        "color": "#6FB16B"
+      }
+    },
+    "emissive": {
+      "mask": "/scenery/buildings/inn-flat-windows.png",
+      "reference": "#778A9C",
+      "color": "#FFD58B"
+    },
+    "lights": [
+      {"position": [-29, -30], "radius": 59, "intensity": 0.65},
+      {"position": [29, -30], "radius": 59, "intensity": 0.65},
+      {"position": [-29, -97], "radius": 49, "intensity": 0.44},
+      {"position": [29, -97], "radius": 49, "intensity": 0.44},
+      {"position": [0, -148], "radius": 41, "intensity": 0.37}
+    ],
+    "emitters": [
+      {
+        "position": [-48, -273],
+        "style": "smoke",
+        "color": "#EEE1D8",
+        "interval": [24, 39],
+        "lifetime": [78, 105],
+        "size": [6.5, 11.5],
+        "velocity": [0.36, -0.84]
+      }
+    ]
+  },
+  "general_shop": {
+    "image": "/scenery/buildings/general_shop-flat.png",
+    "crop": [0, 0, 496, 528],
+    "size": [248, 264],
+    "scale": 1.34,
+    "anchor": [124, 262],
+    "footprint": [[-111, -69, 223, 69]],
+    "shadows": [[124, 260, 114, 12]],
+    "materials": {
+      "roof": {
+        "mask": "/scenery/buildings/general_shop-flat-roof.png",
+        "reference": "#C48578",
+        "color": "#C48578"
+      },
+      "ivy": {
+        "mask": "/scenery/buildings/general_shop-flat-ivy.png",
+        "reference": "#6FB16B",
+        "color": "#6FB16B"
+      }
+    },
+    "emissive": {
+      "mask": "/scenery/buildings/general_shop-flat-windows.png",
+      "reference": "#778A9C",
+      "color": "#FFD58B"
+    },
+    "lights": [
+      {"position": [0, -134], "radius": 41, "intensity": 0.37},
+      {"position": [-72, -50], "radius": 46, "intensity": 0.42},
+      {"position": [72, -50], "radius": 46, "intensity": 0.42}
+    ],
+    "emitters": [
+      {
+        "position": [-72, -258],
+        "style": "smoke",
+        "color": "#EEE1D8",
+        "interval": [28, 43],
+        "lifetime": [72, 98],
+        "size": [6.5, 10.0],
+        "velocity": [0.36, -0.84]
+      }
+    ]
+  },
+  "house_open": {
+    "image": "/scenery/buildings/house_open-flat.png",
+    "crop": [0, 0, 496, 528],
+    "size": [248, 264],
+    "scale": 1.25,
+    "anchor": [124, 258],
+    "footprint": [[-111, -69, 223, 69]],
+    "shadows": [[124, 256, 114, 12]],
+    "materials": {
+      "roof": {
+        "mask": "/scenery/buildings/house_open-flat-roof.png",
+        "reference": "#C48578",
+        "color": "#C48578"
+      },
+      "ivy": {
+        "mask": "/scenery/buildings/house_open-flat-ivy.png",
+        "reference": "#6FB16B",
+        "color": "#6FB16B"
+      }
+    },
+    "emissive": {
+      "mask": "/scenery/buildings/house_open-flat-windows.png",
+      "reference": "#778A9C",
+      "color": "#FFD58B"
+    },
+    "lights": [
+      {"position": [0, -129], "radius": 41, "intensity": 0.37},
+      {"position": [-67, -50], "radius": 46, "intensity": 0.42},
+      {"position": [67, -50], "radius": 46, "intensity": 0.42}
+    ],
+    "emitters": [
+      {
+        "position": [-73, -254],
+        "style": "smoke",
+        "color": "#EEE1D8",
+        "interval": [37, 56],
+        "lifetime": [72, 98],
+        "size": [5.5, 9.5],
+        "velocity": [0.36, -0.84]
+      }
+    ]
+  },
+  "house_closed": {
+    "image": "/scenery/buildings/house_closed-flat.png",
+    "crop": [0, 0, 496, 528],
+    "size": [248, 264],
+    "scale": 1.25,
+    "anchor": [124, 258],
+    "footprint": [[-111, -69, 223, 69]],
+    "shadows": [[124, 256, 114, 12]],
+    "materials": {
+      "roof": {
+        "mask": "/scenery/buildings/house_closed-flat-roof.png",
+        "reference": "#C48578",
+        "color": "#C48578"
+      },
+      "ivy": {
+        "mask": "/scenery/buildings/house_closed-flat-ivy.png",
+        "reference": "#6FB16B",
+        "color": "#6FB16B"
+      }
+    },
+    "emissive": {
+      "mask": "/scenery/buildings/house_closed-flat-windows.png",
+      "reference": "#778A9C",
+      "color": "#FFD58B"
+    },
+    "lights": [
+      {"position": [0, -129], "radius": 41, "intensity": 0.37},
+      {"position": [-67, -50], "radius": 46, "intensity": 0.42},
+      {"position": [67, -50], "radius": 46, "intensity": 0.42}
+    ],
+    "emitters": [
+      {
+        "position": [-73, -254],
+        "style": "smoke",
+        "color": "#EEE1D8",
+        "interval": [37, 56],
+        "lifetime": [72, 98],
+        "size": [5.5, 9.5],
+        "velocity": [0.36, -0.84]
+      }
+    ]
+  }
+}

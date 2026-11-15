@@ -5,6 +5,7 @@ import art.Palette;
 import art.Terrain;
 import entity.Player;
 import main.Gamepanel;
+import main.Log;
 import world.InnInterior;
 import world.TownMapGenerator;
 
@@ -40,7 +41,7 @@ public class TileManager implements GroundTiles.World {
 
     private void loadMap() throws IOException {
         if(!main.AppPaths.mapFile(TERRAIN_PATH).isFile() && getClass().getResource("/maps/terrain.txt") == null){
-            System.out.println("[MAP] no terrain.txt found, generating the starter town");
+            Log.warn("[MAP] no terrain.txt found, generating the starter town");
             TownMapGenerator.writeFiles();
         }
 
@@ -168,14 +169,14 @@ public class TileManager implements GroundTiles.World {
                 chunks.put(cy * 100 + cx, bakeChunk(cx, cy));
             }
         }
-        System.out.println("[MAP] baked " + chunks.size() + " ground chunks in " + (System.currentTimeMillis() - start) + " ms");
+        Log.debug("[MAP] baked " + chunks.size() + " ground chunks in " + (System.currentTimeMillis() - start) + " ms");
     }
 
     private BufferedImage bakeChunk(int cx, int cy){
         int ts = gp.tileSize;
         int tilesW = Math.min(CHUNK, gp.maxWorldCol - cx * CHUNK);
         int tilesH = Math.min(CHUNK, gp.maxWorldRow - cy * CHUNK);
-        BufferedImage img = new BufferedImage(tilesW * ts, tilesH * ts, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage img = new BufferedImage(tilesW * ts, tilesH * ts, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = img.createGraphics();
         for(int r = 0; r < tilesH; r++){
             for(int c = 0; c < tilesW; c++){
@@ -194,9 +195,11 @@ public class TileManager implements GroundTiles.World {
         int viewTop = camera.worldY - camera.screenY;
         int ts = gp.tileSize;
 
-        // beyond the map edge: the deepest forest tone, so the screen never shows a black void
-        g2.setColor(Palette.GROUND[GroundTiles.LEVELS - 1]);
-        g2.fillRect(-ts * 2, -ts * 2, gp.screenWidth + ts * 4, gp.screenHeight + ts * 4);
+        int mapW = gp.maxWorldCol * ts, mapH = gp.maxWorldRow * ts;
+        if(viewLeft - ts < 0 || viewTop - ts < 0 || viewLeft + gp.screenWidth + ts > mapW || viewTop + gp.screenHeight + ts > mapH){
+            g2.setColor(Palette.GROUND[GroundTiles.LEVELS - 1]);
+            g2.fillRect(-ts * 2, -ts * 2, gp.screenWidth + ts * 4, gp.screenHeight + ts * 4);
+        }
 
         int chunkPx = CHUNK * ts;
         int firstCx = Math.max(0, Math.floorDiv(viewLeft - ts, chunkPx));

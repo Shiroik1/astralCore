@@ -103,6 +103,7 @@ public class Entity {
     public int strength;
     public int dexterity;
     public int intelligence;
+    public int vitality;
     public int attack;
     public int defense;
     public int exp;

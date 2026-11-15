@@ -62,6 +62,12 @@ public class Lighting {
 
     private Mood mood = Mood.GOLDEN;
     private float ar, ag, ab, aa, glow, vig, clouds;
+    public final DayCycle cycle = new DayCycle();
+    public boolean cycleOn = true;                 // false while a /mood override is active
+    private boolean wasUnderground;
+    private double cloudX, cloudY;                 // accumulated cloud drift, in world pixels
+    private final float[] target = new float[DayCycle.VALUES];
+    private static final double CLOUD_SPEED = 0.05; // world px per tick (about 3 px per second)
     private long time = 0;
 
     // reusable light list
@@ -73,6 +79,8 @@ public class Lighting {
         cloudTile = bakeClouds();
         setDivisor(2);
         setMood(Mood.GOLDEN, true);
+        cycle.sample(target);
+        snapToTarget();
     }
 
     // 2 = smooth mode, 3 = pixel mode (one lightmap pixel per buffer pixel)
@@ -109,16 +117,42 @@ public class Lighting {
     // fades toward the current mood
     public void update(){
         time++;
+        cycle.tick();
+        Player me = gp.localPlayer();
+        boolean underground = me != null && me.inWell;
+        pickTarget(underground);
+        if(underground != wasUnderground){       // entering or leaving the well: switch at once, no slow fade
+            wasUnderground = underground;
+            snapToTarget();
+        }
         float k = 0.03f;
-        ar += (mood.r - ar) * k;
-        ag += (mood.g - ag) * k;
-        ab += (mood.b - ab) * k;
-        aa += (mood.a - aa) * k;
-        glow += (mood.glow - glow) * k;
-        vig += (mood.vignette - vig) * k;
-        clouds += (mood.clouds - clouds) * k;
-        leafLevel += (mood.leaves / (float) AmbientFX.MAX_LEAVES - leafLevel) * k;
-        flyLevel += (mood.flies / (float) AmbientFX.MAX_FLIES - flyLevel) * k;
+        ar += (target[0] - ar) * k;
+        ag += (target[1] - ag) * k;
+        ab += (target[2] - ab) * k;
+        aa += (target[3] - aa) * k;
+        glow += (target[4] - glow) * k;
+        vig += (target[5] - vig) * k;
+        leafLevel += (target[6] / AmbientFX.MAX_LEAVES - leafLevel) * k;
+        flyLevel += (target[7] / AmbientFX.MAX_FLIES - flyLevel) * k;
+        clouds += (target[8] - clouds) * k;
+
+        // Accumulate the drift. Wind only nudges the speed, so the position can never jump.
+        cloudX += CLOUD_SPEED * (0.8 + 0.4 * gp.ambient.wind);
+        cloudY += CLOUD_SPEED * 0.3;
+    }
+
+    private void pickTarget(boolean underground){
+        if(underground) DayCycle.sampleMood(cycleOn ? Mood.NIGHT : mood, target);
+        else if(cycleOn) cycle.sample(target);
+        else DayCycle.sampleMood(mood, target);
+    }
+
+    private void snapToTarget(){
+        ar = target[0]; ag = target[1]; ab = target[2]; aa = target[3];
+        glow = target[4]; vig = target[5];
+        leafLevel = target[6] / AmbientFX.MAX_LEAVES;
+        flyLevel = target[7] / AmbientFX.MAX_FLIES;
+        clouds = target[8];
     }
 
     //DRAW (screen space: call after the shake translate is undone)
@@ -137,8 +171,6 @@ public class Lighting {
         //2. cloud shadows, drifting with the wind
         if(clouds > 0.02f){
             lg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, clouds * 0.45f)));
-            double cloudX = time * (0.16 + 0.30 * gp.ambient.wind);
-            double cloudY = time * 0.06;
             double ox = ((cloudX - camLeft) / div) % CLOUD_TILE;
             double oy = ((cloudY - camTop) / div) % CLOUD_TILE;
             if(ox < 0) ox += CLOUD_TILE;

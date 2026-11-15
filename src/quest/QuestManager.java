@@ -112,7 +112,7 @@ public final class QuestManager {
         gp.projectileList.clear();gp.projectileList.addAll(scene.projectiles);
         gp.particleList.clear();gp.particleList.addAll(scene.particles);
         gp.floatingTextList.clear();gp.floatingTextList.addAll(scene.texts);
-        gp.lighting.setMood(scene.mood,true);gp.lighting.enabled=scene.lightingEnabled;
+        gp.lighting.enabled=scene.lightingEnabled;
     }
     public void activateArea(boolean target){
         if(inWell==target)return;
@@ -124,7 +124,7 @@ public final class QuestManager {
                 pendingLoot.clear();gp.projectileList.clear();gp.particleList.clear();gp.floatingTextList.clear();
                 Arrays.fill(gp.monster,null);Arrays.fill(gp.npc,null);Arrays.fill(gp.obj,null);Arrays.fill(gp.interactable,null);
                 gp.worldObjects.clear();gp.worldObjects.addAll(dungeon.objects());
-                gp.lighting.enabled=true;gp.lighting.setMood(Lighting.Mood.NIGHT,true);
+                gp.lighting.enabled=true;
                 if(authority() && stage==Stage.SLAY){
                     for(int i=0;i<WellDungeon.SLIME_SPAWNS.length;i++){
                         int[] at=WellDungeon.SLIME_SPAWNS[i];MON_GreenSlime slime=new MON_GreenSlime(gp);

@@ -141,7 +141,7 @@ public class ObjectArt {
             if(stream == null) throw new IOException("Missing scenery sprite " + path);
             BufferedImage image = ImageIO.read(stream);
             if(image == null) throw new IOException("Invalid scenery sprite " + path);
-            if(scale == 1) return image;
+            if(scale == 1) return ArtKit.toArgb(image);
 
             int width = (int) Math.round(image.getWidth() * scale);
             int height = (int) Math.round(image.getHeight() * scale);

@@ -13,4 +13,5 @@ public class WorldSnapshot {
     public ObjectState[] objects;
     public NpcState[] npcs;
     public byte[] sceneryState;
+    public float dayTime;
 }
