@@ -70,7 +70,7 @@ public class CommandProcessor {
         reply("/give <item> [n]", INFO);
         reply("/place <obj> [text]  /remove  /saveobjects", INFO);
         reply("/mood <day|golden|dusk|night|off>", INFO);
-        reply("/paint <short|tall|flowers|erase|off>", INFO);
+        reply("/paint <green|dark|golden|flowers|erase|off>", INFO);
         reply("/savegrass", INFO);
         reply("/time [hour]", INFO);
         if(Boolean.getBoolean("astral.dev")) reply("/regenworld <long seed> (offline procedural world)", INFO);
@@ -439,7 +439,7 @@ public class CommandProcessor {
             return;
         }
         if(args.length < 2){
-            reply("Usage: /paint <short|tall|flowers|erase|off> [size 0-4] [density 1-4]", ERROR);
+            reply("Usage: /paint <green|dark|golden|flowers|erase|off> [size 0-4] [density 1-4]", ERROR);
             return;
         }
         String mode = args[1].toLowerCase(Locale.ROOT);
@@ -449,8 +449,9 @@ public class CommandProcessor {
             return;
         }
         int type = switch(mode){
-            case "short" -> GrassLayer.SHORT;
-            case "tall" -> GrassLayer.TALL;
+            case "green" -> GrassLayer.FIELD_GREEN;
+            case "dark" -> GrassLayer.FIELD_DARK;
+            case "golden" -> GrassLayer.FIELD_GOLDEN;
             case "flowers" -> GrassLayer.FLOWERS;
             case "erase" -> GrassLayer.NONE;
             default -> -1;

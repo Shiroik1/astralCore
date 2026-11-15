@@ -10,6 +10,8 @@ public final class WorldGenerator {
         switch(config.biome()){
             case TEMPERATE_GRASSLAND -> {
                 new TerrainGenerator().generate(world,noise);
+                new PondGenerator().generate(world,noise);
+                new CobblePatchGenerator().generate(world,noise);
                 new ObjectGenerator().generate(world,noise,palette,tileSize);
             }
         }

@@ -19,7 +19,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 
 public class GrassLayer {
-    public static final int NONE = 0, SHORT = 1, TALL = 2, FLOWERS = 3;
+    public static final int NONE = 0, FLOWERS = 3; // retired short/tall ids 1 and 2 are ignored
+    public static final int FIELD_GREEN=4, FIELD_DARK=5, FIELD_GOLDEN=6;
     public static final String PATH = "maps/grass.txt";
     private static final String RESOURCE = "/maps/grass.txt";
     private static final int MAX_PER_TILE = 5;
@@ -32,6 +33,7 @@ public class GrassLayer {
     private float[][] energy;      // wobble left behind by something that moved through a tile
     private short[] tuftX, tuftY;  // tuft positions inside their tile, in pixels
     private int[] tuftHash;
+    private Entity[] depthTufts;
     private long time = 0;
 
     // creatures pushing the grass this tick
@@ -62,17 +64,19 @@ public class GrassLayer {
         if(gp.generatedWorld != null){
             for(int c = 0; c < cols; c++) for(int r = 0; r < rows; r++)
                 cells[c][r] = gp.generatedWorld.meadow(c,r);
+            rebuildDepthTufts();
             return;
         }
 
         String text = readText();
         if(text == null){
-            paintDefault();
+            // Ordinary grass is now part of the terrain textures, including authored worlds.
             save();
-            Log.warn("[GRASS] no grass.txt found: painted the default and saved " + PATH);
+            Log.warn("[GRASS] no grass.txt found: saved empty field layer to " + PATH);
         } else {
             parse(text);
         }
+        rebuildDepthTufts();
     }
 
     //EDITING
@@ -82,8 +86,10 @@ public class GrassLayer {
             cells[col][row] = 0;
             return;
         }
+        if(type<FLOWERS || type>FIELD_GOLDEN || density<1 || density>4) return;
         if(!supportsGrass(col, row)) return;
         cells[col][row] = (byte) ((type - 1) * 4 + density);
+        refreshDepthCell(col,row);
     }
 
     public boolean save(){
@@ -206,8 +212,9 @@ public class GrassLayer {
         for(int r = r0; r <= r1; r++){
             for(int c = c0; c <= c1; c++){
                 int v = cells[c][r];
-                if(v == 0) continue;
+                if(v <= 8) continue;
                 int type = (v - 1) / 4;
+                if(type>=3) continue; // body-height grass participates in the shared depth sort
                 int level = gp.tileM.level(c, r);
                 int count = COUNT[(v - 1) % 4 + 1];
                 for(int i = 0; i < count; i++){
@@ -233,8 +240,9 @@ public class GrassLayer {
         for(int r = r0; r <= r1; r++){
             for(int c = c0; c <= c1; c++){
                 int v = cells[c][r];
-                if(v == 0) continue;
+                if(v <= 8) continue;
                 int type = (v - 1) / 4;
+                if(type>=3) continue;
                 int level = gp.tileM.level(c, r);
                 int count = COUNT[(v - 1) % 4 + 1];
                 int base = (r * cols + c) * MAX_PER_TILE;
@@ -256,8 +264,47 @@ public class GrassLayer {
         int hash = tuftHash[idx];
         int bend = bendIndex(c, r, wx, wy, hash);
         BufferedImage img = art.frame(type, level, (hash >>> 3) % GrassArt.VARIANTS[type], bend);
-        g2.drawImage(img, (int) wx - art.footX - cam.worldX + cam.screenX,
-                (int) wy - art.footY - cam.worldY + cam.screenY, null);
+        g2.drawImage(img, (int) wx - art.footX(type) - cam.worldX + cam.screenX,
+                (int) wy - art.footY(type) - cam.worldY + cam.screenY, null);
+    }
+
+    private void rebuildDepthTufts(){
+        depthTufts=new Entity[cols*rows*MAX_PER_TILE];
+        for(int r=0;r<rows;r++) for(int c=0;c<cols;c++) refreshDepthCell(c,r);
+    }
+
+    private void refreshDepthCell(int c,int r){
+        if(depthTufts==null || cells[c][r]<=12) return;
+        int base=(r*cols+c)*MAX_PER_TILE;
+        for(int i=0;i<COUNT[(cells[c][r]-1)%4+1];i++)
+            if(depthTufts[base+i]==null) depthTufts[base+i]=new FieldTuft(c,r,i);
+    }
+
+    /** Existing shared entity depth sort puts tall grass in front of bodies, behind nearer feet. */
+    public void addDrawLayers(java.util.List<Entity> layers){
+        Player camera=gp.localPlayer();
+        if(camera==null || depthTufts==null) return;
+        int ts=gp.tileSize,left=camera.worldX-camera.screenX,top=camera.worldY-camera.screenY;
+        int c0=Math.max(0,Math.floorDiv(left,ts)-2),c1=Math.min(cols-1,Math.floorDiv(left+gp.screenWidth,ts)+2);
+        int r0=Math.max(0,Math.floorDiv(top,ts)-1),r1=Math.min(rows-1,Math.floorDiv(top+gp.screenHeight,ts)+3);
+        for(int r=r0;r<=r1;r++) for(int c=c0;c<=c1;c++){
+            int value=cells[c][r];if(value<=12)continue;
+            int base=(r*cols+c)*MAX_PER_TILE,count=COUNT[(value-1)%4+1];
+            for(int i=0;i<count;i++)layers.add(depthTufts[base+i]);
+        }
+    }
+
+    private final class FieldTuft extends Entity {
+        private final int col,row,index,base;
+        FieldTuft(int col,int row,int index){
+            super(GrassLayer.this.gp);this.col=col;this.row=row;this.index=index;
+            base=(row*cols+col)*MAX_PER_TILE+index;
+        }
+        @Override public int sortY(){return row*gp.tileSize+tuftY[base];}
+        @Override public void draw(Graphics2D g){
+            Player camera=gp.localPlayer();if(camera==null)return;
+            drawTuft(g,camera,col,row,index,(cells[col][row]-1)/4,gp.tileM.level(col,row));
+        }
     }
 
     // wind sway + lingering wobble + creatures + bursts, quantised to one of the baked lean frames
@@ -352,7 +399,7 @@ public class GrassLayer {
             String line = lines[r];
             for(int c = 0; c < cols && c < line.length(); c++){
                 char ch = line.charAt(c);
-                cells[c][r] = (byte) ((supportsGrass(c, r) && ch >= 'a' && ch <= 'l') ? ch - 'a' + 1 : 0);
+                cells[c][r] = (byte) ((supportsGrass(c, r) && ch >= 'i' && ch <= 'x') ? ch - 'a' + 1 : 0);
             }
         }
     }
@@ -362,29 +409,4 @@ public class GrassLayer {
         return terrain == Terrain.GRASS || terrain == Terrain.TERRACE;
     }
 
-    // the starting meadow: patches from noise, tall grass toward the forest, flower clumps here and there
-    private void paintDefault(){
-        boolean[][] taken = new boolean[cols][rows];
-        for(WorldObject o : gp.worldObjects){
-            if(o.col >= 0 && o.row >= 0 && o.col < cols && o.row < rows) taken[o.col][o.row] = true;
-        }
-        for(int c = 0; c < cols; c++){
-            for(int r = 0; r < rows; r++){
-                if(!supportsGrass(c, r) || taken[c][r]) continue;
-                int edge = Math.min(Math.min(c, r), Math.min(cols - 1 - c, rows - 1 - r));
-                double n = ArtKit.fbm(c * 0.16, r * 0.16, 211);
-                if(edge < 14) n += 0.12;              // the forest edge is grassier
-                if(n < 0.50) continue;
-
-                int density = Math.max(1, Math.min(4, 1 + (int) ((n - 0.50) / 0.12 * 3)));
-                int type = SHORT;
-                if(edge < 10 || ArtKit.fbm(c * 0.13 + 40, r * 0.13, 222) > 0.60){
-                    type = TALL;
-                } else if(ArtKit.fbm(c * 0.2 + 90, r * 0.2 + 30, 233) > 0.64){
-                    type = FLOWERS;
-                }
-                cells[c][r] = (byte) ((type - 1) * 4 + density);
-            }
-        }
-    }
 }

@@ -128,6 +128,10 @@ public class TileManager implements GroundTiles.World {
         return levelGrid[Math.max(0, Math.min(gp.maxWorldCol - 1, col))][Math.max(0, Math.min(gp.maxWorldRow - 1, row))];
     }
 
+    @Override public int grassVariant(int col,int row){
+        return gp.generatedWorld==null?GroundTiles.World.super.grassVariant(col,row):gp.generatedWorld.groundDetail(col,row);
+    }
+
     // Coarse tile query for spawn placement. Movement uses the partial terrace boundaries below.
     public boolean isSolid(int col, int row){
         if(gp.quests!=null && gp.quests.inDungeon())return gp.quests.isDungeonSolid(col,row);

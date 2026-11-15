@@ -10,6 +10,7 @@ public final class GeneratedWorld {
     public final WorldConfig config;
     private final Terrain[][] terrain;
     private final int[][] tones;
+    private final byte[][] groundDetails;
     private final byte[][] meadow;
     private final boolean[][] reserved;
     private List<Placement> objects=List.of();
@@ -19,6 +20,7 @@ public final class GeneratedWorld {
         this.config=config;
         terrain=new Terrain[config.width()][config.height()];
         tones=new int[config.width()][config.height()];
+        groundDetails=new byte[config.width()][config.height()];
         meadow=new byte[config.width()][config.height()];
         reserved=new boolean[config.width()][config.height()];
         spawnCol=config.width()/4;
@@ -40,6 +42,8 @@ public final class GeneratedWorld {
     }
     public Terrain terrain(int col,int row){return terrain[col][row];}
     public int tone(int col,int row){return tones[col][row];}
+    public int groundDetail(int col,int row){return groundDetails[col][row];}
+    void groundDetail(int col,int row,int variant){groundDetails[col][row]=(byte)variant;}
     public byte meadow(int col,int row){return meadow[col][row];}
     public boolean reserved(int col,int row){return reserved[col][row];}
     public List<Placement> objects(){return objects;}

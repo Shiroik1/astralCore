@@ -37,8 +37,10 @@ public class AssetSetter {
     }
 
     public void setMonster(){
-        // Combat encounters live in the well. Refreshing the town must not create monsters.
-        if(!gp.quests.inDungeon())java.util.Arrays.fill(gp.monster,null);
+        // The authored town stays peaceful. Procedural overworlds get the bounded slime population.
+        if(gp.quests.inDungeon())return;
+        java.util.Arrays.fill(gp.monster,null);
+        gp.slimeSpawner.resetPopulation();
     }
 
     public void setInteractiveTile(){

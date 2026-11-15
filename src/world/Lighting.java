@@ -6,6 +6,7 @@ import main.Gamepanel;
 
 import java.awt.*;
 import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Locale;
@@ -56,6 +57,8 @@ public class Lighting {
     private int lw, lh;
     private BufferedImage lightmap, vignette;
     private final BufferedImage cloudTile;
+    private final TexturePaint cloudPaint;
+    private final Rectangle2D.Double cloudArea = new Rectangle2D.Double();
     private Graphics2D lg;
     private final Map<Integer, BufferedImage> punchSprites = new HashMap<>();
     private final Map<Integer, BufferedImage> glowSprites = new HashMap<>();
@@ -67,7 +70,8 @@ public class Lighting {
     private boolean wasUnderground;
     private double cloudX, cloudY;                 // accumulated cloud drift, in world pixels
     private final float[] target = new float[DayCycle.VALUES];
-    private static final double CLOUD_SPEED = 0.05; // world px per tick (about 3 px per second)
+    private static final double CLOUD_SPEED = 0.30; // world px per tick (about 18 px per second)
+    private double cloudVelocityX = CLOUD_SPEED;
     private long time = 0;
 
     // reusable light list
@@ -77,6 +81,7 @@ public class Lighting {
     public Lighting(Gamepanel gp){
         this.gp = gp;
         cloudTile = bakeClouds();
+        cloudPaint = new TexturePaint(cloudTile, new Rectangle(0, 0, CLOUD_TILE, CLOUD_TILE));
         setDivisor(2);
         setMood(Mood.GOLDEN, true);
         cycle.sample(target);
@@ -136,8 +141,10 @@ public class Lighting {
         flyLevel += (target[7] / AmbientFX.MAX_FLIES - flyLevel) * k;
         clouds += (target[8] - clouds) * k;
 
-        // Accumulate the drift. Wind only nudges the speed, so the position can never jump.
-        cloudX += CLOUD_SPEED * (0.8 + 0.4 * gp.ambient.wind);
+        // Ease wind-driven velocity, then accumulate position without discontinuities.
+        double targetVelocity = CLOUD_SPEED * (0.8 + 0.4 * gp.ambient.wind);
+        cloudVelocityX += (targetVelocity - cloudVelocityX) * 0.03;
+        cloudX += cloudVelocityX;
         cloudY += CLOUD_SPEED * 0.3;
     }
 
@@ -175,11 +182,16 @@ public class Lighting {
             double oy = ((cloudY - camTop) / div) % CLOUD_TILE;
             if(ox < 0) ox += CLOUD_TILE;
             if(oy < 0) oy += CLOUD_TILE;
-            for(int x = (int) ox - CLOUD_TILE; x < lw; x += CLOUD_TILE){
-                for(int y = (int) oy - CLOUD_TILE; y < lh; y += CLOUD_TILE){
-                    lg.drawImage(cloudTile, x, y, null);
-                }
-            }
+            // Fractional texture sampling avoids the previous integer-pixel stepping and tile seams.
+            Object oldCloudInterpolation = lg.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+            lg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            lg.translate(ox, oy);
+            lg.setPaint(cloudPaint);
+            cloudArea.setRect(-ox, -oy, lw, lh);
+            lg.fill(cloudArea);
+            lg.translate(-ox, -oy);
+            lg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldCloudInterpolation != null
+                    ? oldCloudInterpolation : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         }
 
         //3. vignette

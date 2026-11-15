@@ -7,11 +7,11 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 
 public class GrassEditor {
-    private static final String[] NAMES = {"erase", "short", "tall", "flowers"};
+    private static final String[] NAMES = {"erase", "retired", "retired", "flowers", "green field", "dark field", "golden field"};
 
     private final Gamepanel gp;
     public boolean active = false;
-    private int type = GrassLayer.TALL;   // 0 erases
+    private int type = GrassLayer.FIELD_GREEN;   // 0 erases
     private int radius = 1;               // brush radius, in tiles
     private int density = 3;              // 1 to 4
 
@@ -33,9 +33,9 @@ public class GrassEditor {
     // returns true when the key was a brush key (so it isn't also read as a skill key)
     public boolean handleKey(int code){
         switch(code){
-            case KeyEvent.VK_1 -> type = GrassLayer.SHORT;
-            case KeyEvent.VK_2 -> type = GrassLayer.TALL;
-            case KeyEvent.VK_3 -> type = GrassLayer.FLOWERS;
+            case KeyEvent.VK_1 -> type = GrassLayer.FIELD_GREEN;
+            case KeyEvent.VK_2 -> type = GrassLayer.FIELD_DARK;
+            case KeyEvent.VK_3 -> type = GrassLayer.FIELD_GOLDEN;
             case KeyEvent.VK_4 -> type = GrassLayer.NONE;
             case KeyEvent.VK_OPEN_BRACKET -> radius = Math.max(0, radius - 1);
             case KeyEvent.VK_CLOSE_BRACKET -> radius = Math.min(4, radius + 1);
@@ -101,7 +101,7 @@ public class GrassEditor {
         g2.setFont(font.deriveFont(Font.BOLD, 14f));
         FontMetrics fm = g2.getFontMetrics();
         String line1 = "GRASS PAINT   " + NAMES[type] + "   size " + radius + "   density " + density;
-        String line2 = "LMB paint   RMB erase   1 short  2 tall  3 flowers  4 erase   [ ] size   , . density   /paint off";
+        String line2 = "LMB paint   RMB erase   1 green  2 dark  3 golden  4 erase   [ ] size   , . density   /paint off";
         int y = 30;
         for(String s : new String[]{line1, line2}){
             int x = gp.screenWidth - fm.stringWidth(s) - 16;

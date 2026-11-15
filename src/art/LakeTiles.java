@@ -6,12 +6,12 @@ import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Optional lake artwork. Exports transparent overlays; not connected to world terrain yet. */
+/** Offline water overlays with layered recessed banks. The runtime consumes exported tile sheets. */
 public final class LakeTiles {
     public static final int VARIANTS = 3;
-    public static final Color WATER = ArtKit.mix(Palette.WATER, new Color(0x69B6BF), 0.40f);
-    public static final Color SHALLOW = new Color(0xB2DCD3);
-    public static final Color BANK = new Color(0xA5AD7D);
+    public static final Color WATER = Palette.WATER;
+    public static final Color SHALLOW = ArtKit.mix(Palette.WATER,Palette.FLOWERS[1],.28f);
+    public static final Color BANK = ArtKit.mix(Palette.GROUND[1],Palette.FOLIAGE,.25f);
     private final int size;
     private final Map<Integer, BufferedImage> cache = new HashMap<>();
 
@@ -45,7 +45,7 @@ public final class LakeTiles {
         ArtKit.Surface surface = new ArtKit.Surface(size, size);
         Graphics2D g = surface.g;
         g.scale(size / 48.0, size / 48.0);
-        Area water = waterShape(mask);
+        Area water = extendedWater(mask);
         // All boundaries run beyond connected tile edges; only actual shore gets a bank.
         g.setColor(BANK);
         g.setStroke(new BasicStroke(4.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
@@ -58,6 +58,20 @@ public final class LakeTiles {
         g.setStroke(new BasicStroke(5.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(water);
 
+        // North/back-facing banks show earth strata above the unchanged turquoise water.
+        // Extend connected borders before shifting so internal tile seams never acquire false walls.
+        Color[] soil={ArtKit.shade(Palette.TIMBER),Palette.TIMBER,Palette.WOOD,Palette.GROUND[1]};
+        double[] depths={11,8,5,2};
+        Area wall=new Area();
+        for(int i=0;i<depths.length;i++){
+            Area band=new Area(water);
+            band.subtract(new Area(AffineTransform.getTranslateInstance(0,depths[i]).createTransformedShape(water)));
+            g.setColor(soil[i]);g.fill(band);
+            if(i==0)wall=band;
+        }
+        Area surfaceWater=new Area(water);surfaceWater.subtract(wall);
+        g.clip(surfaceWater);
+
         // A narrow white rim on top-left shores. Connected edges stay free of strokes.
         Area rim = new Area(water);
         rim.subtract(new Area(AffineTransform.getTranslateInstance(0.85, 0.85)
@@ -65,10 +79,7 @@ public final class LakeTiles {
         g.setColor(new Color(255, 255, 255, 115));
         g.fill(rim);
 
-        // Interior sheen fades completely before each tile edge, so repeats have no seams.
-        g.setPaint(new RadialGradientPaint(new Point2D.Float(18, 18), 16,
-                new float[]{0, 1}, new Color[]{new Color(255,255,255,16), new Color(255,255,255,0)}));
-        g.fill(new Rectangle2D.Float(0, 0, 48, 48));
+        // Flat water fill; depth comes from discrete bank strata rather than a surface gradient.
         g.setColor(new Color(242, 252, 247, 155));
         g.setStroke(new BasicStroke(1.05f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         if (variant == 1) {
@@ -82,6 +93,20 @@ public final class LakeTiles {
             g.draw(ripple);
         }
         return surface.finish();
+    }
+
+    private static Area extendedWater(int mask){
+        Area water=waterShape(mask),extended=new Area(water);
+        for(int i=-2;i<50;i++){
+            if(water.contains(i+.5,-1))extended.add(new Area(new Rectangle2D.Double(i,-64,1,64)));
+            if(water.contains(i+.5,49))extended.add(new Area(new Rectangle2D.Double(i,48,1,64)));
+            if(water.contains(-1,i+.5))extended.add(new Area(new Rectangle2D.Double(-64,i,64,1)));
+            if(water.contains(49,i+.5))extended.add(new Area(new Rectangle2D.Double(48,i,64,1)));
+        }
+        // Diagonally connected corner arms must extend in both axes as well.
+        for(int x:new int[]{-1,48}) for(int y:new int[]{-1,48})
+            if(water.contains(x+.5,y+.5))extended.add(new Area(new Rectangle2D.Double(x<0?-64:48,y<0?-64:48,64,64)));
+        return extended;
     }
 
     /** Separate decoration, so pads are optional rather than repeated in the terrain. */

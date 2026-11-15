@@ -161,6 +161,12 @@ public class ObjectArt {
         return townProp(TownProp.ROCK_SMALL);
     }
 
+    public Sprite natureProp(NatureProp prop){
+        return sprite(prop.assetName,sceneryPng("/scenery/nature/"+prop.assetName+".png",k/NatureProp.EXPORT_SCALE),
+                prop.footX,prop.footY,-prop.solidWidth/2.0,-prop.solidHeight,
+                prop.solidWidth,prop.solidHeight,false);
+    }
+
     public Sprite rockLarge(){
         return townProp(TownProp.ROCK_LARGE);
     }

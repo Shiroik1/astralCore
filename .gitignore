@@ -42,3 +42,6 @@ __pycache__/
 /art_preview/
 *.blend1
 *.class
+
+# Image-generation working copies; committed art masters live under assets/reference/.
+/generated_images/

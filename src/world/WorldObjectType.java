@@ -2,6 +2,7 @@ package world;
 
 import art.BuildingCatalog.Light;
 import art.ObjectArt;
+import art.NatureProp;
 import art.Palette;
 import art.TownProp;
 import main.Gamepanel;
@@ -44,7 +45,26 @@ public enum WorldObjectType {
     LOGS_COVERED(a -> a.townProp(TownProp.LOGS_COVERED), null, false, Behavior.NONE, null),
     LOGS_STACKED(a -> a.townProp(TownProp.LOGS_STACKED), null, false, Behavior.NONE, null),
     ROCK_SMALL_MOSS(a -> a.townProp(TownProp.ROCK_SMALL_MOSS), null, false, Behavior.NONE, null),
-    ROCK_LARGE_MOSS(a -> a.townProp(TownProp.ROCK_LARGE_MOSS), null, false, Behavior.NONE, null);
+    ROCK_LARGE_MOSS(a -> a.townProp(TownProp.ROCK_LARGE_MOSS), null, false, Behavior.NONE, null),
+    FLOWERS_WHITE(a -> a.natureProp(NatureProp.FLOWERS_WHITE), null, false, Behavior.NONE, null),
+    FLOWERS_PINK(a -> a.natureProp(NatureProp.FLOWERS_PINK), null, false, Behavior.NONE, null),
+    FLOWERS_PURPLE(a -> a.natureProp(NatureProp.FLOWERS_PURPLE), null, false, Behavior.NONE, null),
+    FLOWERS_YELLOW(a -> a.natureProp(NatureProp.FLOWERS_YELLOW), null, false, Behavior.NONE, null),
+    FLOWERS_BLUE(a -> a.natureProp(NatureProp.FLOWERS_BLUE), null, false, Behavior.NONE, null),
+    FLOWERS_MIXED(a -> a.natureProp(NatureProp.FLOWERS_MIXED), null, false, Behavior.NONE, null),
+    MUSHROOM_RED(a -> a.natureProp(NatureProp.MUSHROOM_RED), null, false, Behavior.NONE, null),
+    MUSHROOM_BROWN(a -> a.natureProp(NatureProp.MUSHROOM_BROWN), null, false, Behavior.NONE, null),
+    MUSHROOM_IVORY(a -> a.natureProp(NatureProp.MUSHROOM_IVORY), null, false, Behavior.NONE, null),
+    MUSHROOMS_RED(a -> a.natureProp(NatureProp.MUSHROOMS_RED), null, false, Behavior.NONE, null),
+    MUSHROOMS_BROWN(a -> a.natureProp(NatureProp.MUSHROOMS_BROWN), null, false, Behavior.NONE, null),
+    MUSHROOMS_IVORY(a -> a.natureProp(NatureProp.MUSHROOMS_IVORY), null, false, Behavior.NONE, null),
+    STUMP_OAK(a -> a.natureProp(NatureProp.STUMP_OAK), null, false, Behavior.NONE, null),
+    STUMP_OAK_MOSS(a -> a.natureProp(NatureProp.STUMP_OAK_MOSS), null, false, Behavior.NONE, null),
+    STUMP_OAK_AGED(a -> a.natureProp(NatureProp.STUMP_OAK_AGED), null, false, Behavior.NONE, null),
+    STUMP_PINE(a -> a.natureProp(NatureProp.STUMP_PINE), null, false, Behavior.NONE, null),
+    STUMP_PINE_MOSS(a -> a.natureProp(NatureProp.STUMP_PINE_MOSS), null, false, Behavior.NONE, null),
+    STUMP_PINE_AGED(a -> a.natureProp(NatureProp.STUMP_PINE_AGED), null, false, Behavior.NONE, null),
+    TWIG(a -> a.natureProp(NatureProp.TWIG), null, false, Behavior.NONE, null);
 
 
     public enum Behavior { NONE, TEXT, CHEST, HEAL, ENTER_WELL, EXIT_WELL, SUMMON_HELL, ENTER_INN, EXIT_INN }

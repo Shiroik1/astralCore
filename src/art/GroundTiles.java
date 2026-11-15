@@ -19,12 +19,17 @@ public class GroundTiles {
     public static final int GRASS_INSET = 6;
     public static final int LEDGE_LEFT = 1, LEDGE_RIGHT = 2;
     public static final int PATH_VARIANTS = 3;
+    public static final int MOSS_VARIANTS = 6;
+    public static final int GRASS_VARIANTS = 6;
     private static final double[] LEVEL_THRESHOLDS = {0.42, 0.52, 0.60}; // noise cut-offs between tones
 
     // The world the renderer reads from. Out-of-range cells should return the nearest valid cell's value.
     public interface World {
         Terrain terrain(int col, int row);
         int level(int col, int row);
+        default int grassVariant(int col,int row){
+            return (int)(ArtKit.hash01(717,col,row)*GRASS_VARIANTS)%GRASS_VARIANTS;
+        }
     }
 
     private final int size;
@@ -55,11 +60,6 @@ public class GroundTiles {
     //DRAWING ONE CELL
     public void drawCell(Graphics2D g, World w, int col, int row, int px, int py){
         Terrain t = w.terrain(col, row);
-        if(t == Terrain.COBBLE){
-            draw(g, cobble(cobbleVariant(col, row)), px, py);
-            return;
-        }
-
         if (t == Terrain.LEDGE || t == Terrain.STEPS) {
             draw(g, textures.tile("grass", Math.max(0, w.level(col, row) - 1)), px, py);
             if (t == Terrain.STEPS) {
@@ -91,12 +91,27 @@ public class GroundTiles {
                 break;
             }
         }
-        draw(g, textures.tile("grass", startK), px, py);
+        int grassVariant=t==Terrain.GRASS?Math.max(0,Math.min(GRASS_VARIANTS-1,w.grassVariant(col,row))):0;
+        boolean baked=t==Terrain.GRASS && startK==level;
+        draw(g,baked?textures.tile("grass-variants",level*GRASS_VARIANTS+grassVariant):textures.tile("grass",startK),px,py);
         for(int k = startK + 1; k <= level; k++){
             draw(g, levelOverlay(k, masks[k]), px, py);
         }
+        // Transition cells retain the existing blended tones, with matching pre-baked detail on top.
+        if(t==Terrain.GRASS && !baked)
+            draw(g,textures.tile("grass-detail",level*GRASS_VARIANTS+grassVariant),px,py);
 
-        if(t == Terrain.PATH){
+        if(t == Terrain.GRASS){
+            int fringe=mask((c,r)->pavingLike(w,c,r),col,row);
+            if(fringe!=0)draw(g,textures.tile("cobble-fringe",fringe),px,py);
+        } else if(t == Terrain.COBBLE){
+            int m=mask((c,r)->pathLike(w,c,r),col,row);
+            draw(g,textures.tile("cobble-connect-"+cobbleVariant(col,row),m),px,py);
+        } else if(t == Terrain.MOSS_PATH){
+            int m=mask((c,r)->pathLike(w,c,r),col,row);
+            int variant=(int)(ArtKit.hash01(901,col,row)*MOSS_VARIANTS)%MOSS_VARIANTS;
+            draw(g,textures.tile("moss-path-"+variant,m),px,py);
+        } else if(t == Terrain.PATH){
             int m = mask((c, r) -> pathLike(w, c, r), col, row);
             draw(g, pathOverlay(m, pathVariant(col, row)), px, py);
         } else if(t == Terrain.WATER) {
@@ -109,9 +124,14 @@ public class GroundTiles {
         }
     }
 
+    private static boolean pavingLike(World world,int col,int row){
+        Terrain terrain=world.terrain(col,row);
+        return terrain==Terrain.COBBLE || terrain==Terrain.MOSS_PATH;
+    }
+
     private static boolean pathLike(World w, int col, int row){
         Terrain t = w.terrain(col, row);
-        return t == Terrain.PATH || t == Terrain.COBBLE || t == Terrain.STEPS; // paths run into the plaza
+        return t == Terrain.PATH || t == Terrain.COBBLE || t == Terrain.STEPS || t == Terrain.MOSS_PATH;
     }
 
     private static int mask(BiPredicate<Integer, Integer> same, int col, int row){

@@ -20,7 +20,7 @@ public final class GenerateGrassTextures {
     public static void main(String[] args) throws IOException{
         Path output = Path.of(args.length == 0 ? "res/scenery/meadow" : args[0]);
         Files.createDirectories(output);
-        for(int type = 0; type < GrassArt.TYPES; type++){
+        for(int type = 2; type < 3; type++){
             int variants = GrassArt.VARIANTS[type];
             var sheet = new BufferedImage(GrassArt.WIDTH * GrassArt.BEND_FRAMES,
                     GrassArt.HEIGHT * variants * Palette.GROUND.length, BufferedImage.TYPE_INT_ARGB);

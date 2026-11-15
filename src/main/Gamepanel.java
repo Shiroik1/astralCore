@@ -93,6 +93,7 @@ public class Gamepanel extends JPanel implements Runnable{
     public final java.util.concurrent.ConcurrentLinkedQueue<RawInput> inputQueue = new java.util.concurrent.ConcurrentLinkedQueue<>();
     public CommandProcessor commands = new CommandProcessor(this);
     public final quest.QuestManager quests = new quest.QuestManager(this);
+    public final world.SlimeSpawner slimeSpawner = new world.SlimeSpawner(this);
 
     public final Merchant merchant=new Merchant(this);
     public final save.SaveStore saves=new save.SaveStore(this);
@@ -195,6 +196,7 @@ public class Gamepanel extends JPanel implements Runnable{
             p.resetForSceneTransition();
             p.setDefaultPosition();
         }
+        assetSetter.setMonster();
         ambientParticles.clear();
     }
 
@@ -375,6 +377,7 @@ public class Gamepanel extends JPanel implements Runnable{
             updateHighlights();
 
             boolean simulateWorld = !isNetworked || isHost;
+            if(simulateWorld)slimeSpawner.update();
 
             //NPC
             for(int i = 0; i < npc.length; i++){
@@ -595,6 +598,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            if(outdoors)grass.addDrawLayers(entityList);
             entityList.sort(Comparator.comparingInt(Entity::sortY));
             Prof.lap(3);
 

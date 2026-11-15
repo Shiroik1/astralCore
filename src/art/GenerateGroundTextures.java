@@ -18,10 +18,20 @@ public final class GenerateGroundTextures {
     private GenerateGroundTextures() {}
 
     public static void main(String[] args) throws IOException {
+        if(args.length>0 && args[0].equals("--cobble")){
+            Path directory=Path.of("res/ground");Files.createDirectories(directory);
+            mossPaths(directory);return;
+        }
+        if(args.length>0 && args[0].equals("--environment")){
+            Path directory=Path.of("res/ground");Files.createDirectories(directory);
+            environment(directory);return;
+        }
         Path directory = Path.of(args.length == 0 ? "res/ground" : args[0]);
         Files.createDirectories(directory);
         write(directory, "grass", GroundTiles.LEVELS, 1, i -> flat(Palette.GROUND[i]));
+        grassVariants(directory);
         write(directory, "cobble", GroundTiles.COBBLE_VARIANTS, 1, i -> cobbleTile(5000L + i));
+        mossPaths(directory);
         for (int level = 0; level < GroundTiles.LEVELS; level++) {
             Color grass = Palette.GROUND[level];
             write(directory, "grass-edge-" + level, 16, 16,
@@ -39,6 +49,81 @@ public final class GenerateGroundTextures {
         write(directory, "lilies", 2, 1, i -> lakes.lilyPad(i == 1));
         write(directory, "ledge", 4, GroundTiles.LEVELS, i -> ledge(i / 4, i % 4, false));
         write(directory, "steps", 1, GroundTiles.LEVELS, i -> ledge(i, 3, true));
+    }
+
+    private static void environment(Path directory)throws IOException{
+        grassVariants(directory);
+        mossPaths(directory);
+        LakeTiles lakes=new LakeTiles(U);
+        for(int variant=0;variant<LakeTiles.VARIANTS;variant++){
+            int pattern=variant;
+            write(directory,"water-"+variant,16,16,mask->lakes.tile(mask,pattern));
+        }
+    }
+
+    private static void grassVariants(Path directory)throws IOException{
+        write(directory,"grass-variants",GroundTiles.GRASS_VARIANTS,GroundTiles.LEVELS,
+                i->grassTile(i/GroundTiles.GRASS_VARIANTS,i%GroundTiles.GRASS_VARIANTS,false));
+        write(directory,"grass-detail",GroundTiles.GRASS_VARIANTS,GroundTiles.LEVELS,
+                i->grassTile(i/GroundTiles.GRASS_VARIANTS,i%GroundTiles.GRASS_VARIANTS,true));
+    }
+
+    private static BufferedImage grassTile(int level,int variant,boolean overlay){
+        ArtKit.Surface surface=new ArtKit.Surface(U,U);Graphics2D g=surface.g;
+        if(!overlay){g.setColor(Palette.GROUND[level]);g.fillRect(0,0,U,U);}
+        Random random=new Random(9371L+variant*31L);
+        Color ink=ArtKit.mix(Palette.GROUND[level],Palette.FOLIAGE_DARK,.28f);
+        for(int i=0;i<variant*2;i++){
+            // Keep blades inside the tile's central tone region, including transition tiles.
+            double x=12+random.nextDouble()*24,y=15+random.nextDouble()*21;
+            AffineTransform transform=AffineTransform.getTranslateInstance(x,y);
+            transform.scale(.45+random.nextDouble()*.16,.48+random.nextDouble()*.16);
+            g.setColor(ink);g.fill(transform.createTransformedShape(tuft(i+variant)));
+        }
+        return surface.finish();
+    }
+
+    private static void mossPaths(Path directory)throws IOException{
+        for(int variant=0;variant<GroundTiles.COBBLE_VARIANTS;variant++){
+            int pattern=variant;
+            BufferedImage interior=cobbleTile(5000L+variant);
+            write(directory,"cobble-connect-"+pattern,16,16,mask->connectedCobble(interior,mask));
+        }
+        for(int variant=0;variant<GroundTiles.MOSS_VARIANTS;variant++){
+            int pattern=variant;
+            write(directory,"moss-path-"+variant,16,16,mask->mossPath(mask,pattern));
+        }
+        write(directory,"cobble-fringe",16,16,CobbleTransitions::fringe);
+    }
+
+    private static BufferedImage connectedCobble(BufferedImage interior,int mask){
+        ArtKit.Surface surface=new ArtKit.Surface(U,U);
+        surface.g.clip(CobbleTransitions.footprint(mask));
+        surface.g.drawImage(interior,0,0,null);
+        return CobbleTransitions.finish(surface,mask);
+    }
+
+    private static BufferedImage mossPath(int mask,int variant){
+        ArtKit.Surface surface=new ArtKit.Surface(U,U);Graphics2D g=surface.g;
+        Area shape=CobbleTransitions.footprint(mask);
+        g.clip(shape);
+        Random random=new Random(8700L+variant);
+        for(int row=0;row<3;row++) for(int col=-1;col<3;col++){
+            double x=col*24+(row%2)*12,y=row*16;
+            Shape stone=new RoundRectangle2D.Double(x+1.5,y+1,21,13,6,6);
+            Color base=ArtKit.mix(Palette.STONES[random.nextInt(Palette.STONES.length)],Palette.PATH,.36f);
+            g.setColor(base);g.fill(stone);
+            // A narrow top plane adds vector depth while keeping the grass-connected silhouette.
+            Area top=new Area(new RoundRectangle2D.Double(x+2,y+1,20,4,4,4));
+            top.intersect(new Area(stone));
+            g.setColor(ArtKit.mix(base,Palette.PLASTER,.24f));g.fill(top);
+        }
+        for(int i=0;i<1+variant;i++){
+            double x=random.nextDouble()*48,y=random.nextDouble()*48;
+            g.setColor(ArtKit.mix(Palette.FOLIAGE,Palette.GROUND[1],.45f));
+            g.fill(new Ellipse2D.Double(x-2,y-1,3+random.nextInt(4),2+random.nextInt(3)));
+        }
+        return CobbleTransitions.finish(surface,mask);
     }
 
     private static void write(Path directory, String name, int columns, int rows,

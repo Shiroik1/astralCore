@@ -2,7 +2,7 @@ package world;
 
 /** Time of day: a clock plus a smooth blend between the Lighting moods. */
 public final class DayCycle {
-    public static final float DAY_MINUTES = 20f;   // real minutes for one full day
+    public static final float DAY_MINUTES = 16f;   // real minutes for one full day (25% faster than 20)
     public static final float START_HOUR = 9f;
     public static final int TICKS_PER_DAY = Math.round(DAY_MINUTES * 60 * 60);
     /** r, g, b, a, glow, vignette, leaves, flies, clouds */
