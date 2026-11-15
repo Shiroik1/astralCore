@@ -22,6 +22,10 @@ public class AssetSetter {
     }
 
     public void setNPC(){
+        if(gp.worldConfig.procedural()){
+            java.util.Arrays.fill(gp.npc,null);
+            return;
+        }
         int i = 0;
 
         gp.npc[i] = new NPC_oldman(gp);

@@ -61,6 +61,11 @@ public class Gamepanel extends JPanel implements Runnable{
     public final DisplaySettings display = new DisplaySettings(this);
 
     //WORLD SETTINGS
+    public world.generation.WorldConfig worldConfig = world.generation.WorldConfig.developmentDefaults();
+    private final world.generation.WorldPalette worldPalette = worldConfig.procedural()
+            ? new world.generation.WorldPalette(this) : null;
+    public world.generation.GeneratedWorld generatedWorld = worldConfig.procedural()
+            ? new world.generation.WorldGenerator().generate(worldConfig, worldPalette, tileSize) : null;
     public int maxWorldCol;
     public int maxWorldRow;
 
@@ -169,6 +174,37 @@ public class Gamepanel extends JPanel implements Runnable{
         g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+    }
+
+    /** Development entry point, invoked by the command queue on the game thread, never during drawing. */
+    public void regenerateWorld(long seed){
+        if(!Boolean.getBoolean("astral.dev")) throw new IllegalStateException("Enable -Dastral.dev=true first");
+        if(Thread.currentThread() != gameThread)
+            throw new IllegalStateException("Regenerate through /regenworld on the game thread");
+        if(!worldConfig.procedural() || isNetworked || quests.inDungeon())
+            throw new IllegalStateException("Regeneration requires an offline procedural overworld");
+        world.generation.WorldConfig next = worldConfig.withSeed(seed);
+        world.generation.GeneratedWorld result = new world.generation.WorldGenerator().generate(next, worldPalette, tileSize);
+        worldConfig = next;
+        generatedWorld = result;
+        tileM.applyGenerated(result);
+        SceneryLoader.load(this);
+        grass.load();
+        grassEditor.stop();
+        for(Player p : players) if(p != null){
+            p.resetForSceneTransition();
+            p.setDefaultPosition();
+        }
+        ambientParticles.clear();
+    }
+
+    /** Saved positions predate seed/config persistence; relocate only when the new terrain blocks them. */
+    public void ensureProceduralSpawn(Player p){
+        if(!worldConfig.procedural() || p.inWell) return;
+        int left = p.worldX + p.solidArea.x, top = p.worldY + p.solidArea.y;
+        boolean blocked = tileM.blocksMovement(left, top, left + p.solidArea.width - 1, top + p.solidArea.height - 1);
+        for(WorldObject o : worldObjects) blocked |= o.blocksArea(left, top, p.solidArea.width, p.solidArea.height);
+        if(blocked) p.setDefaultPosition();
     }
 
     public void preloadGameplayAssets(){

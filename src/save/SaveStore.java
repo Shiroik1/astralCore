@@ -116,6 +116,7 @@ public final class SaveStore {
         restoreArea(d,d.world);
         if(d.world.otherArea!=null)restoreArea(d,d.world.otherArea);
         g.quests.activateArea(p.inWell);g.quests.ensureLocalIntro();
+        g.ensureProceduralSpawn(p);
         activeSlot=slot;active=d;saveTicks=0;guestSession=false;detached=false;error=null;
         if(recovered)g.ui.addMessage("Recovered the previous character save from backup.",new java.awt.Color(240,198,145));
     }

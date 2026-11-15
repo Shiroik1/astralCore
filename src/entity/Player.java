@@ -146,8 +146,7 @@ public class Player extends Entity{
 
     public void setDefaultValues(){
         type = type_player;
-        worldX = gp.tileSize * 25;
-        worldY = gp.tileSize * 28;
+        setDefaultPosition();
         speed = 4;
         direction = "down";
 
@@ -202,8 +201,8 @@ public class Player extends Entity{
     }
 
     public void setDefaultPosition(){
-        worldX = gp.tileSize * 25;
-        worldY = gp.tileSize * 28;
+        worldX = gp.tileSize * (gp.generatedWorld == null ? 25 : gp.generatedWorld.spawnCol);
+        worldY = gp.tileSize * (gp.generatedWorld == null ? 28 : gp.generatedWorld.spawnRow);
         direction = "down";
     }
 

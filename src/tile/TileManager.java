@@ -30,14 +30,32 @@ public class TileManager implements GroundTiles.World {
     private final GroundTiles ground;
     private Terrain[][] terrainGrid;   // [col][row]
     private int[][] levelGrid;
-    private final Map<Integer, BufferedImage> chunks = new HashMap<>();
+    private final Map<Long, BufferedImage> chunks = new HashMap<>();
 
     public TileManager(Gamepanel gp) throws IOException {
         this.gp = gp;
         this.ground = new GroundTiles(gp.tileSize);
-        loadMap();
+        if(gp.generatedWorld != null) applyGenerated(gp.generatedWorld);
+        else {
+            loadMap();
+            bakeAll();
+        }
+    }
+
+    public void applyGenerated(world.generation.GeneratedWorld world){
+        gp.maxWorldCol = world.config.width();
+        gp.maxWorldRow = world.config.height();
+        terrainGrid = new Terrain[gp.maxWorldCol][gp.maxWorldRow];
+        levelGrid = new int[gp.maxWorldCol][gp.maxWorldRow];
+        for(int c = 0; c < gp.maxWorldCol; c++) for(int r = 0; r < gp.maxWorldRow; r++){
+            terrainGrid[c][r] = world.terrain(c,r);
+            levelGrid[c][r] = world.tone(c,r);
+        }
+        chunks.clear();
         bakeAll();
     }
+
+    private static long chunkKey(int col,int row){return ((long)row << 32) | (col & 0xffffffffL);}
 
     private void loadMap() throws IOException {
         if(!main.AppPaths.mapFile(TERRAIN_PATH).isFile() && getClass().getResource("/maps/terrain.txt") == null){
@@ -113,7 +131,7 @@ public class TileManager implements GroundTiles.World {
     // Coarse tile query for spawn placement. Movement uses the partial terrace boundaries below.
     public boolean isSolid(int col, int row){
         if(gp.quests!=null && gp.quests.inDungeon())return gp.quests.isDungeonSolid(col,row);
-        if(InnInterior.isTile(col, row)){
+        if(!gp.worldConfig.procedural() && InnInterior.isTile(col, row)){
             int x = col * gp.tileSize + gp.tileSize / 2;
             int y = row * gp.tileSize + gp.tileSize / 2;
             return InnInterior.blocksMovement(gp, x, y, x, y);
@@ -166,7 +184,7 @@ public class TileManager implements GroundTiles.World {
         int chunkRows = (gp.maxWorldRow + CHUNK - 1) / CHUNK;
         for(int cy = 0; cy < chunkRows; cy++){
             for(int cx = 0; cx < chunkCols; cx++){
-                chunks.put(cy * 100 + cx, bakeChunk(cx, cy));
+                chunks.put(chunkKey(cx, cy), bakeChunk(cx, cy));
             }
         }
         Log.debug("[MAP] baked " + chunks.size() + " ground chunks in " + (System.currentTimeMillis() - start) + " ms");
@@ -209,7 +227,7 @@ public class TileManager implements GroundTiles.World {
 
         for(int cy = firstCy; cy <= lastCy; cy++){
             for(int cx = firstCx; cx <= lastCx; cx++){
-                BufferedImage img = chunks.get(cy * 100 + cx);
+                BufferedImage img = chunks.get(chunkKey(cx, cy));
                 if(img == null) continue;
                 g2.drawImage(img, cx * chunkPx - camera.worldX + camera.screenX,
                         cy * chunkPx - camera.worldY + camera.screenY, null);

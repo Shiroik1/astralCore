@@ -56,6 +56,15 @@ public class GrassLayer {
         energy = new float[cols][rows];
         buildTufts();
 
+        time = 0;
+        burstCount = pushers = 0;
+        lastPos.clear();
+        if(gp.generatedWorld != null){
+            for(int c = 0; c < cols; c++) for(int r = 0; r < rows; r++)
+                cells[c][r] = gp.generatedWorld.meadow(c,r);
+            return;
+        }
+
         String text = readText();
         if(text == null){
             paintDefault();
@@ -78,6 +87,7 @@ public class GrassLayer {
     }
 
     public boolean save(){
+        if(gp.worldConfig.procedural()) return false;
         StringBuilder sb = new StringBuilder();
         for(int r = 0; r < rows; r++){
             for(int c = 0; c < cols; c++){
@@ -294,13 +304,15 @@ public class GrassLayer {
         tuftY = new short[n];
         tuftHash = new int[n];
         int ts = gp.tileSize;
+        world.generation.NoiseGenerator seeded = gp.generatedWorld == null ? null
+                : new world.generation.NoiseGenerator(gp.worldConfig.seed());
         for(int r = 0; r < rows; r++){
             for(int c = 0; c < cols; c++){
                 int base = (r * cols + c) * MAX_PER_TILE;
                 for(int i = 0; i < MAX_PER_TILE; i++){
-                    tuftX[base + i] = (short) (4 + ArtKit.hash01(401 + i, c, r) * (ts - 8));
-                    tuftY[base + i] = (short) (8 + ArtKit.hash01(433 + i, c, r) * (ts - 12));
-                    tuftHash[base + i] = (int) (ArtKit.hash01(467 + i, c, r) * 1_000_000);
+                    tuftX[base + i] = (short) (4 + tuftRandom(seeded,401+i,c,r) * (ts - 8));
+                    tuftY[base + i] = (short) (8 + tuftRandom(seeded,433+i,c,r) * (ts - 12));
+                    tuftHash[base + i] = (int) (tuftRandom(seeded,467+i,c,r) * 1_000_000);
                 }
                 for(int a = 1; a < MAX_PER_TILE; a++){      // sort by y: lower tufts draw later, in front
                     for(int b = a; b > 0 && tuftY[base + b - 1] > tuftY[base + b]; b--){
@@ -309,6 +321,10 @@ public class GrassLayer {
                 }
             }
         }
+    }
+
+    private static double tuftRandom(world.generation.NoiseGenerator noise,int channel,int col,int row){
+        return noise == null ? ArtKit.hash01(channel,col,row) : noise.random(col,row,channel);
     }
 
     private void swap(int a, int b){

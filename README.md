@@ -26,6 +26,8 @@ Choose a class, gather supplies, and descend into the lantern-lit Well Depths. T
 
 This alpha is built around that complete, repeatable loop. It is a small adventure with room to grow.
 
+**Current source builds:** Phase 1 procedural generation now defaults to a seeded 100 × 100 grassland. See [procedural world configuration](docs/procedural-world.md) for seed, size, vegetation and development regeneration options. Use the VM option `-Dastral.world.mode=authored` to play the original town/quest content or existing multiplayer mode. Procedural generation has received code review only; runtime verification is pending owner approval.
+
 ## Download
 
 Every download includes **Java, game assets, maps, and libraries**. No separate Java installation is needed.

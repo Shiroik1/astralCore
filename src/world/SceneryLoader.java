@@ -23,6 +23,11 @@ public class SceneryLoader {
 
     public static void load(Gamepanel gp){
         gp.worldObjects.clear();
+        if(gp.generatedWorld != null){
+            for(var placement : gp.generatedWorld.objects())
+                gp.worldObjects.add(new WorldObject(gp, placement.type(), placement.col(), placement.row(), null));
+            return;
+        }
 
         String json = readExternal();
         if(json == null) json = readResource();
@@ -67,6 +72,7 @@ public class SceneryLoader {
     }
 
     public static boolean save(Gamepanel gp){
+        if(gp.worldConfig.procedural()) return false;
         if(gp.quests.inDungeon())return false;
         List<WorldObject> sorted = new ArrayList<>(gp.worldObjects);
         sorted.removeIf(o -> o.kind == WorldObjectType.INN_EXIT);

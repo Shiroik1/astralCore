@@ -58,6 +58,7 @@ public class CommandProcessor {
             case "savegrass" -> saveGrass();
             case "pixel" -> pixel(args);
             case "time" -> time(args);
+            case "regenworld" -> regenerateWorld(args);
             default -> reply("Unknown command: /" + cmd + "  (try /help)", ERROR);
         }
     }
@@ -72,6 +73,15 @@ public class CommandProcessor {
         reply("/paint <short|tall|flowers|erase|off>", INFO);
         reply("/savegrass", INFO);
         reply("/time [hour]", INFO);
+        if(Boolean.getBoolean("astral.dev")) reply("/regenworld <long seed> (offline procedural world)", INFO);
+    }
+
+    private void regenerateWorld(String[] args){
+        if(args.length != 2){reply("Usage: /regenworld <long seed>",ERROR);return;}
+        try{
+            gp.regenerateWorld(Long.parseLong(args[1]));
+            reply("Generated grassland with seed " + gp.worldConfig.seed() + ".",INFO);
+        } catch(IllegalArgumentException | IllegalStateException e){reply(e.getMessage(),ERROR);}
     }
 
     private void list(){
@@ -373,6 +383,10 @@ public class CommandProcessor {
     }
 
     private void saveObjects(){
+        if(gp.worldConfig.procedural()){
+            reply("Procedural scenery is seed-generated; authored scenery.json was not changed.",ERROR);
+            return;
+        }
         reply(SceneryLoader.save(gp)
                 ? "Saved " + gp.worldObjects.size() + " objects to " + SceneryLoader.EXTERNAL_PATH + "."
                 : "Could not save (see the console).", gp.worldObjects.isEmpty() ? ERROR : INFO);
@@ -456,6 +470,10 @@ public class CommandProcessor {
     }
 
     private void saveGrass(){
+        if(gp.worldConfig.procedural()){
+            reply("Procedural meadow is seed-generated; authored grass.txt was not changed.",ERROR);
+            return;
+        }
         boolean ok = gp.grass.save();
         reply(ok ? "Saved grass to " + GrassLayer.PATH + "." : "Could not save (see the console).", ok ? INFO : ERROR);
     }

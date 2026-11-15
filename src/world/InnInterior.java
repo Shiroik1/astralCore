@@ -29,7 +29,7 @@ public final class InnInterior {
     }
 
     public static boolean containsPosition(Gamepanel gp, int x, int y){
-        return isTile(Math.floorDiv(x, gp.tileSize), Math.floorDiv(y, gp.tileSize));
+        return !gp.worldConfig.procedural() && isTile(Math.floorDiv(x, gp.tileSize), Math.floorDiv(y, gp.tileSize));
     }
 
     public static boolean contains(Gamepanel gp, Player p){
