@@ -33,6 +33,7 @@ public class WorldObject extends Entity {
     private final ObjectArt.Sprite sprite, altSprite;
     private float alpha = 1f;
 
+    public boolean resourceDepleted;
     public WorldObject(Gamepanel gp, WorldObjectType kind, int col, int row, String text){
         this(gp, kind, col, row, text, kind == WorldObjectType.INN ? "inn" : null, Map.of());
     }
@@ -96,6 +97,7 @@ public class WorldObject extends Entity {
     }
 
     public boolean blocksEntry(Rectangle now, Rectangle moved){
+        if(resourceDepleted)return false;
         if(moved.intersects(blockRect) && !now.intersects(blockRect)) return true;
         for(int i = 0; i < extraFootprint.size(); i++){
             Rectangle box = extraFootprint.get(i);
@@ -104,7 +106,17 @@ public class WorldObject extends Entity {
         return false;
     }
 
+    public boolean clearedByBuildingAt(int tileCol,int tileRow){
+        if(!kind.clearedByBuilding())return false;
+        int ts=gp.tileSize,x=tileCol*ts,y=tileRow*ts;
+        if(col==tileCol && row==tileRow || blockRect.intersects(x,y,ts,ts))return true;
+        // Trees are rooted by their trunk, while low plants can spill across neighboring tile edges.
+        return !kind.swaysInWind() && new Rectangle(worldX-sprite.image.getWidth()/2,
+                worldY-ts/2,sprite.image.getWidth(),ts/2+4).intersects(x,y,ts,ts);
+    }
+
     public boolean blocksArea(int x, int y, int width, int height){
+        if(resourceDepleted)return false;
         if(!blocks) return false;
         if(blockRect.intersects(x, y, width, height)) return true;
         for(int i = 0; i < extraFootprint.size(); i++){
@@ -133,6 +145,7 @@ public class WorldObject extends Entity {
     }
 
     public void addDrawLayers(List<Entity> drawList){
+        if(resourceDepleted)return;
         if(buildingLayers.isEmpty()) drawList.add(this);
         else drawList.addAll(buildingLayers);
     }
@@ -220,6 +233,7 @@ public class WorldObject extends Entity {
 
     @Override
     public void draw(Graphics2D g2){
+        if(resourceDepleted)return;
         Player cam = gp.localPlayer();
         if(cam == null) return;
 

@@ -1,0 +1,595 @@
+{
+  "maxLevel": 50,
+  "xpToNext": [
+    25,
+    60,
+    100,
+    150,
+    220,
+    300,
+    400,
+    520,
+    650,
+    800,
+    920,
+    1040,
+    1160,
+    1280,
+    1400,
+    1520,
+    1640,
+    1760,
+    1880,
+    2000,
+    2120,
+    2240,
+    2360,
+    2480,
+    2600,
+    2720,
+    2840,
+    2960,
+    3080,
+    3200,
+    3320,
+    3440,
+    3560,
+    3680,
+    3800,
+    3920,
+    4040,
+    4160,
+    4280,
+    4400,
+    4520,
+    4640,
+    4760,
+    4880,
+    5000,
+    5120,
+    5240,
+    5360,
+    5480
+  ],
+  "items": [
+    {
+      "id": "twig",
+      "name": "Twig",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "stone",
+      "name": "Stone",
+      "kind": "material",
+      "image": "/crafting/stone.png",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "log",
+      "name": "Wood Log",
+      "kind": "material",
+      "image": "/crafting/log.png",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "fiber",
+      "name": "Fiber",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "plank",
+      "name": "Wooden Plank",
+      "kind": "material",
+      "image": "/crafting/plank.png",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "charcoal",
+      "name": "Charcoal",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "iron_ore",
+      "name": "Iron Ore",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "iron_ingot",
+      "name": "Iron Ingot",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "wooden_arrow",
+      "name": "Wooden Arrows",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "wooden_axe",
+      "name": "Wooden Axe",
+      "kind": "axe",
+      "image": "/crafting/wooden_axe.png",
+      "power": 1,
+      "tool": "axe",
+      "gather": 1,
+      "place": ""
+    },
+    {
+      "id": "wooden_sword",
+      "name": "Wooden Sword",
+      "kind": "sword",
+      "image": "/crafting/wooden_sword.png",
+      "power": 2,
+      "tool": "cut",
+      "gather": 1,
+      "place": ""
+    },
+    {
+      "id": "wooden_bow",
+      "name": "Wooden Bow",
+      "kind": "bow",
+      "image": "/crafting/wooden_bow.png",
+      "power": 2,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "wooden_staff",
+      "name": "Wooden Staff",
+      "kind": "staff",
+      "image": "/crafting/wooden_staff.png",
+      "power": 2,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "crude_pickaxe",
+      "name": "Crude Pickaxe",
+      "kind": "axe",
+      "image": "",
+      "power": 1,
+      "tool": "pickaxe",
+      "gather": 1,
+      "place": ""
+    },
+    {
+      "id": "improved_wooden_axe",
+      "name": "Improved Wooden Axe",
+      "kind": "axe",
+      "image": "/crafting/wooden_axe.png",
+      "power": 3,
+      "tool": "axe",
+      "gather": 2,
+      "place": ""
+    },
+    {
+      "id": "iron_sword",
+      "name": "Iron Sword",
+      "kind": "sword",
+      "image": "",
+      "power": 5,
+      "tool": "cut",
+      "gather": 2,
+      "place": ""
+    },
+    {
+      "id": "iron_axe",
+      "name": "Iron Axe",
+      "kind": "axe",
+      "image": "",
+      "power": 4,
+      "tool": "axe",
+      "gather": 3,
+      "place": ""
+    },
+    {
+      "id": "iron_pickaxe",
+      "name": "Iron Pickaxe",
+      "kind": "axe",
+      "image": "",
+      "power": 3,
+      "tool": "pickaxe",
+      "gather": 3,
+      "place": ""
+    },
+    {
+      "id": "workbench",
+      "name": "Workbench",
+      "kind": "placeable",
+      "image": "/crafting/workbench.png",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "workbench"
+    },
+    {
+      "id": "campfire",
+      "name": "Campfire",
+      "kind": "placeable",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "campfire"
+    },
+    {
+      "id": "basic_forge",
+      "name": "Basic Forge",
+      "kind": "placeable",
+      "image": "/crafting/forge.png",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "forge"
+    },
+    {
+      "id": "wooden_chest",
+      "name": "Wooden Chest",
+      "kind": "placeable",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "chest"
+    },
+    {
+      "id": "simple_bed",
+      "name": "Simple Bed",
+      "kind": "placeable",
+      "image": "/building/props/bed_blue.png",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "bed_blue"
+    },
+    {
+      "id": "wooden_floor",
+      "name": "Wooden Floor",
+      "kind": "placeable",
+      "image": "/building/floor.png",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "floor"
+    },
+    {
+      "id": "wooden_wall",
+      "name": "Wooden Wall",
+      "kind": "placeable",
+      "image": "/building/wall.png",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "wall"
+    },
+    {
+      "id": "wooden_door",
+      "name": "Wooden Door",
+      "kind": "placeable",
+      "image": "/building/door.png",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "door"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "wooden_axe",
+      "level": 1,
+      "station": "hand",
+      "ingredients": {
+        "twig": 3,
+        "stone": 2
+      },
+      "output": "wooden_axe",
+      "count": 1,
+      "xp": 5,
+      "firstBonus": 20
+    },
+    {
+      "id": "wooden_sword",
+      "level": 2,
+      "station": "hand",
+      "ingredients": {
+        "log": 1,
+        "fiber": 2
+      },
+      "output": "wooden_sword",
+      "count": 1,
+      "xp": 12,
+      "firstBonus": 24
+    },
+    {
+      "id": "wooden_bow",
+      "level": 2,
+      "station": "hand",
+      "ingredients": {
+        "twig": 3,
+        "fiber": 3
+      },
+      "output": "wooden_bow",
+      "count": 1,
+      "xp": 12,
+      "firstBonus": 24
+    },
+    {
+      "id": "wooden_staff",
+      "level": 2,
+      "station": "hand",
+      "ingredients": {
+        "log": 1,
+        "fiber": 1
+      },
+      "output": "wooden_staff",
+      "count": 1,
+      "xp": 12,
+      "firstBonus": 24
+    },
+    {
+      "id": "wooden_arrow",
+      "level": 2,
+      "station": "hand",
+      "ingredients": {
+        "twig": 1,
+        "stone": 1
+      },
+      "output": "wooden_arrow",
+      "count": 5,
+      "xp": 6,
+      "firstBonus": 24
+    },
+    {
+      "id": "workbench",
+      "level": 2,
+      "station": "hand",
+      "ingredients": {
+        "log": 4,
+        "stone": 4
+      },
+      "output": "workbench",
+      "count": 1,
+      "xp": 12,
+      "firstBonus": 24
+    },
+    {
+      "id": "plank",
+      "level": 3,
+      "station": "workbench",
+      "ingredients": {
+        "log": 1
+      },
+      "output": "plank",
+      "count": 4,
+      "xp": 18,
+      "firstBonus": 36
+    },
+    {
+      "id": "wooden_floor",
+      "level": 3,
+      "station": "workbench",
+      "ingredients": {
+        "plank": 2
+      },
+      "output": "wooden_floor",
+      "count": 4,
+      "xp": 18,
+      "firstBonus": 36
+    },
+    {
+      "id": "wooden_wall",
+      "level": 3,
+      "station": "workbench",
+      "ingredients": {
+        "plank": 2
+      },
+      "output": "wooden_wall",
+      "count": 2,
+      "xp": 18,
+      "firstBonus": 36
+    },
+    {
+      "id": "wooden_door",
+      "level": 3,
+      "station": "workbench",
+      "ingredients": {
+        "plank": 4,
+        "fiber": 2
+      },
+      "output": "wooden_door",
+      "count": 1,
+      "xp": 18,
+      "firstBonus": 36
+    },
+    {
+      "id": "campfire",
+      "level": 4,
+      "station": "hand",
+      "ingredients": {
+        "stone": 4,
+        "twig": 4
+      },
+      "output": "campfire",
+      "count": 1,
+      "xp": 24,
+      "firstBonus": 48
+    },
+    {
+      "id": "charcoal",
+      "level": 4,
+      "station": "campfire",
+      "ingredients": {
+        "log": 1
+      },
+      "output": "charcoal",
+      "count": 2,
+      "xp": 24,
+      "firstBonus": 48
+    },
+    {
+      "id": "crude_pickaxe",
+      "level": 5,
+      "station": "hand",
+      "ingredients": {
+        "twig": 3,
+        "stone": 3,
+        "fiber": 2
+      },
+      "output": "crude_pickaxe",
+      "count": 1,
+      "xp": 30,
+      "firstBonus": 60
+    },
+    {
+      "id": "wooden_chest",
+      "level": 6,
+      "station": "workbench",
+      "ingredients": {
+        "plank": 8
+      },
+      "output": "wooden_chest",
+      "count": 1,
+      "xp": 36,
+      "firstBonus": 72
+    },
+    {
+      "id": "simple_bed",
+      "level": 7,
+      "station": "workbench",
+      "ingredients": {
+        "plank": 8,
+        "fiber": 5
+      },
+      "output": "simple_bed",
+      "count": 1,
+      "xp": 42,
+      "firstBonus": 84
+    },
+    {
+      "id": "improved_wooden_axe",
+      "level": 8,
+      "station": "workbench",
+      "ingredients": {
+        "plank": 2,
+        "stone": 3,
+        "fiber": 2
+      },
+      "output": "improved_wooden_axe",
+      "count": 1,
+      "xp": 48,
+      "firstBonus": 96
+    },
+    {
+      "id": "basic_forge",
+      "level": 10,
+      "station": "workbench",
+      "ingredients": {
+        "stone": 12,
+        "log": 4,
+        "charcoal": 4
+      },
+      "output": "basic_forge",
+      "count": 1,
+      "xp": 60,
+      "firstBonus": 120
+    },
+    {
+      "id": "iron_ingot",
+      "level": 10,
+      "station": "forge",
+      "ingredients": {
+        "iron_ore": 2,
+        "charcoal": 1
+      },
+      "output": "iron_ingot",
+      "count": 1,
+      "xp": 60,
+      "firstBonus": 120
+    },
+    {
+      "id": "iron_sword",
+      "level": 10,
+      "station": "forge",
+      "ingredients": {
+        "iron_ingot": 3,
+        "plank": 1
+      },
+      "output": "iron_sword",
+      "count": 1,
+      "xp": 60,
+      "firstBonus": 120
+    },
+    {
+      "id": "iron_axe",
+      "level": 10,
+      "station": "forge",
+      "ingredients": {
+        "iron_ingot": 2,
+        "plank": 2
+      },
+      "output": "iron_axe",
+      "count": 1,
+      "xp": 60,
+      "firstBonus": 120
+    },
+    {
+      "id": "iron_pickaxe",
+      "level": 10,
+      "station": "forge",
+      "ingredients": {
+        "iron_ingot": 3,
+        "plank": 2
+      },
+      "output": "iron_pickaxe",
+      "count": 1,
+      "xp": 60,
+      "firstBonus": 120
+    }
+  ],
+  "nodeHardness": {
+    "tree": 3,
+    "rock": 4,
+    "iron": 5,
+    "grass": 1
+  }
+}

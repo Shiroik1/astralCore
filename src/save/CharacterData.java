@@ -6,6 +6,7 @@ import net.*;
 public final class CharacterData {
     public int version=1;
     public String id;
+    public String craftingWorld,buildingWorld;
     public long savedAt;
     public PlayerState character;
     public WorldSnapshot world;

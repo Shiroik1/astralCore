@@ -67,6 +67,8 @@ public final class SaveStore {
         if(d==null || d.version!=1 || d.id==null || d.world==null || d.world.quest==null)
             throw new IOException("Incomplete save");
         CharacterState.validate(d.character);
+        try{crafting.CraftingManager.validateSavedWorld(d.craftingWorld,g.maxWorldCol,g.maxWorldRow,g.tileSize,g.worldConfig.seed());}
+        catch(RuntimeException e){throw new IOException("Invalid saved crafting world: "+e.getMessage(),e);}
         if(d.world.quest.stage<0 || d.world.quest.stage>=quest.QuestManager.Stage.values().length
                 || d.world.quest.kills<0 || d.world.quest.kills>10)throw new IOException("Invalid quest progress");
         validateArea(d.world);
@@ -103,6 +105,7 @@ public final class SaveStore {
         p.setDefaultValues();p.setItems();p.refreshWeaponAnimation();
         if(hairStyle>=0)p.customizeHair(hairStyle,hairColor);
         CharacterData d=new CharacterData();d.id=UUID.randomUUID().toString();
+        g.crafting.reset();g.crafting.ensureWorld();
         capture(d);write(slot,d);
         activeSlot=slot;active=d;saveTicks=0;guestSession=false;detached=false;error=null;
     }
@@ -116,6 +119,8 @@ public final class SaveStore {
         restoreArea(d,d.world);
         if(d.world.otherArea!=null)restoreArea(d,d.world.otherArea);
         g.quests.activateArea(p.inWell);g.quests.ensureLocalIntro();
+        if(d.buildingWorld!=null)g.buildings.restore(d.buildingWorld);
+        g.crafting.restoreWorld(d.craftingWorld);
         g.ensureProceduralSpawn(p);
         activeSlot=slot;active=d;saveTicks=0;guestSession=false;detached=false;error=null;
         if(recovered)g.ui.addMessage("Recovered the previous character save from backup.",new java.awt.Color(240,198,145));
@@ -131,6 +136,7 @@ public final class SaveStore {
             // Guest equipment/levels carry home; the host's map position and quest do not.
             player.worldX=d.character.worldX;player.worldY=d.character.worldY;player.inWell=d.character.inWell;player.direction=d.character.direction;
         }else{
+            g.crafting.ensureWorld();d.craftingWorld=g.crafting.worldJson();d.buildingWorld=g.buildings.snapshot();
             d.world=SnapshotBuilder.build(g);d.world.players=null;
             if(d.world.otherArea!=null)d.world.otherArea.players=null;
             var returnPosition=g.quests.returnPositionForSave(g.localPlayerIndex);d.returnX=returnPosition.x;d.returnY=returnPosition.y;

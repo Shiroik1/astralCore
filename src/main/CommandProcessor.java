@@ -55,6 +55,9 @@ public class CommandProcessor {
             case "saveobjects" -> saveObjects();
             case "mood" -> mood(args);
             case "paint" -> paint(args);
+            case "build" -> build(args);
+            case "savebuild" -> saveBuild();
+            case "blueprint" -> blueprint(args);
             case "savegrass" -> saveGrass();
             case "pixel" -> pixel(args);
             case "time" -> time(args);
@@ -72,6 +75,8 @@ public class CommandProcessor {
         reply("/mood <day|golden|dusk|night|off>", INFO);
         reply("/paint <green|dark|golden|flowers|erase|off>", INFO);
         reply("/savegrass", INFO);
+        reply("/build <element-id|off>  /savebuild", INFO);
+        reply("/blueprint <id> <anchor-col> <anchor-row>", INFO);
         reply("/time [hour]", INFO);
         if(Boolean.getBoolean("astral.dev")) reply("/regenworld <long seed> (offline procedural world)", INFO);
     }
@@ -87,7 +92,9 @@ public class CommandProcessor {
     private void list(){
         replyList("Monsters", Arrays.stream(MonsterType.values()).map(t -> t.name().toLowerCase(Locale.ROOT)).toList());
         replyList("Items", Arrays.stream(ItemType.values()).map(t -> t.name().toLowerCase(Locale.ROOT)).toList());
+        replyList("Building elements", building.BuildElements.all().stream().map(building.BuildElements.Element::id).toList());
         replyList("Objects", Arrays.stream(WorldObjectType.values()).map(t -> t.name().toLowerCase(Locale.ROOT)).toList());
+        replyList("Furnishings", building.PropCatalog.all().stream().map(building.PropCatalog.Prop::id).toList());
     }
 
     private void pos(Player me){
@@ -466,8 +473,42 @@ public class CommandProcessor {
             reply("Size is 0 to 4 and density is 1 to 4.", ERROR);
             return;
         }
+        gp.buildings.stop();
         gp.grassEditor.start(type, size, density);
         reply("Paint mode: LMB paints, RMB erases. 1-4 brush, [ ] size, , . density.", INFO);
+    }
+
+    private void build(String[] args){
+        if(args.length!=2){reply("Usage: /build <element-id|off>",ERROR);return;}
+        if(args[1].equalsIgnoreCase("off")){
+            gp.buildings.stop();reply("Build mode off. /savebuild keeps your changes.",INFO);return;
+        }
+        try{
+            gp.buildings.start(args[1].toLowerCase(Locale.ROOT));
+            reply("Build: 1 floor, 2 wall, 3 door. LMB place, RMB erase layer. /savebuild to save.",INFO);
+        }catch(IllegalArgumentException e){reply("Use a building element ID or off. /list shows element IDs.",ERROR);}
+        catch(IllegalStateException e){reply(e.getMessage(),ERROR);}
+    }
+    private void blueprint(String[] args){
+        if(args.length!=4 || !args[1].matches("[a-z][a-z0-9_-]*")){
+            reply("Usage: /blueprint <id> <anchor-col> <anchor-row>",ERROR);return;
+        }
+        if(!gp.buildings.available()){reply("Blueprints require a single-player overworld.",ERROR);return;}
+        try{
+            int col=Integer.parseInt(args[2]),row=Integer.parseInt(args[3]);
+            String relative="maps/blueprints/"+args[1]+".json";
+            java.nio.file.Path file=AppPaths.mapFile(relative).toPath();
+            building.BuildingBlueprint preset=java.nio.file.Files.isRegularFile(file)
+                    ?building.BuildingBlueprint.read(file):building.BuildingBlueprint.readResource("/"+relative);
+            String error=gp.buildings.placeBlueprint(preset,col,row);
+            reply(error==null?"Placed "+preset.name()+". Use /savebuild to keep it.":error,error==null?INFO:ERROR);
+        }catch(java.io.IOException | IllegalArgumentException e){reply("Could not place blueprint: "+e.getMessage(),ERROR);}
+        catch(java.io.UncheckedIOException e){reply("Could not load blueprint artwork: "+e.getMessage(),ERROR);}
+    }
+
+    private void saveBuild(){
+        boolean ok=gp.buildings.save();
+        reply(ok?"Saved buildings for this world.":"Could not save buildings. Use the single-player overworld; see console for file errors.",ok?INFO:ERROR);
     }
 
     private void saveGrass(){

@@ -32,6 +32,7 @@ public final class CharacterState {
             throw new IllegalArgumentException("Invalid direction");
         for(int i=0;i<20;i++)if(s.inventoryTypes[i]!=null && (s.inventoryStackCounts[i]<1 || s.inventoryStackCounts[i]>1000000))
             throw new IllegalArgumentException("Invalid inventory stack");
+        new crafting.CraftingProgression().restore(s.craftingLevel,s.craftingXP,s.craftingBonuses);
         int effects=s.effectTypes==null?0:s.effectTypes.length;
         if(effects>100 || effects>0 && (s.effectDurations==null || s.effectDurations.length!=effects
                 || s.effectValues==null || s.effectValues.length!=effects))throw new IllegalArgumentException("Invalid status effects");
@@ -51,6 +52,8 @@ public final class CharacterState {
             p.inventorySlots[i]=ItemRegistry.create(s.inventoryTypes[i],g);
             if(p.inventorySlots[i]!=null)p.inventorySlots[i].stackCount=s.inventoryStackCounts[i];
         }
+        p.craftingProgress.restore(s.craftingLevel,s.craftingXP,s.craftingBonuses);
+        p.meleeMasteryXP=s.meleeMasteryXP;p.magicMasteryXP=s.magicMasteryXP;p.bowMasteryXP=s.bowMasteryXP;
         p.level=s.level;p.exp=s.exp;p.nextLevelExp=s.nextLevelExp;p.coin=s.coin;
         p.strength=s.strength;p.dexterity=s.dexterity;p.intelligence=s.intelligence;
         p.maxHP=s.maxHP;p.HP=s.HP;p.maxMP=s.maxMP;p.MP=s.MP;

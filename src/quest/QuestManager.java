@@ -137,6 +137,7 @@ public final class QuestManager {
             if(townScene!=null)restore(townScene);
         }
         gp.grassEditor.stop();
+        gp.buildings.stop();
     }
     /** True means the dungeon handled the death; never apply the outdoor every-five-kills rule. */
     public boolean onMonsterDefeated(Monster monster){

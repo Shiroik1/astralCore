@@ -62,3 +62,17 @@ Both regular and mossy cobblestone now render over the existing blended grass ba
 The regular paving connector sheets are `res/ground/cobble-connect-0.png` through `cobble-connect-2.png`; mossy paving continues to use its six `moss-path-*.png` sheets. `cobble-fringe.png` adds sparse, translucent edge stones on neighboring grass, including diagonal-only corner neighbors. All atlases have 256 neighbor slots. The original regular cobble sheet remains available as the interior art source/preview.
 
 Run `art.GenerateGroundTextures --cobble` to export just these paving/connector resources. They are decoded once and baked into the existing terrain cache, with no per-frame image creation. This is an artwork export operation; gameplay verification still requires owner approval.
+
+## Tile building
+
+`res/building/` contains saved floor, wall, closed-door and open-door neighbor atlases. Their editable source is `src/art/GenerateBuildTextures.java`; a generated style reference is retained under `assets/reference/building/`. Layout authoring data saves separately to `maps/buildings/`. See [tile building](building-system.md) for controls, mask layout and scope.
+
+Building preset authoring lives in `maps/blueprints/`, separate from per-world placed layouts under `maps/buildings/`. `res/building/elements.json` is the shared runtime/editor element catalog. JavaFX Builder source and its standalone Maven configuration live under `tools/building-maker/`; no JavaFX classes or dependencies are added to the game's runtime source tree. See [the Builder guide](../tools/building-maker/README.md).
+
+### Interior materials and furniture
+
+`res/building/` also holds cobblestone, reinforced timber and concrete floor/wall atlases plus the three tiled stair materials. `res/building/props/` contains nineteen complete, transparent furnishing sprites; `props.json` stores their anchors, dimensions, collision footprints and light radii. The selected furniture atlas and contact sheet live in `assets/reference/interior/`. `src/art/GenerateInteriorTextures.java` imports `vector-interior-source.png` directly, slicing the nineteen objects, removing loose alpha flecks in the gutters and exporting smoothly scaled transparent PNGs. It preserves the supplied designs and colors without redrawing or palette remapping. The procedural vector exporter is retained only as a reference. Furniture placement data is included in version 2 building maps and blueprints as free-position decorations rather than tile cells. Reference art is retained; runtime code loads only the exported PNGs and catalogs.
+
+### Crafting prototype
+
+`assets/reference/crafting/crafting-source.png` retains the approved nine-sprite atlas. `src/art/GenerateCraftingTextures.java` slices complete silhouettes and exports the four wooden weapons, three resources, Workbench and Forge into `res/crafting/`. Recipe and item metadata lives in `res/crafting/recipes.json`. Missing dedicated art uses explicit palette-based geometric placeholders in `CraftingArt`; see [the crafting guide](crafting-system.md) for the list.

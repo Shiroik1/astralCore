@@ -90,6 +90,8 @@ public class Player extends Entity{
     public int arcaneCharge = 0;
     public final int maxArcaneCharge = 4;
 
+    public final crafting.CraftingProgression craftingProgress=new crafting.CraftingProgression();
+    public int meleeMasteryXP,magicMasteryXP,bowMasteryXP;
     public Entity[] inventorySlots = new Entity[20];
     public final int inventorySize = 20;
 
@@ -156,21 +158,8 @@ public class Player extends Entity{
         nextLevelExp = 30;
         coin = 0;
 
-        if(usesMana()){
-            maxRage = 0;
-            rage = 0;
-            arcaneCharge=0;
-            currentWeapon = isPriest()?ItemRegistry.create(ItemType.WAYLIGHT_STAFF,gp):new OBJ_staff(gp);
-            rightHandItem = currentWeapon;
-            currentShield = new OBJ_no_shield(gp);
-        } else {
-            maxRage = isPaladin()?0:100;
-            if(isPaladin())resolve=0;
-            rage = 0;
-            currentWeapon = isPaladin()?ItemRegistry.create(ItemType.GATEKEEPER_SWORD,gp):isBerserker()?ItemRegistry.create(ItemType.FIELDBREAKER,gp):isRanger()?ItemRegistry.create(ItemType.TRAILWOOD_BOW,gp):playerClass.equals("hunter")?new OBJ_dualdaggers(gp):new OBJ_sword_normal(gp);
-            rightHandItem = currentWeapon;
-            currentShield = isPaladin()?ItemRegistry.create(ItemType.GATEKEEPER_ROUNDSHIELD,gp):usesFocus() || isBerserker()?new OBJ_no_shield(gp):new OBJ_shield_wood(gp);
-        }
+        maxRage=usesMana() || isPaladin()?0:100;rage=0;arcaneCharge=0;resolve=0;
+        currentWeapon=new OBJ_fists(gp);rightHandItem=currentWeapon;currentShield=new OBJ_no_shield(gp);
 
         applyBaseStats();
         attack = getAttack();
@@ -214,9 +203,6 @@ public class Player extends Entity{
 
     public void setItems(){
         java.util.Arrays.fill(inventorySlots, null);
-        Entity starterPotion = new OBJ_potion_red(gp);
-        inventorySlots[0] = starterPotion;
-        if(isMage())inventorySlots[1]=ItemRegistry.create(ItemType.MAGE_HAT,gp);
         setupSkills();
     }
 
@@ -320,6 +306,7 @@ public class Player extends Entity{
 
     public int getAttack() {
         attackArea = currentWeapon.attackArea;
+        if(currentWeapon instanceof OBJ_crafted c)return attack=c.attackValue+(c.type==type_staff?intelligence:c.type==type_bow?dexterity:strength);
         if(isPaladin())return attack=hasPaladinSword()?strength+currentWeapon.attackValue:0;
         if(isBerserker())return attack=hasGreatsword()?strength+currentWeapon.attackValue:0;
         if(isRanger())return attack=hasBow()?dexterity+currentWeapon.attackValue:0;
@@ -601,6 +588,7 @@ public class Player extends Entity{
 
     private boolean fitsEquipment(Entity item, int slot){
         if(item==null)return false;
+        if(item instanceof OBJ_crafted crafted)return slot==EQUIP_WEAPON && crafted.definition.equipment();
         if(item instanceof OBJ_paladinGear gear)
             return isPaladin() && level>=gear.gear.level && (slot==EQUIP_WEAPON && gear.type==type_sword || slot==EQUIP_SHIELD && gear.type==type_shield);
         if(isPaladin() && (slot==EQUIP_WEAPON || slot==EQUIP_SHIELD))return false;
@@ -989,9 +977,9 @@ public class Player extends Entity{
                     moveForInput(horizDir,vertDir,currentInput.chorusSpeed,currentInput.heavyMovement);
                 }
 
-                if(!isRanger() && !currentInput.movementLocked && (currentInput.ePressed && !usesMana() || currentInput.leftClicked || attackBuffered) && !attackCanceled
-                        && (!usesMana() || hasStaff()) && (!isBerserker() || hasGreatsword() && !berserker.active())
-                        && (!isPaladin() || hasPaladinSword() && !paladin.active() && !paladin.guarding())){
+                if((!isRanger() || currentWeapon instanceof OBJ_crafted) && !currentInput.movementLocked && (currentInput.ePressed && !usesMana() || currentInput.leftClicked || attackBuffered) && !attackCanceled
+                        && (currentWeapon instanceof OBJ_crafted || !usesMana() || hasStaff()) && (currentWeapon instanceof OBJ_crafted || !isBerserker() || hasGreatsword() && !berserker.active())
+                        && (currentWeapon instanceof OBJ_crafted || !isPaladin() || hasPaladinSword() && !paladin.active() && !paladin.guarding())){
                     attacking = true;
                     animState = "attack";
                     spriteNum = 1;
@@ -1094,7 +1082,7 @@ public class Player extends Entity{
     public void attacking() {
         if(gp.hitStopCounter > 0) return;
 
-        if(usesMana()){
+        if(usesMana() && !(currentWeapon instanceof OBJ_crafted c && c.type!=type_staff)){
             mageAttacking();
             return;
         }
@@ -1113,7 +1101,9 @@ public class Player extends Entity{
         }
 
         if(!canResolveWorldActions()) return;
-        if(isBerserker()){
+        if(currentWeapon instanceof OBJ_crafted){
+            if(spriteNum>=attackHitStartFrame && spriteNum<=attackHitEndFrame)resolveMeleeStrike(null);
+        }else if(isBerserker()){
             if(hasGreatsword() && spriteNum!=previousFrame && spriteNum==attackHitStartFrame)berserker.basicSweep();
         }else if(isPaladin()){
             if(hasPaladinSword() && spriteNum!=previousFrame && spriteNum==attackHitStartFrame)resolveMeleeStrike(null);
@@ -1263,6 +1253,9 @@ public class Player extends Entity{
                 if(armorBreakPending){target.addStatusEffect(new StatusEffect("armorBreak",180,2,0));armorBreakPending=false;}
                 damage+=PriestCombat.consumeChorus(this,damage);
                 target.HP -= damage;
+                if(currentWeapon!=null && !currentWeapon.isPlaceholder){
+                    if(currentWeapon.type==type_staff)magicMasteryXP++;else if(currentWeapon.type==type_bow)bowMasteryXP++;else meleeMasteryXP++;
+                }
                 target.invincibilityDuration=usesFocus() || usesMana() || isBerserker() || isPaladin()?12:22;target.invincibleCounter=0;
                 target.invincible = true;
                 target.flashing = true;
@@ -1724,6 +1717,11 @@ public class Player extends Entity{
         g2.drawImage(bodyImage, drawX, drawY, null);
         g2.setTransform(originalTransform);
 
+        if(currentWeapon instanceof OBJ_crafted crafted && crafted.type==type_bow){
+            Player camera=gp.localPlayer();int hx=worldX-camera.worldX+camera.screenX+(int)solidArea.getCenterX(),hy=worldY-camera.worldY+camera.screenY+(int)solidArea.getCenterY();
+            Graphics2D held=(Graphics2D)g2.create();if(direction.equals("left")){held.translate(hx-10,hy-16);held.scale(-1,1);}else held.translate(hx+10,hy-16);
+            held.drawImage(crafted.down1,-16,-20,32,42,null);held.dispose();
+        }
         if(up)drawMeleeSlashes(g2);
         drawNameLabel(g2, drawX + bodyWidth/2, drawY);
         if(isRanger()){
@@ -2254,6 +2252,10 @@ public class Player extends Entity{
     private void interactScenery(){
         if(!currentInput.ePressed || attackCanceled) return;
 
+        if(gp.buildings.interact(this,canResolveWorldActions())){
+            attackCanceled=true;
+            return;
+        }
         WorldObject target = gp.collisionChecker.findInteractable(this);
         if(target == null) return;
 

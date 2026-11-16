@@ -260,6 +260,14 @@ public class Lighting {
             }
         }
 
+        for(var d:gp.buildings.decorations()){
+            if(n>=MAX_LIGHTS || glow<=.02f)break;
+            var p=building.PropCatalog.get(d.element());if(p.lightRadius()<=0)continue;
+            sx[n]=(float)(d.x()*s-camLeft);sy[n]=(float)((d.y()-p.height()*.45)*s-camTop);
+            rad[n]=(float)(p.lightRadius()*s);if(!onScreen(n))continue;
+            float flicker=(float)(1+.025*Math.sin(time*.17+d.x()));pow[n]=.85f*objectPower*flicker;
+            warm[n]=.85f*glow*flicker;n++;
+        }
         float need = Math.min(1f, aa / 140f);     // players carry a soft light that grows as the world darkens
         for(Player p : gp.players){
             if(p == null || p.isDead || p.inWell!=gp.quests.inDungeon() || n >= MAX_LIGHTS) continue;

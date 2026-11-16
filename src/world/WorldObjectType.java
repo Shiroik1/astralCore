@@ -111,6 +111,17 @@ public enum WorldObjectType {
         return null;
     }
 
+    /** Vegetation placements may be cleared by construction; their reusable art is retained. */
+    public boolean clearedByBuilding(){
+        return switch(this){
+            case OAK_1, OAK_2, PINE_1, PINE_2, BUSH, FLOWER_BUSH, STUMP,
+                    FLOWERS_WHITE, FLOWERS_PINK, FLOWERS_PURPLE, FLOWERS_YELLOW, FLOWERS_BLUE, FLOWERS_MIXED,
+                    MUSHROOM_RED, MUSHROOM_BROWN, MUSHROOM_IVORY, MUSHROOMS_RED, MUSHROOMS_BROWN, MUSHROOMS_IVORY,
+                    STUMP_OAK, STUMP_OAK_MOSS, STUMP_OAK_AGED, STUMP_PINE, STUMP_PINE_MOSS, STUMP_PINE_AGED, TWIG -> true;
+            default -> false;
+        };
+    }
+
     public boolean swaysInWind(){
         return switch(this){
             case OAK_1, OAK_2, PINE_1, PINE_2 -> true;

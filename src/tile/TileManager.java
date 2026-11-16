@@ -132,6 +132,14 @@ public class TileManager implements GroundTiles.World {
         return gp.generatedWorld==null?GroundTiles.World.super.grassVariant(col,row):gp.generatedWorld.groundDetail(col,row);
     }
 
+    /** Ground tone levels are palette indices; only terrace terrain represents physical height. */
+    public int buildingElevation(int col,int row){
+        return switch(terrain(col,row)){
+            case TERRACE, RIM, LEDGE, STEPS -> level(col,row);
+            default -> 0;
+        };
+    }
+
     // Coarse tile query for spawn placement. Movement uses the partial terrace boundaries below.
     public boolean isSolid(int col, int row){
         if(gp.quests!=null && gp.quests.inDungeon())return gp.quests.isDungeonSolid(col,row);
@@ -148,6 +156,7 @@ public class TileManager implements GroundTiles.World {
     }
 
     public boolean blocksMovement(int left, int top, int right, int bottom){
+        if(gp.buildings!=null && gp.buildings.blocksArea(left,top,right-left+1,bottom-top+1))return true;
         int ts = gp.tileSize;
         boolean dungeon = gp.quests != null && gp.quests.inDungeon();
         if(!dungeon && InnInterior.containsPosition(gp, left, top)){

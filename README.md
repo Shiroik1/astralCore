@@ -119,6 +119,8 @@ The published alpha offers short or long hair at creation. Equipment layers—in
 
 Hover shop items for descriptions and prices. Hover skill icons for their effects, costs, and cooldowns.
 
+Current source builds also include a single-player [tile building tool](docs/building-system.md). Enter `/build floor`, then use **1 / 2 / 3** for floor, wall and door, **left click** to place, **right click** to remove from the selected layer, **R** for vertical orientation, and `/savebuild` to save. Pieces connect automatically; exposed edges keep their complete borders.
+
 ## Play with friends
 
 One player hosts a session; the others join using the host's address. Every player should run the same release.
@@ -164,3 +166,9 @@ See the [packaging guide](packaging/README.md) for prerequisites, verification, 
 ---
 
 <p align="center"><strong>AstralCore</strong> &nbsp; · &nbsp; Made one adventure at a time.</p>
+
+### Building preset editor
+
+The standalone [JavaFX Builder](tools/building-maker/README.md) creates reusable building blueprints using the game's floor, wall, and door tiles. It provides standard JavaFX controls, painting, room rectangles, rotation, door states, undo/redo, zoom, and anchor placement. With JDK 21 and Maven, run `mvn -f tools/building-maker/pom.xml compile javafx:run`. Presets save under `maps/blueprints/` and can be placed with `/blueprint <id> <anchor-col> <anchor-row>`, then persisted with `/savebuild`. Automatic village/settlement placement is a later step. Compilation and runtime verification of this tool are pending owner approval.
+
+Crafting levels 1–10: press **K** for recipes, **E** to gather/use a nearby station, and **P** in the crafting menu to place a crafted item. New characters begin unarmed with an empty bag. This prototype shares the building system's single-player restriction. See [Crafting and gathering](docs/crafting-system.md) for controls, recipe editing, persistence, verification and remaining artwork.

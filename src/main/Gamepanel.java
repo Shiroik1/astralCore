@@ -82,6 +82,8 @@ public class Gamepanel extends JPanel implements Runnable{
     public Lighting lighting = new Lighting(this);
     public GrassLayer grass = new GrassLayer(this);
     public GrassEditor grassEditor = new GrassEditor(this);
+    public final crafting.CraftingManager crafting=new crafting.CraftingManager(this);
+    public final world.building.BuildSystem buildings = new world.building.BuildSystem(this);
     Config config = new Config(this);
     private volatile Thread gameThread;
     public int hitStopCounter = 0;
@@ -163,8 +165,9 @@ public class Gamepanel extends JPanel implements Runnable{
         preloadGameplayAssets();
         assetSetter.setObject();
         assetSetter.setNPC();
-        assetSetter.setMonster();
         assetSetter.setInteractiveTile();
+        buildings.load();
+        assetSetter.setMonster();
         soundEffect.preloadFrom(1);
         gameState = titleState;
 
@@ -192,6 +195,7 @@ public class Gamepanel extends JPanel implements Runnable{
         SceneryLoader.load(this);
         grass.load();
         grassEditor.stop();
+        buildings.load();
         for(Player p : players) if(p != null){
             p.resetForSceneTransition();
             p.setDefaultPosition();
@@ -343,13 +347,20 @@ public class Gamepanel extends JPanel implements Runnable{
                     localInput.suppressGameplay();
                     mouseH.leftClicked = false;
                 }
-                if(grassEditor.active){
+                if(buildings.active && localInput.ePressed){
+                    buildings.interact(local,true);
+                    localInput.ePressed=false;
+                }
+                if(grassEditor.active || buildings.active){
                     localInput.leftHeld = false;
+                    localInput.rightHeld = false;
+                    java.util.Arrays.fill(localInput.skillKeyPressed, false);
                     localInput.gameplaySuppressed = true;
                     localInput.leftClicked = false;   // painting must not swing the weapon
                     mouseH.leftClicked = false;
                     localInput.targetedMonsterIndex = -1;
                 }
+                crafting.handleInput(local,localInput);
                 local.applyInput(localInput);
             }
 
@@ -444,6 +455,8 @@ public class Gamepanel extends JPanel implements Runnable{
                 grass.update();
                 grassEditor.update();
             }
+            crafting.update();
+            buildings.update();
 
             //FLOATING TEXT
             for(int i = floatingTextList.size() - 1; i >= 0; i--){
@@ -534,6 +547,9 @@ public class Gamepanel extends JPanel implements Runnable{
 
             //TILE
             tileM.draw(g2);
+            buildings.drawFloors(g2);
+            buildings.addDrawLayers(entityList);
+            crafting.addDrawLayers(entityList);
             Prof.lap(0);
 
             for(WorldObject o : worldObjects){
@@ -622,6 +638,8 @@ public class Gamepanel extends JPanel implements Runnable{
 
             if(outdoors)ambient.drawLeaves(g2);
             if(!insideInn)grassEditor.drawBrush(g2);
+            buildings.drawPreview(g2);
+            crafting.drawPreview(g2);
 
             g2.translate(-shakeOffsetX, -shakeOffsetY);
 
@@ -693,6 +711,7 @@ public class Gamepanel extends JPanel implements Runnable{
             Log.warn("[HOST] already networked, aborting");
             return;
         }
+        buildings.stop();crafting.open=false;
         isNetworked = true;
         isHost = true;
         gameServer = new net.GameServer(this);
@@ -728,6 +747,7 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void resetAfterNetworkSession(){
+        buildings.stop();
         Player local = localPlayer();
 
         for(WorldObject o : worldObjects){

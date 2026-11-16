@@ -20,6 +20,7 @@ public class ItemRegistry {
     }
 
     public static ItemType typeFor(Entity item){
+        if(item instanceof OBJ_crafted crafted)return crafted.itemType;
         if(item instanceof OBJ_paladinGear gear)return gear.itemType;
         if(item instanceof OBJ_greatsword sword)return sword.itemType;
         if(item instanceof OBJ_rangerbow bow)return bow.itemType;

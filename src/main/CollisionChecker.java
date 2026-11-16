@@ -228,6 +228,7 @@ public class CollisionChecker {
         Rectangle now = new Rectangle(x, y, entity.solidArea.width, entity.solidArea.height);
         Rectangle moved = new Rectangle(x + dx, y + dy, entity.solidArea.width, entity.solidArea.height);
 
+        if(gp.crafting.blocks(moved) && !gp.crafting.blocks(now)){entity.collisionOn=true;return;}
         for(WorldObject o : gp.worldObjects){
             if(!o.blocks) continue;
             if(Math.abs(o.worldX - entity.worldX) > 300 || Math.abs(o.worldY - entity.worldY) > 300) continue; // cheap reject

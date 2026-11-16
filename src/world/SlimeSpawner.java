@@ -74,7 +74,11 @@ public final class SlimeSpawner {
     }
 
     private boolean clear(Rectangle area){
+        if(gp.crafting.blocks(area))return false;
         if(gp.tileM.blocksMovement(area.x,area.y,area.x+area.width-1,area.y+area.height-1))return false;
+        for(int row=Math.floorDiv(area.y,gp.tileSize);row<=Math.floorDiv(area.y+area.height-1,gp.tileSize);row++)
+            for(int col=Math.floorDiv(area.x,gp.tileSize);col<=Math.floorDiv(area.x+area.width-1,gp.tileSize);col++)
+                if(gp.buildings.coversGround(col,row))return false;
         int ts=gp.tileSize;
         for(int row=Math.floorDiv(area.y,ts);row<=Math.floorDiv(area.y+area.height-1,ts);row++)
             for(int col=Math.floorDiv(area.x,ts);col<=Math.floorDiv(area.x+area.width-1,ts);col++)

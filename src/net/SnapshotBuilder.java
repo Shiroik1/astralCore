@@ -79,6 +79,9 @@ public class SnapshotBuilder {
             ps.attacking = p.attacking;
             ps.ackTick = p.lastProcessedInputTick;
             ps.isDead = p.isDead;
+            ps.craftingLevel=p.craftingProgress.level;ps.craftingXP=p.craftingProgress.xp;
+            ps.craftingBonuses=p.craftingProgress.claimed.stream().sorted().toArray(String[]::new);
+            ps.meleeMasteryXP=p.meleeMasteryXP;ps.magicMasteryXP=p.magicMasteryXP;ps.bowMasteryXP=p.bowMasteryXP;
             ps.level = p.level;
             ps.exp = p.exp;
             ps.nextLevelExp = p.nextLevelExp;

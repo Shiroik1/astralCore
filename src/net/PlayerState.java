@@ -3,6 +3,8 @@ package net;
 import object.ItemType;
 
 public class PlayerState {
+    public int craftingLevel=1,craftingXP,meleeMasteryXP,magicMasteryXP,bowMasteryXP;
+    public String[] craftingBonuses=new String[0];
     public boolean merchantOpen;
     public boolean inWell;
     public int resolve;

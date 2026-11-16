@@ -157,6 +157,8 @@ public class GameClient {
             }
             if(ps.playerClass!=null)p.applySyncedClass(ps.playerClass);
             if(ps.gender!=null)p.gender="female".equals(ps.gender)?"female":"male";
+            p.craftingProgress.restore(ps.craftingLevel,ps.craftingXP,ps.craftingBonuses);
+            p.meleeMasteryXP=ps.meleeMasteryXP;p.magicMasteryXP=ps.magicMasteryXP;p.bowMasteryXP=ps.bowMasteryXP;
             if(ps.weaponType!=null && object.ItemRegistry.typeFor(p.currentWeapon)!=ps.weaponType){
                 p.currentWeapon=object.ItemRegistry.create(ps.weaponType,gp);p.attack=p.getAttack();appearanceChanged=true;
             }

@@ -211,6 +211,7 @@ public class GrassLayer {
 
         for(int r = r0; r <= r1; r++){
             for(int c = c0; c <= c1; c++){
+                if(gp.buildings.coversGround(c,r))continue;
                 int v = cells[c][r];
                 if(v <= 8) continue;
                 int type = (v - 1) / 4;
@@ -239,6 +240,7 @@ public class GrassLayer {
 
         for(int r = r0; r <= r1; r++){
             for(int c = c0; c <= c1; c++){
+                if(gp.buildings.coversGround(c,r))continue;
                 int v = cells[c][r];
                 if(v <= 8) continue;
                 int type = (v - 1) / 4;
@@ -288,6 +290,7 @@ public class GrassLayer {
         int c0=Math.max(0,Math.floorDiv(left,ts)-2),c1=Math.min(cols-1,Math.floorDiv(left+gp.screenWidth,ts)+2);
         int r0=Math.max(0,Math.floorDiv(top,ts)-1),r1=Math.min(rows-1,Math.floorDiv(top+gp.screenHeight,ts)+3);
         for(int r=r0;r<=r1;r++) for(int c=c0;c<=c1;c++){
+            if(gp.buildings.coversGround(c,r))continue;
             int value=cells[c][r];if(value<=12)continue;
             int base=(r*cols+c)*MAX_PER_TILE,count=COUNT[(value-1)%4+1];
             for(int i=0;i<count;i++)layers.add(depthTufts[base+i]);

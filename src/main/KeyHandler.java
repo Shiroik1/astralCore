@@ -152,6 +152,11 @@ public class KeyHandler implements KeyListener {
             if(code==KeyEvent.VK_ESCAPE)gp.merchant.close();
             return;
         }
+        if(gp.crafting.key(code)) return;
+        if(code==KeyEvent.VK_F && gp.crafting.available()){
+            gp.crafting.recoverStation(gp.localPlayer());return;
+        }
+        if(gp.buildings.handleKey(code)) return;
         if(gp.grassEditor.active && gp.grassEditor.handleKey(code)) return; // brush keys are not skill keys
         if(code == KeyEvent.VK_T){
             showDebug = !showDebug;

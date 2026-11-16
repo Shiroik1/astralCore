@@ -1,0 +1,77 @@
+{
+  "elements": [
+    {
+      "id": "floor",
+      "name": "Wooden floor",
+      "shape": "FLOOR",
+      "atlas": "/building/floor.png"
+    },
+    {
+      "id": "wall",
+      "name": "Wooden wall",
+      "shape": "WALL",
+      "atlas": "/building/wall.png"
+    },
+    {
+      "id": "door",
+      "name": "Wooden door",
+      "shape": "DOOR",
+      "atlas": "/building/door.png",
+      "openAtlas": "/building/door-open.png"
+    },
+    {
+      "id": "cobblestone_floor",
+      "name": "Cobblestone floor",
+      "shape": "FLOOR",
+      "atlas": "/building/cobblestone-floor.png"
+    },
+    {
+      "id": "cobblestone_wall",
+      "name": "Cobblestone wall",
+      "shape": "WALL",
+      "atlas": "/building/cobblestone-wall.png"
+    },
+    {
+      "id": "reinforced_floor",
+      "name": "Reinforced timber floor",
+      "shape": "FLOOR",
+      "atlas": "/building/reinforced-floor.png"
+    },
+    {
+      "id": "reinforced_wall",
+      "name": "Reinforced timber wall",
+      "shape": "WALL",
+      "atlas": "/building/reinforced-wall.png"
+    },
+    {
+      "id": "concrete_floor",
+      "name": "Concrete floor",
+      "shape": "FLOOR",
+      "atlas": "/building/concrete-floor.png"
+    },
+    {
+      "id": "concrete_wall",
+      "name": "Concrete wall",
+      "shape": "WALL",
+      "atlas": "/building/concrete-wall.png"
+    },
+    {
+      "id": "stairs_wood",
+      "name": "Wooden stairs",
+      "shape": "STAIRS",
+      "atlas": "/building/stairs-wood.png"
+    },
+    {
+      "id": "stairs_stone",
+      "name": "Stone stairs",
+      "shape": "STAIRS",
+      "atlas": "/building/stairs-stone.png"
+    },
+    {
+      "id": "stairs_concrete",
+      "name": "Concrete stairs",
+      "shape": "STAIRS",
+      "atlas": "/building/stairs-concrete.png"
+    }
+  ]
+}

@@ -80,11 +80,21 @@ public enum ItemType {
     WAYGUARD_SWORD(art.PaladinGear.ROAD,art.PaladinGear.Piece.SWORD), KITE_SHIELD(art.PaladinGear.ROAD,art.PaladinGear.Piece.SHIELD), ROAD_WARDEN_ARMOR(art.PaladinGear.ROAD,art.PaladinGear.Piece.ARMOR),
     VOWSTEEL_SWORD(art.PaladinGear.VOW,art.PaladinGear.Piece.SWORD), HEATER_SHIELD(art.PaladinGear.VOW,art.PaladinGear.Piece.SHIELD), IRON_VOW_ARMOR(art.PaladinGear.VOW,art.PaladinGear.Piece.ARMOR),
     DAWNWARD_SWORD(art.PaladinGear.DAWN,art.PaladinGear.Piece.SWORD), SUNCREST_SHIELD(art.PaladinGear.DAWN,art.PaladinGear.Piece.SHIELD), DAWN_BASTION_ARMOR(art.PaladinGear.DAWN,art.PaladinGear.Piece.ARMOR),
-    CITADEL_BLADE(art.PaladinGear.CITADEL,art.PaladinGear.Piece.SWORD), BASTION_SHIELD(art.PaladinGear.CITADEL,art.PaladinGear.Piece.SHIELD), CITADEL_KEEPER_ARMOR(art.PaladinGear.CITADEL,art.PaladinGear.Piece.ARMOR);
+    CITADEL_BLADE(art.PaladinGear.CITADEL,art.PaladinGear.Piece.SWORD), BASTION_SHIELD(art.PaladinGear.CITADEL,art.PaladinGear.Piece.SHIELD), CITADEL_KEEPER_ARMOR(art.PaladinGear.CITADEL,art.PaladinGear.Piece.ARMOR),
+    TWIG("twig"), STONE("stone"), LOG("log"), FIBER("fiber"),
+    PLANK("plank"), CHARCOAL("charcoal"), IRON_ORE("iron_ore"), IRON_INGOT("iron_ingot"),
+    WOODEN_ARROW("wooden_arrow"), WOODEN_AXE("wooden_axe"), WOODEN_SWORD("wooden_sword"), WOODEN_BOW("wooden_bow"),
+    WOODEN_STAFF("wooden_staff"), CRUDE_PICKAXE("crude_pickaxe"), IMPROVED_WOODEN_AXE("improved_wooden_axe"), IRON_SWORD("iron_sword"),
+    IRON_AXE("iron_axe"), IRON_PICKAXE("iron_pickaxe"), WORKBENCH("workbench"), CAMPFIRE("campfire"),
+    BASIC_FORGE("basic_forge"), WOODEN_CHEST("wooden_chest"), SIMPLE_BED("simple_bed"), WOODEN_FLOOR("wooden_floor"),
+    WOODEN_WALL("wooden_wall"), WOODEN_DOOR("wooden_door");
 
     final Class<? extends Entity> itemClass;
     final Function<Gamepanel, Entity> factory;
 
+    ItemType(String craftingId){
+        itemClass=OBJ_crafted.class;factory=gp->new OBJ_crafted(gp,this,craftingId);
+    }
     ItemType(){
         this.itemClass=OBJ_supply.class;this.factory=gp -> new OBJ_supply(gp,this);
     }

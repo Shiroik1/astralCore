@@ -129,6 +129,7 @@ public class UI {
     }
 
     public void update(int mouseX, int mouseY, boolean clicked){
+        if(gp.gameState==gp.playState && gp.crafting.open){if(clicked){gp.crafting.ui.click(mouseX,mouseY);gp.mouseH.leftClicked=false;gp.mouseH.leftPressed=false;}return;}
         if(gp.gameState==gp.characterState){
             int step=gp.keyH.characterCreationStep;
             if(gp.keyH.characterCreationStep==2)customization.update(mouseX,mouseY,clicked);
@@ -251,6 +252,7 @@ public class UI {
             }
             drawCombatLog();
             gp.grassEditor.drawHud(g2, jetbrainsMono);
+            gp.buildings.drawHud(g2, jetbrainsMono);
             drawSkillHotbar();
 
             if(gp.inventoryOpen){
@@ -259,6 +261,7 @@ public class UI {
             }
 
             if(local!=null && local.merchantOpen)gp.merchant.draw(g2);
+            gp.crafting.ui.draw(g2,jetbrainsMono);
 
             if(local != null && local.isDead){
                 drawDeathScreen();
