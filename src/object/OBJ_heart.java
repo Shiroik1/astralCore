@@ -1,13 +1,13 @@
 package object;
 
 import entity.Entity;
-import main.Gamepanel;
 
-import javax.imageio.ImageIO;
+import main.Gamepanel;
 
 public class OBJ_heart extends Entity {
 
-    public OBJ_heart(Gamepanel gp){
+    /** Creates a OBJ_heart instance and initializes the state required by its collaborators. */
+    public OBJ_heart(Gamepanel gp) {
         super(gp);
         name = "Heart";
         type = type_pickuponly;
@@ -19,7 +19,8 @@ public class OBJ_heart extends Entity {
         image2 = setup("/object/heart_blank", gp.tileSize, gp.tileSize);
     }
 
-    public void use(Entity entity){
+    /** Performs the use operation for OBJ_heart. */
+    public void use(Entity entity) {
         gp.playSE(2);
         entity.HP += value;
     }

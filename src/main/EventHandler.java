@@ -1,6 +1,7 @@
 package main;
 
 import entity.Player;
+
 import net.GameEventType;
 
 import java.awt.*;
@@ -11,14 +12,15 @@ public class EventHandler {
 
     boolean canTouchEvent = true;
 
-    public EventHandler(Gamepanel gp){
+    /** Creates a EventHandler instance and initializes the state required by its collaborators. */
+    public EventHandler(Gamepanel gp) {
         this.gp = gp;
 
         eventRect = new EventRect[gp.maxWorldCol][gp.maxWorldRow];
 
         int col = 0;
         int row = 0;
-        while(col < gp.maxWorldCol && row < gp.maxWorldRow){
+        while (col < gp.maxWorldCol && row < gp.maxWorldRow) {
             eventRect[col][row] = new EventRect();
             eventRect[col][row].x = 23;
             eventRect[col][row].y = 23;
@@ -28,50 +30,63 @@ public class EventHandler {
             eventRect[col][row].eventRectDefaultY = eventRect[col][row].y;
 
             col++;
-            if(col == gp.maxWorldCol){
+            if (col == gp.maxWorldCol) {
                 col = 0;
                 row++;
             }
         }
     }
 
-    public void checkEvent(Player player){
+    /** Performs the check event operation for EventHandler. */
+    public void checkEvent(Player player) {
         int xDistance = Math.abs(player.worldX - player.previousEventX);
         int yDistance = Math.abs(player.worldY - player.previousEventY);
         int distance = Math.max(xDistance, yDistance);
-        if(distance > gp.tileSize){
+        if (distance > gp.tileSize) {
             player.canTouchEvent = true;
         }
     }
 
-    public void healingPool(int col, int row, Player player){
-        if(player.currentInput != null && player.currentInput.ePressed && player.canResolveWorldActions()){
+    /** Performs the healing pool operation for EventHandler. */
+    public void healingPool(int col, int row, Player player) {
+        if (player.currentInput != null
+                && player.currentInput.ePressed
+                && player.canResolveWorldActions()) {
             player.attackCanceled = true;
             int healedAmount = player.maxHP - player.HP;
             player.HP = player.maxHP;
             player.MP = player.maxMP;
             gp.playSE(2);
-            gp.broadcastPlayerEvent(player.playerId, GameEventType.HEAL,
-                    "Player " + (player.playerId + 1) + " drank the aqua of life and was fully healed!",
+            gp.broadcastPlayerEvent(
+                    player.playerId,
+                    GameEventType.HEAL,
+                    "Player "
+                            + (player.playerId + 1)
+                            + " drank the aqua of life and was fully healed!",
                     "You drink the aqua of life.\nYour wounds have been fully healed!");
-            if(healedAmount > 0){
-                gp.spawnFloatingText(player.worldX + gp.tileSize/2, player.worldY, "+" + healedAmount, new Color(120, 220, 120));
+            if (healedAmount > 0) {
+                gp.spawnFloatingText(
+                        player.worldX + gp.tileSize / 2,
+                        player.worldY,
+                        "+" + healedAmount,
+                        new Color(120, 220, 120));
             }
             gp.assetSetter.setMonster();
             player.canTouchEvent = false;
         }
     }
 
-    public boolean hit(int col, int row, String reqDirection, Player player){
+    /** Evaluates the hit condition for EventHandler. */
+    public boolean hit(int col, int row, String reqDirection, Player player) {
         boolean hit = false;
 
         player.solidArea.x = player.worldX + player.solidArea.x;
         player.solidArea.y = player.worldY + player.solidArea.y;
-        eventRect[col][row].x = col*gp.tileSize + eventRect[col][row].x;
-        eventRect[col][row].y = row*gp.tileSize + eventRect[col][row].y;
+        eventRect[col][row].x = col * gp.tileSize + eventRect[col][row].x;
+        eventRect[col][row].y = row * gp.tileSize + eventRect[col][row].y;
 
-        if(player.solidArea.intersects(eventRect[col][row]) && !eventRect[col][row].eventDone){
-            if(player.direction.contentEquals(reqDirection) || reqDirection.contentEquals("any")){
+        if (player.solidArea.intersects(eventRect[col][row]) && !eventRect[col][row].eventDone) {
+            if (player.direction.contentEquals(reqDirection) || reqDirection.contentEquals("any")) {
                 hit = true;
                 player.previousEventX = player.worldX;
                 player.previousEventY = player.worldY;

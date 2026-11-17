@@ -4,14 +4,20 @@ import java.awt.image.BufferedImage;
 
 public class Skill {
     public String name;
-    public String description="";
+    public String description = "";
     public int resourceCost;
     public int cooldownDuration; // ticks
     public int cooldownRemaining = 0;
     public BufferedImage icon;
     public Runnable onUse;
 
-    public Skill(String name, int resourceCost, int cooldownDuration, Runnable onUse, BufferedImage icon){
+    /** Creates a Skill instance and initializes the state required by its collaborators. */
+    public Skill(
+            String name,
+            int resourceCost,
+            int cooldownDuration,
+            Runnable onUse,
+            BufferedImage icon) {
         this.name = name;
         this.resourceCost = resourceCost;
         this.cooldownDuration = cooldownDuration;
@@ -19,17 +25,20 @@ public class Skill {
         this.onUse = onUse;
     }
 
-    public boolean isReady(){
+    /** Reports whether ready for Skill. */
+    public boolean isReady() {
         return cooldownRemaining <= 0;
     }
 
-    public void update(){
-        if(cooldownRemaining > 0){
+    /** Advances this component for one simulation tick. */
+    public void update() {
+        if (cooldownRemaining > 0) {
             cooldownRemaining--;
         }
     }
 
-    public void trigger(){
+    /** Performs the trigger operation for Skill. */
+    public void trigger() {
         cooldownRemaining = cooldownDuration;
         onUse.run();
     }

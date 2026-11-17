@@ -26,8 +26,17 @@ public enum TownProp {
     final int width, height, footX, footY, left, top, solidWidth, solidHeight;
     final boolean interactive;
 
-    TownProp(int width, int height, int footX, int footY, int left, int top, int solidWidth, int solidHeight,
-             boolean interactive){
+    /** Creates a TownProp instance and initializes the state required by its collaborators. */
+    TownProp(
+            int width,
+            int height,
+            int footX,
+            int footY,
+            int left,
+            int top,
+            int solidWidth,
+            int solidHeight,
+            boolean interactive) {
         this.width = width;
         this.height = height;
         this.footX = footX;
@@ -39,7 +48,8 @@ public enum TownProp {
         this.interactive = interactive;
     }
 
-    String assetName(){
+    /** Resolves the asset name result used by TownProp. */
+    String assetName() {
         return name().toLowerCase(Locale.ROOT);
     }
 }

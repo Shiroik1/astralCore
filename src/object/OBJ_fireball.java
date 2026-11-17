@@ -2,11 +2,13 @@ package object;
 
 import entity.Entity;
 import entity.Projectile;
+
 import main.Gamepanel;
 
 import java.awt.*;
 
 public class OBJ_fireball extends Projectile {
+    /** Creates a OBJ_fireball instance and initializes the state required by its collaborators. */
     public OBJ_fireball(Gamepanel gp) {
         super(gp);
         name = "Fireball";
@@ -20,6 +22,7 @@ public class OBJ_fireball extends Projectile {
         getImage();
     }
 
+    /** Returns the image for OBJ_fireball. */
     private void getImage() {
         up1 = setup("/projectile/fireball_up_1", gp.tileSize, gp.tileSize);
         up2 = setup("/projectile/fireball_up_2", gp.tileSize, gp.tileSize);
@@ -31,34 +34,40 @@ public class OBJ_fireball extends Projectile {
         right2 = setup("/projectile/fireball_right_2", gp.tileSize, gp.tileSize);
     }
 
-    public boolean hasResource(Entity user){
+    /** Reports whether this component has resource for OBJ_fireball. */
+    public boolean hasResource(Entity user) {
         boolean hasResource = false;
-        if(user.MP >= useCost){
+        if (user.MP >= useCost) {
             hasResource = true;
         }
         return hasResource;
     }
 
-    public void subtractResource(Entity user){
+    /** Performs the subtract resource operation for OBJ_fireball. */
+    public void subtractResource(Entity user) {
         user.MP -= useCost;
     }
 
-    public Color getParticleColor(){
+    /** Returns the particle color for OBJ_fireball. */
+    public Color getParticleColor() {
         Color color = new Color(255, 72, 0);
-        return  color;
+        return color;
     }
 
-    public int getParticleSize(){
+    /** Returns the particle size for OBJ_fireball. */
+    public int getParticleSize() {
         int size = 8;
         return size;
     }
 
-    public int getParticleSpeed(){
+    /** Returns the particle speed for OBJ_fireball. */
+    public int getParticleSpeed() {
         int speed = 1;
         return speed;
     }
 
-    public int getParticleMaxHP(){
+    /** Returns the particle max hp for OBJ_fireball. */
+    public int getParticleMaxHP() {
         int maxHP = 20;
         return maxHP;
     }

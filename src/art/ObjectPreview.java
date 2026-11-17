@@ -1,6 +1,5 @@
 package art;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -8,19 +7,27 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import javax.imageio.ImageIO;
+
 public class ObjectPreview {
     static final int T = 48;
 
+    /** Starts this application or command-line tool using the supplied arguments. */
     public static void main(String[] args) throws Exception {
         new File("art_preview").mkdirs();
         ObjectArt art = new ObjectArt(T);
         ImageIO.write(sheet(art), "png", new File("art_preview/objects_sheet.png"));
         ImageIO.write(scene(art), "png", new File("art_preview/town_scene.png"));
-        ImageIO.write(ArtPreview.scene(new GroundTiles(T)), "png", new File("art_preview/ground_scene.png"));
-        System.out.println("Wrote objects_sheet.png, town_scene.png and ground_scene.png in art_preview/");
+        ImageIO.write(
+                ArtPreview.scene(new GroundTiles(T)),
+                "png",
+                new File("art_preview/ground_scene.png"));
+        System.out.println(
+                "Wrote objects_sheet.png, town_scene.png and ground_scene.png in art_preview/");
     }
 
-    static List<ObjectArt.Sprite> all(ObjectArt a){
+    /** Resolves the all result used by ObjectPreview. */
+    static List<ObjectArt.Sprite> all(ObjectArt a) {
         List<ObjectArt.Sprite> list = new ArrayList<>();
         list.add(a.oak(1));
         list.add(a.oak(2));
@@ -45,17 +52,19 @@ public class ObjectPreview {
         return list;
     }
 
-    //SHEET: every object at 2x on the ground colour, with the collision box in red and the foot point marked
-    static BufferedImage sheet(ObjectArt art){
+    // SHEET: every object at 2x on the ground colour, with the collision box in red and the foot
+    // point marked
+    /** Resolves the sheet result used by ObjectPreview. */
+    static BufferedImage sheet(ObjectArt art) {
         List<ObjectArt.Sprite> sprites = all(art);
         int pad = 24, maxW = 2000, scale = 2;
 
         int x = pad, y = pad, rowH = 0;
         int[][] pos = new int[sprites.size()][2];
-        for(int i = 0; i < sprites.size(); i++){
+        for (int i = 0; i < sprites.size(); i++) {
             ObjectArt.Sprite sp = sprites.get(i);
             int w = sp.image.getWidth() * scale, h = sp.image.getHeight() * scale;
-            if(x + w + pad > maxW){
+            if (x + w + pad > maxW) {
                 x = pad;
                 y += rowH + pad + 18;
                 rowH = 0;
@@ -72,17 +81,20 @@ public class ObjectPreview {
         g.setColor(Palette.GROUND[1]);
         g.fillRect(0, 0, maxW, totalH);
 
-        for(int i = 0; i < sprites.size(); i++){
+        for (int i = 0; i < sprites.size(); i++) {
             ObjectArt.Sprite sp = sprites.get(i);
             int px = pos[i][0], py = pos[i][1];
             int w = sp.image.getWidth() * scale, h = sp.image.getHeight() * scale;
             g.drawImage(sp.image, px, py, w, h, null);
 
-            if(sp.collision.width > 0){
+            if (sp.collision.width > 0) {
                 g.setColor(new Color(255, 60, 60, 220));
                 g.setStroke(new BasicStroke(1f));
-                g.drawRect(px + (sp.footX + sp.collision.x) * scale, py + (sp.footY + sp.collision.y) * scale,
-                        sp.collision.width * scale, sp.collision.height * scale);
+                g.drawRect(
+                        px + (sp.footX + sp.collision.x) * scale,
+                        py + (sp.footY + sp.collision.y) * scale,
+                        sp.collision.width * scale,
+                        sp.collision.height * scale);
             }
             g.setColor(new Color(255, 60, 60));
             g.fillOval(px + sp.footX * scale - 3, py + sp.footY * scale - 3, 6, 6);
@@ -94,14 +106,18 @@ public class ObjectPreview {
         return img;
     }
 
-    //TOWN SCENE: the ground from before, with objects placed by tile and drawn back-to-front
-    record Placement(ObjectArt.Sprite sprite, int col, int row){}
+    // TOWN SCENE: the ground from before, with objects placed by tile and drawn back-to-front
+    record Placement(ObjectArt.Sprite sprite, int col, int row) {}
 
-    static BufferedImage scene(ObjectArt art){
+    /** Resolves the scene result used by ObjectPreview. */
+    static BufferedImage scene(ObjectArt art) {
         BufferedImage img = ArtPreview.scene(new GroundTiles(T));
         Graphics2D g = img.createGraphics();
 
-        ObjectArt.Sprite oak1 = art.oak(1), oak2 = art.oak(2), pine1 = art.pine(1), pine2 = art.pine(2);
+        ObjectArt.Sprite oak1 = art.oak(1),
+                oak2 = art.oak(2),
+                pine1 = art.pine(1),
+                pine2 = art.pine(2);
         ObjectArt.Sprite bush = art.bush(false), flowerBush = art.bush(true);
         ObjectArt.Sprite rock = art.rockSmall(), bigRock = art.rockLarge(), stump = art.stump();
         ObjectArt.Sprite fenceH = art.fenceH(), fenceV = art.fenceV();
@@ -140,8 +156,8 @@ public class ObjectPreview {
         list.add(new Placement(bigRock, 30, 19));
         list.add(new Placement(stump, 3, 15));
 
-        for(int c = 4; c <= 9; c++) list.add(new Placement(fenceH, c, 9));
-        for(int r = 5; r <= 8; r++) list.add(new Placement(fenceV, 12, r));
+        for (int c = 4; c <= 9; c++) list.add(new Placement(fenceH, c, 9));
+        for (int r = 5; r <= 8; r++) list.add(new Placement(fenceV, 12, r));
 
         list.add(new Placement(well, 31, 12));
         list.add(new Placement(lantern, 28, 9));
@@ -154,7 +170,7 @@ public class ObjectPreview {
         list.add(new Placement(chest, 29, 8));
 
         list.sort(Comparator.comparingInt((Placement p) -> p.row()).thenComparingInt(p -> p.col()));
-        for(Placement p : list){
+        for (Placement p : list) {
             int x = p.col() * T + T / 2 - p.sprite().footX;
             int y = (p.row() + 1) * T - 4 - p.sprite().footY;
             g.drawImage(p.sprite().image, x, y, null);

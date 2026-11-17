@@ -15,5 +15,5 @@ public class WorldSnapshot {
     public NpcState[] npcs;
     public byte[] sceneryState;
     public float dayTime;
-    public int worldDay,moonWarningDay;
+    public int worldDay, moonWarningDay;
 }

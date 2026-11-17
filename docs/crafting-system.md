@@ -52,7 +52,7 @@ New files:
 
 - `src/crafting/RecipeRegistry.java`, `CraftingProgression.java`, `InventoryTransaction.java`: definitions, unlocks/XP and atomic bag changes.
 - `src/crafting/CraftingManager.java`: gathering, station placement/recovery, proximity, resource generation/state and component costs.
-- `src/crafting/CraftingUI.java`, `CraftingArt.java`, `CraftedBolt.java`: overlay, icons/fallbacks and beginner ranged weapons.
+- `src/crafting/CraftingUI.java`, `CraftingArt.java`: overlay and icons/fallbacks. Beginner ranged weapons use the Bow/Staff combat controllers; the retired `CraftedBolt` implementation has been removed.
 - `src/object/OBJ_crafted.java`: items integrated into the existing Entity/equipment system.
 - `src/art/GenerateCraftingTextures.java`, `assets/reference/crafting/crafting-source.png`, `res/crafting/recipes.json` and nine exported sprite PNGs.
 

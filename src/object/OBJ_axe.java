@@ -1,9 +1,11 @@
 package object;
 
 import entity.Entity;
+
 import main.Gamepanel;
 
 public class OBJ_axe extends Entity {
+    /** Creates a OBJ_axe instance and initializes the state required by its collaborators. */
     public OBJ_axe(Gamepanel gp) {
         super(gp);
         name = "Hunter's Axe";

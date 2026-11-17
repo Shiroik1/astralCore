@@ -1,11 +1,13 @@
 package object;
 
 import entity.Projectile;
+
 import main.Gamepanel;
 
 import java.awt.*;
 
 public class OBJ_rock extends Projectile {
+    /** Creates a OBJ_rock instance and initializes the state required by its collaborators. */
     public OBJ_rock(Gamepanel gp) {
         super(gp);
         name = "Rock";
@@ -19,6 +21,7 @@ public class OBJ_rock extends Projectile {
         getImage();
     }
 
+    /** Returns the image for OBJ_rock. */
     private void getImage() {
         up1 = setup("/projectile/rock_down_1", gp.tileSize, gp.tileSize);
         up2 = setup("/projectile/rock_down_1", gp.tileSize, gp.tileSize);
@@ -30,22 +33,26 @@ public class OBJ_rock extends Projectile {
         right2 = setup("/projectile/rock_down_1", gp.tileSize, gp.tileSize);
     }
 
-    public Color getParticleColor(){
-        Color color = new Color(65,50,50);
-        return  color;
+    /** Returns the particle color for OBJ_rock. */
+    public Color getParticleColor() {
+        Color color = new Color(65, 50, 50);
+        return color;
     }
 
-    public int getParticleSize(){
+    /** Returns the particle size for OBJ_rock. */
+    public int getParticleSize() {
         int size = 8;
         return size;
     }
 
-    public int getParticleSpeed(){
+    /** Returns the particle speed for OBJ_rock. */
+    public int getParticleSpeed() {
         int speed = 1;
         return speed;
     }
 
-    public int getParticleMaxHP(){
+    /** Returns the particle max hp for OBJ_rock. */
+    public int getParticleMaxHP() {
         int maxHP = 20;
         return maxHP;
     }

@@ -1,6 +1,5 @@
 package art;
 
-import javax.imageio.ImageIO;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Shape;
@@ -13,6 +12,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
+import javax.imageio.ImageIO;
+
 /** Exports the transparent foliage sprites. Seasonal trees are kept in separate directories. */
 public final class GenerateFoliageTextures {
     private static final int TILE = GroundTiles.ART_TILE_SIZE;
@@ -23,25 +24,45 @@ public final class GenerateFoliageTextures {
     private static final Shape LEAF_CLUSTER = leafCluster();
     private static final Shape NEEDLES = needleTier();
 
-    private enum Season { GREEN, SNOWY, YELLOW }
+    private enum Season {
+        GREEN,
+        SNOWY,
+        YELLOW
+    }
 
     private record Leaves(Color deep, Color shade, Color base, Color light, Color tips) {}
 
     private static final Color PINE_UPPER = ArtKit.mix(Palette.FOLIAGE_DARK, Palette.FOLIAGE, 0.6f);
-    private static final Leaves PINE = new Leaves(ArtKit.shade(Palette.FOLIAGE_DARK), Palette.FOLIAGE_DARK,
-            ArtKit.mix(Palette.FOLIAGE_DARK, Palette.FOLIAGE, 0.3f), PINE_UPPER, ArtKit.light(PINE_UPPER));
-    private static final Leaves OAK = new Leaves(ArtKit.shade(Palette.FOLIAGE), Palette.FOLIAGE_DARK,
-            Palette.FOLIAGE, ArtKit.mix(Palette.FOLIAGE, Palette.FOLIAGE_LIGHT, 0.42f), Palette.FOLIAGE_LIGHT);
-    private static final Leaves GOLD_PINE = leaves(0x786D50, 0x91815A, 0xAA925E, 0xC5A466, 0xD8B779);
+    private static final Leaves PINE =
+            new Leaves(
+                    ArtKit.shade(Palette.FOLIAGE_DARK),
+                    Palette.FOLIAGE_DARK,
+                    ArtKit.mix(Palette.FOLIAGE_DARK, Palette.FOLIAGE, 0.3f),
+                    PINE_UPPER,
+                    ArtKit.light(PINE_UPPER));
+    private static final Leaves OAK =
+            new Leaves(
+                    ArtKit.shade(Palette.FOLIAGE),
+                    Palette.FOLIAGE_DARK,
+                    Palette.FOLIAGE,
+                    ArtKit.mix(Palette.FOLIAGE, Palette.FOLIAGE_LIGHT, 0.42f),
+                    Palette.FOLIAGE_LIGHT);
+    private static final Leaves GOLD_PINE =
+            leaves(0x786D50, 0x91815A, 0xAA925E, 0xC5A466, 0xD8B779);
     private static final Leaves GOLD_OAK = leaves(0x7A6449, 0x9A7751, 0xB98D58, 0xD0A365, 0xE1B677);
     private static final Leaves SNOW = leaves(0x646E77, 0x8996A3, 0xB8C4CE, 0xD7E1E6, 0xEDF0ED);
 
+    /** Prevents instantiation of this utility class. */
     private GenerateFoliageTextures() {}
 
+    /** Starts this application or command-line tool using the supplied arguments. */
     public static void main(String[] args) throws IOException {
         Path output = Path.of(args.length == 0 ? "res/scenery/foliage" : args[0]);
         for (Season season : Season.values()) {
-            Path directory = season == Season.GREEN ? output : output.resolve(season.name().toLowerCase(Locale.ROOT));
+            Path directory =
+                    season == Season.GREEN
+                            ? output
+                            : output.resolve(season.name().toLowerCase(Locale.ROOT));
             Files.createDirectories(directory);
             for (int variant = 1; variant <= 2; variant++) {
                 write(directory, "pine_" + variant, pine(variant, season));
@@ -52,34 +73,42 @@ public final class GenerateFoliageTextures {
         write(output, "flower_bush", bush(true));
     }
 
+    /** Performs the write operation for GenerateFoliageTextures. */
     private static void write(Path directory, String name, BufferedImage image) throws IOException {
         ImageIO.write(image, "png", directory.resolve(name + ".png").toFile());
     }
 
+    /** Resolves the color result used by GenerateFoliageTextures. */
     private static Color color(int rgb) {
         return new Color(rgb);
     }
 
+    /** Resolves the leaves result used by GenerateFoliageTextures. */
     private static Leaves leaves(int deep, int shade, int base, int light, int tips) {
         return new Leaves(color(deep), color(shade), color(base), color(light), color(tips));
     }
 
+    /** Performs the oval operation for GenerateFoliageTextures. */
     private static void oval(Graphics2D g, Color fill, double x, double y, double rx, double ry) {
         g.setColor(fill);
         g.fill(new Ellipse2D.Double(x - rx, y - ry, rx * 2, ry * 2));
     }
 
+    /** Performs the fill operation for GenerateFoliageTextures. */
     private static void fill(Graphics2D g, Color color, Path2D path) {
         path.closePath();
         g.setColor(color);
         g.fill(path);
     }
 
-    private static void stamp(Graphics2D g, Shape shape, Color fill, double x, double y, double sx, double sy) {
+    /** Performs the stamp operation for GenerateFoliageTextures. */
+    private static void stamp(
+            Graphics2D g, Shape shape, Color fill, double x, double y, double sx, double sy) {
         g.setColor(fill);
         g.fill(new AffineTransform(sx, 0, 0, sy, x, y).createTransformedShape(shape));
     }
 
+    /** Resolves the pine result used by GenerateFoliageTextures. */
     private static BufferedImage pine(int variant, Season season) {
         ArtKit.Surface sprite = new ArtKit.Surface(2 * TILE, 4 * TILE);
         Graphics2D g = sprite.g;
@@ -104,6 +133,7 @@ public final class GenerateFoliageTextures {
         return sprite.finish();
     }
 
+    /** Performs the pine trunk operation for GenerateFoliageTextures. */
     private static void pineTrunk(Graphics2D g) {
         Path2D trunk = new Path2D.Double();
         trunk.moveTo(-8, -48);
@@ -125,17 +155,35 @@ public final class GenerateFoliageTextures {
         fill(g, BARK_SHADE, shade);
     }
 
-    private static void pineBough(Graphics2D g, Leaves colors, double x, double y, double height,
-                                  double width, Color face, boolean snowy) {
+    /** Performs the pine bough operation for GenerateFoliageTextures. */
+    private static void pineBough(
+            Graphics2D g,
+            Leaves colors,
+            double x,
+            double y,
+            double height,
+            double width,
+            Color face,
+            boolean snowy) {
         stamp(g, NEEDLES, ArtKit.mix(colors.deep, face, 0.45f), x, y + 5, width, height);
         stamp(g, NEEDLES, face, x - 1, y, width * 0.95, height * 0.91);
         // A shallow plane follows the lit left side of the bough.
         Path2D plane = new Path2D.Double();
         plane.moveTo(x - 2, y + 4);
-        plane.curveTo(x - width * 0.34, y + height * 0.31, x - width * 0.62, y + height * 0.67,
-                x - width * 0.90, y + height * 0.78);
-        plane.curveTo(x - width * 0.69, y + height * 0.84, x - width * 0.41, y + height * 0.69,
-                x - width * 0.31, y + height * 0.61);
+        plane.curveTo(
+                x - width * 0.34,
+                y + height * 0.31,
+                x - width * 0.62,
+                y + height * 0.67,
+                x - width * 0.90,
+                y + height * 0.78);
+        plane.curveTo(
+                x - width * 0.69,
+                y + height * 0.84,
+                x - width * 0.41,
+                y + height * 0.69,
+                x - width * 0.31,
+                y + height * 0.61);
         plane.quadTo(x - width * 0.30, y + height * 0.39, x - 2, y + 4);
         fill(g, ArtKit.mix(face, colors.tips, 0.40f), plane);
         if (snowy) {
@@ -144,6 +192,7 @@ public final class GenerateFoliageTextures {
         }
     }
 
+    /** Resolves the needle tier result used by GenerateFoliageTextures. */
     private static Shape needleTier() {
         Path2D p = new Path2D.Double();
         p.moveTo(-0.04, 0.02);
@@ -161,6 +210,7 @@ public final class GenerateFoliageTextures {
         return p;
     }
 
+    /** Resolves the oak result used by GenerateFoliageTextures. */
     private static BufferedImage oak(int variant, Season season) {
         ArtKit.Surface sprite = new ArtKit.Surface(3 * TILE, 4 * TILE);
         Graphics2D g = sprite.g;
@@ -198,6 +248,7 @@ public final class GenerateFoliageTextures {
         return sprite.finish();
     }
 
+    /** Performs the oak trunk operation for GenerateFoliageTextures. */
     private static void oakTrunk(Graphics2D g) {
         Path2D bark = new Path2D.Double();
         bark.moveTo(-24, 0);
@@ -244,15 +295,20 @@ public final class GenerateFoliageTextures {
         fill(g, BARK_LIGHT, grain);
     }
 
-    private static void cluster(Graphics2D g, Color fill, double x, double y, double width, double height) {
+    /** Performs the cluster operation for GenerateFoliageTextures. */
+    private static void cluster(
+            Graphics2D g, Color fill, double x, double y, double width, double height) {
         stamp(g, LEAF_CLUSTER, fill, x, y, width, height);
     }
 
-    private static void crown(Graphics2D g, Color shade, Color light, double x, double y, double w, double h) {
+    /** Performs the crown operation for GenerateFoliageTextures. */
+    private static void crown(
+            Graphics2D g, Color shade, Color light, double x, double y, double w, double h) {
         cluster(g, shade, x, y, w, h);
         cluster(g, light, x - 2, y - 4, w * 0.89, h * 0.81);
     }
 
+    /** Resolves the leaf cluster result used by GenerateFoliageTextures. */
     private static Shape leafCluster() {
         Path2D p = new Path2D.Double();
         p.moveTo(-0.98, 0.07);
@@ -271,6 +327,7 @@ public final class GenerateFoliageTextures {
         return p;
     }
 
+    /** Resolves the bush result used by GenerateFoliageTextures. */
     private static BufferedImage bush(boolean flowers) {
         ArtKit.Surface sprite = new ArtKit.Surface(2 * TILE, TILE);
         Graphics2D g = sprite.g;

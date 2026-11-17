@@ -81,3 +81,12 @@ Building preset authoring lives in `maps/blueprints/`, separate from per-world p
 ## Modular cliff family
 
 Generator-ten cliffs use the nine native 48px RGBA sheets `res/ground/cliff-top-0.png` through `cliff-top-3.png`, `cliff-middle.png`, `cliff-side-left.png`, `cliff-side-right.png`, `cliff-lip.png` and `cliff-foot.png`. `cliff-tiles.json` documents the exact mask/variant mapping. `GenerateCliffTextures` samples existing ground/ledge/path/cobble PNGs and exports this family with 4× supersampling; `GenerateGroundTextures --cliffs` is the narrow export entry point. Existing grass, ledge, stair and reference/seasonal artwork is retained. The actual game ground/tone blend is composed through exported cap alpha during cache baking. See [cliff redesign](cliff-redesign.md) for connections, continuous height stacking and verification status.
+
+## Retired Mage skill icons
+
+The five former Mage-kit icons (`ember_sigil`, `frost_lattice`, `mana_infusion`,
+`arcane_detonation`, and `cometfall`) have no current source or catalog consumers.
+They were moved from `res/skill_icon/mage/` to
+`assets/reference/legacy-skill-icons/mage/`. They remain available for reuse but
+are no longer shipped as unused runtime resources. Dynamically selected art,
+seasonal variants, and source/reference sheets remain intact.

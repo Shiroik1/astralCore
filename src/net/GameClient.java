@@ -3,15 +3,19 @@ package net;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
+
 import entity.Entity;
+import entity.MageEffect;
 import entity.Player;
 import entity.RangerEffect;
-import entity.MageEffect;
+
 import main.Gamepanel;
 import main.Log;
+
 import monster.MON_GreenSlime;
 import monster.MON_SlimeBoss;
 import monster.MonsterType;
+
 import world.InnInterior;
 import world.WorldObject;
 
@@ -30,41 +34,48 @@ public class GameClient {
     private volatile boolean hostLost = false;
     private boolean joinComplete;
 
-    public GameClient(Gamepanel gp){
+    /** Creates a GameClient instance and initializes the state required by its collaborators. */
+    public GameClient(Gamepanel gp) {
         this.gp = gp;
     }
 
+    /** Performs the connect operation for GameClient. */
     public void connect(String hostAddress, int port) throws IOException {
         client = new Client();
         NetworkRegistration.register(client);
         client.start();
-        Log.debug("[CLIENT] client.start() done, attempting connect to " + hostAddress + ":" + port);
+        Log.debug(
+                "[CLIENT] client.start() done, attempting connect to " + hostAddress + ":" + port);
 
-        client.addListener(new Listener(){
-            @Override
-            public void connected(Connection connection){
-                System.out.println("[CLIENT] connected() fired");
-            }
+        client.addListener(
+                new Listener() {
+                    /** Performs the connected operation for . */
+                    @Override
+                    public void connected(Connection connection) {
+                        System.out.println("[CLIENT] connected() fired");
+                    }
 
-            @Override
-            public void disconnected(Connection connection){
-                Log.debug("[CLIENT] disconnected() fired");
-                hostLost = true;
-            }
+                    /** Performs the disconnected operation for . */
+                    @Override
+                    public void disconnected(Connection connection) {
+                        Log.debug("[CLIENT] disconnected() fired");
+                        hostLost = true;
+                    }
 
-            @Override
-            public void received(Connection connection, Object object){
-                if(object instanceof JoinAccepted accepted){
-                    pendingJoinAccepted.add(accepted);
-                }
-                if(object instanceof WorldSnapshot snapshot) {
-                    pendingSnapshots.add(snapshot);
-                }
-                if(object instanceof GameEvent event){
-                    pendingEvents.add(event);
-                }
-            }
-        });
+                    /** Performs the received operation for . */
+                    @Override
+                    public void received(Connection connection, Object object) {
+                        if (object instanceof JoinAccepted accepted) {
+                            pendingJoinAccepted.add(accepted);
+                        }
+                        if (object instanceof WorldSnapshot snapshot) {
+                            pendingSnapshots.add(snapshot);
+                        }
+                        if (object instanceof GameEvent event) {
+                            pendingEvents.add(event);
+                        }
+                    }
+                });
 
         client.connect(5000, hostAddress, port);
         Log.debug("[CLIENT] client.connect() call itself returned (no exception thrown)");
@@ -73,133 +84,190 @@ public class GameClient {
         request.playerName = gp.localPlayer().playerName;
         request.playerClass = gp.localPlayer().playerClass;
         request.gender = gp.localPlayer().gender;
-        request.characterState=save.CharacterState.capture(gp,gp.localPlayer());
+        request.characterState = save.CharacterState.capture(gp, gp.localPlayer());
         client.sendTCP(request);
 
         Log.debug("[CLIENT] JoinRequest sent");
     }
 
-    public void sendInput(InputState input){
-        if(client != null && client.isConnected()){
+    /** Performs the send input operation for GameClient. */
+    public void sendInput(InputState input) {
+        if (client != null && client.isConnected()) {
             client.sendTCP(input);
         }
     }
 
     // Called once per tick from Gamepanel.update(), on the game thread.
-    public void processPendingJoinAccepted(){
+    /** Performs the process pending join accepted operation for GameClient. */
+    public void processPendingJoinAccepted() {
         JoinAccepted accepted;
-        while((accepted = pendingJoinAccepted.poll()) != null){
+        while ((accepted = pendingJoinAccepted.poll()) != null) {
             int assigned = accepted.assignedPlayerId;
             Player existingLocal = gp.players[gp.localPlayerIndex];
             gp.players[gp.localPlayerIndex] = null;
             gp.localPlayerIndex = assigned;
             existingLocal.playerId = assigned;
             gp.players[assigned] = existingLocal;
-            joinComplete=true;
+            joinComplete = true;
             gp.ui.addMessage("Joined as player " + assigned + ".", java.awt.Color.green);
         }
     }
 
-    public void applyPendingSnapshots(){
-        if(!joinComplete)return;
+    /** Applies the pending snapshots for GameClient. */
+    public void applyPendingSnapshots() {
+        if (!joinComplete) return;
         WorldSnapshot latest = null;
         WorldSnapshot next;
-        while((next = pendingSnapshots.poll()) != null){
+        while ((next = pendingSnapshots.poll()) != null) {
             latest = next; // only the newest matters for now — interpolation buffering is Step 5
         }
-        if(latest != null){
+        if (latest != null) {
             applySnapshot(latest);
         }
     }
 
-    private final java.util.Map<Boolean,java.util.ArrayList<object.OBJ_slimebolt>> boltsByArea=new java.util.HashMap<>();
-    private void applySlimeProjectiles(SlimeProjectileState[] states){
-        if(states==null)return;
-        var replicatedSlimeBolts=boltsByArea.computeIfAbsent(gp.quests.inDungeon(),key->new java.util.ArrayList<>());
-        while(replicatedSlimeBolts.size()>states.length){
-            var removed=replicatedSlimeBolts.removeLast();gp.projectileList.remove(removed);
+    private final java.util.Map<Boolean, java.util.ArrayList<object.OBJ_slimebolt>> boltsByArea =
+            new java.util.HashMap<>();
+
+    /** Applies the slime projectiles for GameClient. */
+    private void applySlimeProjectiles(SlimeProjectileState[] states) {
+        if (states == null) return;
+        var replicatedSlimeBolts =
+                boltsByArea.computeIfAbsent(
+                        gp.quests.inDungeon(), key -> new java.util.ArrayList<>());
+        while (replicatedSlimeBolts.size() > states.length) {
+            var removed = replicatedSlimeBolts.removeLast();
+            gp.projectileList.remove(removed);
         }
-        for(int i=0;i<states.length;i++){
-            SlimeProjectileState state=states[i];
-            if(i==replicatedSlimeBolts.size())replicatedSlimeBolts.add(new object.OBJ_slimebolt(gp,state.hell));
-            object.OBJ_slimebolt bolt=replicatedSlimeBolts.get(i);
-            if(bolt.hell!=state.hell){gp.projectileList.remove(bolt);bolt=new object.OBJ_slimebolt(gp,state.hell);replicatedSlimeBolts.set(i,bolt);}
-            bolt.replicaVelocityX=state.velocityX;bolt.replicaVelocityY=state.velocityY;
-            bolt.networkReplica=true;bolt.alive=true;bolt.worldX=state.worldX;bolt.worldY=state.worldY;bolt.direction=state.direction;bolt.spriteNum=state.frame;
-            if(!gp.projectileList.contains(bolt))gp.projectileList.add(bolt);
+        for (int i = 0; i < states.length; i++) {
+            SlimeProjectileState state = states[i];
+            if (i == replicatedSlimeBolts.size())
+                replicatedSlimeBolts.add(new object.OBJ_slimebolt(gp, state.hell));
+            object.OBJ_slimebolt bolt = replicatedSlimeBolts.get(i);
+            if (bolt.hell != state.hell) {
+                gp.projectileList.remove(bolt);
+                bolt = new object.OBJ_slimebolt(gp, state.hell);
+                replicatedSlimeBolts.set(i, bolt);
+            }
+            bolt.replicaVelocityX = state.velocityX;
+            bolt.replicaVelocityY = state.velocityY;
+            bolt.networkReplica = true;
+            bolt.alive = true;
+            bolt.worldX = state.worldX;
+            bolt.worldY = state.worldY;
+            bolt.direction = state.direction;
+            bolt.spriteNum = state.frame;
+            if (!gp.projectileList.contains(bolt)) gp.projectileList.add(bolt);
         }
     }
 
-    private void applySnapshot(WorldSnapshot snapshot){
-        if(snapshot.generationSettings!=null && !snapshot.generationSettings.equals(gp.generationSettingsJson()))
-            gp.installGeneration(world.generation.WorldSettings.decode(snapshot.generationSettings));
+    /** Applies the snapshot for GameClient. */
+    private void applySnapshot(WorldSnapshot snapshot) {
+        if (snapshot.generationSettings != null
+                && !snapshot.generationSettings.equals(gp.generationSettingsJson()))
+            gp.installGeneration(
+                    world.generation.WorldSettings.decode(snapshot.generationSettings));
         gp.lighting.cycle.syncFromHost(snapshot.dayTime);
         gp.quests.applySnapshot(snapshot.quest);
-        for(PlayerState ps : snapshot.players){
-            if(ps == null) continue;
+        for (PlayerState ps : snapshot.players) {
+            if (ps == null) continue;
             Player p = gp.players[ps.playerId];
-            if(p == null){
+            if (p == null) {
                 p = new Player(gp, gp.keyH);
                 p.playerId = ps.playerId;
                 p.isLocal = (ps.playerId == gp.localPlayerIndex);
                 gp.players[ps.playerId] = p;
             }
 
-            if(p.inWell!=ps.inWell || InnInterior.contains(gp,p)
-                    != (!ps.inWell && InnInterior.containsPosition(gp,ps.worldX,ps.worldY))){
+            if (p.inWell != ps.inWell
+                    || InnInterior.contains(gp, p)
+                            != (!ps.inWell
+                                    && InnInterior.containsPosition(gp, ps.worldX, ps.worldY))) {
                 p.resetForSceneTransition();
             }
-            p.inWell=ps.inWell;p.resolve=ps.resolve;
-            if(!p.isLocal || ps.ackTick>=p.shopChangedInputTick)p.merchantOpen=ps.merchantOpen;
+            p.inWell = ps.inWell;
+            p.resolve = ps.resolve;
+            if (!p.isLocal || ps.ackTick >= p.shopChangedInputTick)
+                p.merchantOpen = ps.merchantOpen;
 
             // Visual equipment must update for both the local player and remote players.
-            boolean appearanceChanged=false;
-            if(p.hairStyle!=ps.hairStyle || p.hairColor!=ps.hairColor){
-                p.hairStyle=ps.hairStyle;p.hairColor=ps.hairColor;appearanceChanged=true;
+            boolean appearanceChanged = false;
+            if (p.hairStyle != ps.hairStyle || p.hairColor != ps.hairColor) {
+                p.hairStyle = ps.hairStyle;
+                p.hairColor = ps.hairColor;
+                appearanceChanged = true;
             }
-            if(ps.playerClass!=null)p.applySyncedClass(ps.playerClass);
-            if(ps.gender!=null)p.gender="female".equals(ps.gender)?"female":"male";
-            p.craftingProgress.restore(ps.craftingLevel,ps.craftingXP,ps.craftingBonuses);
-            p.meleeMasteryXP=ps.meleeMasteryXP;p.magicMasteryXP=ps.magicMasteryXP;p.bowMasteryXP=ps.bowMasteryXP;
-            if(ps.weaponType!=null && object.ItemRegistry.typeFor(p.currentWeapon)!=ps.weaponType){
-                p.currentWeapon=object.ItemRegistry.create(ps.weaponType,gp);p.attack=p.getAttack();appearanceChanged=true;
+            if (ps.playerClass != null) p.applySyncedClass(ps.playerClass);
+            if (ps.gender != null) p.gender = "female".equals(ps.gender) ? "female" : "male";
+            p.craftingProgress.restore(ps.craftingLevel, ps.craftingXP, ps.craftingBonuses);
+            p.meleeMasteryXP = ps.meleeMasteryXP;
+            p.magicMasteryXP = ps.magicMasteryXP;
+            p.bowMasteryXP = ps.bowMasteryXP;
+            if (ps.weaponType != null
+                    && object.ItemRegistry.typeFor(p.currentWeapon) != ps.weaponType) {
+                p.currentWeapon = object.ItemRegistry.create(ps.weaponType, gp);
+                p.attack = p.getAttack();
+                appearanceChanged = true;
             }
-            if(ps.shieldType!=null && object.ItemRegistry.typeFor(p.currentShield)!=ps.shieldType){
-                p.currentShield=object.ItemRegistry.create(ps.shieldType,gp);p.defense=p.getDefense();appearanceChanged=true;
+            if (ps.shieldType != null
+                    && object.ItemRegistry.typeFor(p.currentShield) != ps.shieldType) {
+                p.currentShield = object.ItemRegistry.create(ps.shieldType, gp);
+                p.defense = p.getDefense();
+                appearanceChanged = true;
             }
-            if(ps.apparelTypes!=null){
-                for(int i=0;i<p.apparelSlots.length && i<ps.apparelTypes.length;i++){
-                    if(object.ItemRegistry.typeFor(p.apparelSlots[i])!=ps.apparelTypes[i]){
-                        p.apparelSlots[i]=object.ItemRegistry.create(ps.apparelTypes[i],gp);appearanceChanged=true;
+            if (ps.apparelTypes != null) {
+                for (int i = 0; i < p.apparelSlots.length && i < ps.apparelTypes.length; i++) {
+                    if (object.ItemRegistry.typeFor(p.apparelSlots[i]) != ps.apparelTypes[i]) {
+                        p.apparelSlots[i] = object.ItemRegistry.create(ps.apparelTypes[i], gp);
+                        appearanceChanged = true;
                     }
                 }
             }
-            if(appearanceChanged)p.refreshWeaponAnimation();
+            if (appearanceChanged) p.refreshWeaponAnimation();
 
-            if(p.usesMana()){
-                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
-                boolean infused=ps.effectTypes!=null && java.util.Arrays.asList(ps.effectTypes).contains(entity.MageCombat.INFUSION);
-                p.mage.syncVisual(ps.mageCastTicks,ps.mageCastLength,ps.mageHeading,ps.arcaneCharge,infused);
+            if (p.usesMana()) {
+                boolean activeArea = gp.quests.inDungeon();
+                gp.quests.activateArea(p.inWell);
+                boolean infused =
+                        ps.effectTypes != null
+                                && java.util.Arrays.asList(ps.effectTypes)
+                                        .contains(entity.MageCombat.INFUSION);
+                p.mage.syncVisual(
+                        ps.mageCastTicks,
+                        ps.mageCastLength,
+                        ps.mageHeading,
+                        ps.arcaneCharge,
+                        infused);
                 gp.quests.activateArea(activeArea);
             }
 
-            if(p.isPriest())p.priest.syncVisual(ps.priestBeaconId);
+            if (p.isPriest()) p.priest.syncVisual(ps.priestBeaconId);
 
-            if(p.isLocal){
-                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
-                p.reconcile(ps.worldX, ps.worldY, ps.direction, ps.HP, ps.maxHP, ps.MP, ps.maxMP, ps.isDead, ps.ackTick);
+            if (p.isLocal) {
+                boolean activeArea = gp.quests.inDungeon();
+                gp.quests.activateArea(p.inWell);
+                p.reconcile(
+                        ps.worldX,
+                        ps.worldY,
+                        ps.direction,
+                        ps.HP,
+                        ps.maxHP,
+                        ps.MP,
+                        ps.maxMP,
+                        ps.isDead,
+                        ps.ackTick);
                 gp.quests.activateArea(activeArea);
-                for(int i = 0; i < ps.inventoryTypes.length; i++){
+                for (int i = 0; i < ps.inventoryTypes.length; i++) {
                     object.ItemType type = ps.inventoryTypes[i];
-                    if(type == null){
+                    if (type == null) {
                         p.inventorySlots[i] = null;
                         continue;
                     }
                     Entity existing = p.inventorySlots[i];
-                    if(existing == null || object.ItemRegistry.typeFor(existing) != type){
+                    if (existing == null || object.ItemRegistry.typeFor(existing) != type) {
                         p.inventorySlots[i] = object.ItemRegistry.create(type, gp);
                     }
-                    if(p.inventorySlots[i] != null){
+                    if (p.inventorySlots[i] != null) {
                         p.inventorySlots[i].stackCount = ps.inventoryStackCounts[i];
                     }
                 }
@@ -217,13 +285,18 @@ public class GameClient {
                 p.arcaneCharge = ps.arcaneCharge;
                 p.attack = p.getAttack();
                 p.defense = p.getDefense();
-                for(int i = 0; i < p.skills.length && ps.skillCooldowns != null && i < ps.skillCooldowns.length; i++){
-                    if(p.skills[i] != null){
+                for (int i = 0;
+                        i < p.skills.length
+                                && ps.skillCooldowns != null
+                                && i < ps.skillCooldowns.length;
+                        i++) {
+                    if (p.skills[i] != null) {
                         p.skills[i].cooldownRemaining = ps.skillCooldowns[i];
                     }
                 }
-                p.applySyncedEffects(ps.effectTypes, ps.effectDurations, ps.effectValues, ps.auraRgb);
-                p.hotbar.restore(p,ps.hotbarTypes,ps.selectedHotbar);
+                p.applySyncedEffects(
+                        ps.effectTypes, ps.effectDurations, ps.effectValues, ps.auraRgb);
+                p.hotbar.restore(p, ps.hotbarTypes, ps.selectedHotbar);
             } else {
                 int previousHP = p.HP;
                 p.playerName = ps.playerName;
@@ -237,83 +310,122 @@ public class GameClient {
                 p.MP = ps.MP;
                 p.maxMP = ps.maxMP;
                 p.applyRemoteAnimation(ps.animState, ps.attacking);
-                if(p.usesMana()){
-                    p.arcaneCharge=ps.arcaneCharge;
-                    if("attack".equals(ps.animState))p.spriteNum=ps.mageFrame;
+                if (p.usesMana()) {
+                    p.arcaneCharge = ps.arcaneCharge;
+                    if ("attack".equals(ps.animState)) p.spriteNum = ps.mageFrame;
                 }
                 p.isDead = ps.isDead;
-                p.applySyncedEffects(ps.effectTypes, ps.effectDurations, ps.effectValues, ps.auraRgb);
+                p.applySyncedEffects(
+                        ps.effectTypes, ps.effectDurations, ps.effectValues, ps.auraRgb);
 
-                if(!p.isDead && ps.HP != previousHP){
+                if (!p.isDead && ps.HP != previousHP) {
                     int delta = ps.HP - previousHP;
                     Color color = delta > 0 ? new Color(120, 220, 120) : Color.red;
                     gp.spawnFloatingText(p.worldX, p.worldY, (delta > 0 ? "+" : "") + delta, color);
                 }
             }
-            if(p.isPaladin()){
+            if (p.isPaladin()) {
                 p.paladin.syncVisual(ps);
             }
-            if(p.isBerserker()){
-                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
-                p.berserker.syncVisual(ps.berserkerAction,ps.berserkerAge,ps.berserkerSerial,ps.berserkerHeading,ps.berserkerWaveStopped);
+            if (p.isBerserker()) {
+                boolean activeArea = gp.quests.inDungeon();
+                gp.quests.activateArea(p.inWell);
+                p.berserker.syncVisual(
+                        ps.berserkerAction,
+                        ps.berserkerAge,
+                        ps.berserkerSerial,
+                        ps.berserkerHeading,
+                        ps.berserkerWaveStopped);
                 gp.quests.activateArea(activeArea);
             }
-            if(p.isAssassin()){
-                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
-                p.assassin.syncVisual(ps.assassinAction,ps.assassinAge,ps.assassinHeading,ps.assassinCrit,ps.assassinCritHeading);
+            if (p.isAssassin()) {
+                boolean activeArea = gp.quests.inDungeon();
+                gp.quests.activateArea(p.inWell);
+                p.assassin.syncVisual(
+                        ps.assassinAction,
+                        ps.assassinAge,
+                        ps.assassinHeading,
+                        ps.assassinCrit,
+                        ps.assassinCritHeading);
                 gp.quests.activateArea(activeArea);
-                if(!p.isLocal && ps.assassinAction!=0)p.spriteNum=ps.assassinFrame;
+                if (!p.isLocal && ps.assassinAction != 0) p.spriteNum = ps.assassinFrame;
             }
-            if(!p.isLocal && ps.attacking && p.usesMeleeSlash())p.syncMeleeAttackFrame(ps.meleeFrame,ps.meleeFrameTicks);
-            if(p.isRanger()){
-                boolean activeArea=gp.quests.inDungeon();gp.quests.activateArea(p.inWell);
-                p.ranger.applyVisual(ps.rangerMarkIndex,ps.rangerMarkTicks,ps.rangerDraw,ps.rangerDeadeye,
-                        ps.rangerHopAge,ps.rangerRecovery,ps.rangerHeading,!p.isLocal);
+            if (!p.isLocal && ps.attacking && p.usesMeleeSlash())
+                p.syncMeleeAttackFrame(ps.meleeFrame, ps.meleeFrameTicks);
+            if (p.isRanger()) {
+                boolean activeArea = gp.quests.inDungeon();
+                gp.quests.activateArea(p.inWell);
+                p.ranger.applyVisual(
+                        ps.rangerMarkIndex,
+                        ps.rangerMarkTicks,
+                        ps.rangerDraw,
+                        ps.rangerDeadeye,
+                        ps.rangerHopAge,
+                        ps.rangerRecovery,
+                        ps.rangerHeading,
+                        !p.isLocal);
                 gp.quests.activateArea(activeArea);
-                if(!p.isLocal && "attack".equals(ps.animState))p.spriteNum=ps.rangerFrame;
+                if (!p.isLocal && "attack".equals(ps.animState)) p.spriteNum = ps.rangerFrame;
             }
         }
 
-        for(PlayerState ps:snapshot.players)if(ps!=null)gp.players[ps.playerId].restoreSavedCombat(ps);
+        for (PlayerState ps : snapshot.players)
+            if (ps != null) gp.players[ps.playerId].restoreSavedCombat(ps);
         applyArea(snapshot);
-        if(snapshot.otherArea!=null){gp.quests.activateArea(snapshot.otherArea.inWellArea);applyArea(snapshot.otherArea);}
-        if(gp.localPlayer()!=null)gp.quests.activateArea(gp.localPlayer().inWell);
+        if (snapshot.otherArea != null) {
+            gp.quests.activateArea(snapshot.otherArea.inWellArea);
+            applyArea(snapshot.otherArea);
+        }
+        if (gp.localPlayer() != null) gp.quests.activateArea(gp.localPlayer().inWell);
         gp.quests.ensureLocalIntro();
     }
 
-    private void applyArea(WorldSnapshot snapshot){
-        for(int i = 0; i < snapshot.monsters.length; i++){
+    /** Applies the area for GameClient. */
+    private void applyArea(WorldSnapshot snapshot) {
+        for (int i = 0; i < snapshot.monsters.length; i++) {
             MonsterState ms = snapshot.monsters[i];
-            if(ms == null || !ms.alive){
+            if (ms == null || !ms.alive) {
                 gp.monster[i] = null;
                 continue;
             }
-            if(gp.monster[i] == null || (ms.monsterType != null && MonsterType.of(gp.monster[i]) != ms.monsterType)){
-                gp.monster[i] = (ms.monsterType != null) ? ms.monsterType.create(gp) : new MON_GreenSlime(gp);
+            if (gp.monster[i] == null
+                    || (ms.monsterType != null
+                            && MonsterType.of(gp.monster[i]) != ms.monsterType)) {
+                gp.monster[i] =
+                        (ms.monsterType != null)
+                                ? ms.monsterType.create(gp)
+                                : new MON_GreenSlime(gp);
                 gp.monster[i].HP = ms.HP; // avoid a false "just got hit" trigger on first creation
             }
 
             var m = gp.monster[i];
             m.worldX = ms.worldX;
             m.worldY = ms.worldY;
-            if(ms.HP < m.HP){
+            if (ms.HP < m.HP) {
                 // The HP delta IS the hit signal — no separate "you got hit" event needed
                 m.flashing = true;
                 m.flashCounter = 0;
                 m.hpBarOn = true;
                 m.hpBarCounter = 0;
                 boolean directHit = ms.hitSequence != m.hitSequence;
-                Color accent = directHit && ms.criticalHitRgb != 0 ? new Color(ms.criticalHitRgb) : null;
+                Color accent =
+                        directHit && ms.criticalHitRgb != 0 ? new Color(ms.criticalHitRgb) : null;
                 entity.Particle.impact(m, directHit ? ms.hitDirection : null, accent);
-                gp.spawnFloatingText(m.worldX + gp.tileSize/2, m.worldY, String.valueOf(m.HP - ms.HP), new Color(255, 220, 80));
+                gp.spawnFloatingText(
+                        m.worldX + gp.tileSize / 2,
+                        m.worldY,
+                        String.valueOf(m.HP - ms.HP),
+                        new Color(255, 220, 80));
             }
 
             m.direction = ms.direction;
             m.HP = ms.HP;
             m.maxHP = ms.maxHP;
-            Player local=gp.localPlayer();
-            m.comboStacks=local!=null && local.isAssassin() && ms.assassinPairMask>=0
-                    ?(ms.assassinPairMask>>local.playerId)&1:ms.comboStacks;
+            Player local = gp.localPlayer();
+            m.comboStacks =
+                    local != null && local.isAssassin() && ms.assassinPairMask >= 0
+                            ? (ms.assassinPairMask >> local.playerId) & 1
+                            : ms.comboStacks;
             m.hitSequence = ms.hitSequence;
             m.dying = ms.dying;
             m.syncRangerPin(ms.rangerPinned);
@@ -321,116 +433,129 @@ public class GameClient {
             m.syncBerserkerSunder(ms.berserkerSundered);
             m.syncChallengeMark(ms.paladinChallenged);
 
-            if(ms.isBoss && m instanceof MON_SlimeBoss boss){
-                boss.syncCharge(ms.chargeX,ms.chargeY);
+            if (ms.isBoss && m instanceof MON_SlimeBoss boss) {
+                boss.syncCharge(ms.chargeX, ms.chargeY);
                 boss.bossState = ms.bossState;
                 boss.bossStateTimer = ms.bossStateTimer;
                 boss.lastAttackWasSlam = ms.lastAttackWasSlam;
             }
-            if(m instanceof monster.SlimeActor slime)slime.restoreSlime(ms,false);
-            if(m instanceof monster.MON_Skeleton skeleton)skeleton.syncVisual(ms);
+            if (m instanceof monster.SlimeActor slime) slime.restoreSlime(ms, false);
+            if (m instanceof monster.MON_Skeleton skeleton) skeleton.syncVisual(ms);
         }
 
         applySlimeProjectiles(snapshot.slimeProjectiles);
         applyRangerEffects(snapshot.rangerEffects);
         applyMageEffects(snapshot.mageEffects);
 
-        for(int i = 0; i < snapshot.objects.length; i++){
+        for (int i = 0; i < snapshot.objects.length; i++) {
             net.ObjectState os = snapshot.objects[i];
-            if(os == null){
+            if (os == null) {
                 gp.obj[i] = null;
                 continue;
             }
-            if(gp.obj[i] == null || object.ItemRegistry.typeFor(gp.obj[i]) != os.type){
+            if (gp.obj[i] == null || object.ItemRegistry.typeFor(gp.obj[i]) != os.type) {
                 gp.obj[i] = object.ItemRegistry.create(os.type, gp);
             }
-            if(gp.obj[i] != null){
+            if (gp.obj[i] != null) {
                 gp.obj[i].worldX = os.worldX;
                 gp.obj[i].worldY = os.worldY;
                 gp.obj[i].stackCount = os.stackCount;
-                world.GroundLoot.restore(gp.obj[i],os);
+                world.GroundLoot.restore(gp.obj[i], os);
             }
         }
 
-        for(int i = 0; i < snapshot.npcs.length; i++){
+        for (int i = 0; i < snapshot.npcs.length; i++) {
             net.NpcState ns = snapshot.npcs[i];
-            if(ns == null || gp.npc[i] == null) continue;
+            if (ns == null || gp.npc[i] == null) continue;
             gp.npc[i].worldX = ns.worldX;
             gp.npc[i].worldY = ns.worldY;
             gp.npc[i].direction = ns.direction;
         }
 
-        if(snapshot.sceneryState != null){
+        if (snapshot.sceneryState != null) {
             int expected = 0;
-            for(WorldObject o : gp.worldObjects){
-                if(o.hasState()) expected++;
+            for (WorldObject o : gp.worldObjects) {
+                if (o.hasState()) expected++;
             }
-            if(expected == snapshot.sceneryState.length){
+            if (expected == snapshot.sceneryState.length) {
                 int i = 0;
-                for(WorldObject o : gp.worldObjects){
-                    if(o.hasState()) o.state = snapshot.sceneryState[i++];
+                for (WorldObject o : gp.worldObjects) {
+                    if (o.hasState()) o.state = snapshot.sceneryState[i++];
                 }
-            } else if(!warnedSceneryMismatch){
+            } else if (!warnedSceneryMismatch) {
                 warnedSceneryMismatch = true;
-                Log.warn("[CLIENT] scenery mismatch: host has " + snapshot.sceneryState.length
-                        + " stateful objects, this client has " + expected + ". Use the same maps/ files.");
+                Log.warn(
+                        "[CLIENT] scenery mismatch: host has "
+                                + snapshot.sceneryState.length
+                                + " stateful objects, this client has "
+                                + expected
+                                + ". Use the same maps/ files.");
             }
         }
     }
 
-    private void applyRangerEffects(RangerEffectState[] states){
-        if(states==null)return;
-        var byId=new java.util.HashMap<Integer,RangerEffect>();
-        for(var projectile:gp.projectileList){
-            if(projectile instanceof RangerEffect effect && effect.isReplica())byId.put(effect.id(),effect);
+    /** Applies the ranger effects for GameClient. */
+    private void applyRangerEffects(RangerEffectState[] states) {
+        if (states == null) return;
+        var byId = new java.util.HashMap<Integer, RangerEffect>();
+        for (var projectile : gp.projectileList) {
+            if (projectile instanceof RangerEffect effect && effect.isReplica())
+                byId.put(effect.id(), effect);
         }
-        for(RangerEffectState state:states){
-            RangerEffect existing=byId.remove(state.id);
-            if(existing==null)gp.projectileList.add(RangerEffect.replica(gp,state));
+        for (RangerEffectState state : states) {
+            RangerEffect existing = byId.remove(state.id);
+            if (existing == null) gp.projectileList.add(RangerEffect.replica(gp, state));
             else existing.syncReplica(state);
         }
-        if(!byId.isEmpty())gp.projectileList.removeAll(byId.values());
+        if (!byId.isEmpty()) gp.projectileList.removeAll(byId.values());
     }
 
-    private void applyMageEffects(MageEffectState[] states){
-        if(states==null)return;
-        var byId=new java.util.HashMap<Integer,MageEffect>();
-        for(var projectile:gp.projectileList){
-            if(projectile instanceof MageEffect effect && effect.isReplica())byId.put(effect.id(),effect);
+    /** Applies the mage effects for GameClient. */
+    private void applyMageEffects(MageEffectState[] states) {
+        if (states == null) return;
+        var byId = new java.util.HashMap<Integer, MageEffect>();
+        for (var projectile : gp.projectileList) {
+            if (projectile instanceof MageEffect effect && effect.isReplica())
+                byId.put(effect.id(), effect);
         }
-        for(MageEffectState state:states){
-            MageEffect existing=byId.remove(state.id);
-            if(existing==null)gp.projectileList.add(MageEffect.replica(gp,state));
+        for (MageEffectState state : states) {
+            MageEffect existing = byId.remove(state.id);
+            if (existing == null) gp.projectileList.add(MageEffect.replica(gp, state));
             else existing.syncReplica(state);
         }
-        if(!byId.isEmpty())gp.projectileList.removeAll(byId.values());
+        if (!byId.isEmpty()) gp.projectileList.removeAll(byId.values());
     }
 
-    public void applyPendingEvents(){
+    /** Applies the pending events for GameClient. */
+    public void applyPendingEvents() {
         GameEvent event;
-        while((event = pendingEvents.poll()) != null){
+        while ((event = pendingEvents.poll()) != null) {
             gp.applyGameEventLocally(event.playerId, event.type, event.message, event.personalText);
         }
     }
 
-    public void sendEvent(GameEvent event){
-        if(client != null && client.isConnected()){
+    /** Performs the send event operation for GameClient. */
+    public void sendEvent(GameEvent event) {
+        if (client != null && client.isConnected()) {
             client.sendTCP(event);
         }
     }
 
-    public void sendInventoryAction(net.InventoryAction action){
-        if(client != null && client.isConnected()){
+    /** Performs the send inventory action operation for GameClient. */
+    public void sendInventoryAction(net.InventoryAction action) {
+        if (client != null && client.isConnected()) {
             client.sendTCP(action);
         }
     }
 
-    public boolean pollHostLost(){
+    /** Returns the current host lost value. */
+    public boolean pollHostLost() {
         return hostLost;
     }
 
-    public void disconnect(){
-        if(client != null){
+    /** Performs the disconnect operation for GameClient. */
+    public void disconnect() {
+        if (client != null) {
             client.stop();
         }
     }

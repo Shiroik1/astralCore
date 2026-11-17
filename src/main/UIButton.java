@@ -6,11 +6,13 @@ public class UIButton {
     public Rectangle bounds = new Rectangle();
     public boolean hovered;
 
-    public void setBounds(int x, int y, int width, int height){
+    /** Updates the bounds for UIButton. */
+    public void setBounds(int x, int y, int width, int height) {
         bounds.setBounds(x, y, width, height);
     }
 
-    public boolean contains(int mouseX, int mouseY){
+    /** Evaluates the contains condition for UIButton. */
+    public boolean contains(int mouseX, int mouseY) {
         return bounds.contains(mouseX, mouseY);
     }
 }

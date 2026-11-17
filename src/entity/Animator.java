@@ -11,51 +11,59 @@ public class Animator {
     private int frameCounter = 0;
     private int frameDelay = 12;
 
-    public void addAnimation(String state, SpriteAnimation anim){
-        animations.put(state,anim);
+    /** Adds the animation for Animator. */
+    public void addAnimation(String state, SpriteAnimation anim) {
+        animations.put(state, anim);
     }
 
-    public boolean hasAnimation(String state){
+    /** Reports whether this component has animation for Animator. */
+    public boolean hasAnimation(String state) {
         return animations.containsKey(state);
     }
 
-    public void setState(String newState){
-        if(!newState.equals(state) && animations.containsKey(newState)){
+    /** Updates the state for Animator. */
+    public void setState(String newState) {
+        if (!newState.equals(state) && animations.containsKey(newState)) {
             state = newState;
             frameIndex = 0;
             frameCounter = 0;
         }
     }
 
-    public String getState(){
+    /** Returns the state for Animator. */
+    public String getState() {
         return state;
     }
 
-    public void setFrame(int index){
+    /** Updates the frame for Animator. */
+    public void setFrame(int index) {
         frameIndex = index;
     }
 
-    public void setFrameDelay(int delay){
+    /** Updates the frame delay for Animator. */
+    public void setFrameDelay(int delay) {
         frameDelay = delay;
     }
 
-    public void update(){
+    /** Advances this component for one simulation tick. */
+    public void update() {
         SpriteAnimation anim = animations.get(state);
-        if(anim == null) return;
+        if (anim == null) return;
 
         frameCounter++;
-        if(frameCounter > frameDelay){
+        if (frameCounter > frameDelay) {
             frameIndex++;
-            if(frameIndex >= anim.frames.length){
+            if (frameIndex >= anim.frames.length) {
                 frameIndex = 0;
             }
             frameCounter = 0;
         }
     }
 
-    public BufferedImage getCurrentFrame(boolean flipped){
+    /** Returns the current frame for Animator. */
+    public BufferedImage getCurrentFrame(boolean flipped) {
         SpriteAnimation anim = animations.get(state);
-        if(anim == null) return null;
+        if (anim == null) return null;
         return anim.getFrame(frameIndex, flipped);
     }
 }

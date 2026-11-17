@@ -2,7 +2,9 @@ package monster;
 
 import entity.Monster;
 import entity.PlaceholderSprites;
+
 import main.Gamepanel;
+
 import object.OBJ_bronzecoin;
 
 import java.awt.Color;
@@ -10,7 +12,8 @@ import java.util.Random;
 
 public class MON_Imp extends Monster {
 
-    public MON_Imp(Gamepanel gp){
+    /** Creates a MON_Imp instance and initializes the state required by its collaborators. */
+    public MON_Imp(Gamepanel gp) {
         super(gp);
         name = "Imp";
         speed = 2;
@@ -38,13 +41,15 @@ public class MON_Imp extends Monster {
         solidAreaDefaultY = solidArea.y;
     }
 
-    public void setAction(){
-        if(isPlayerInAggroRange()){
-            speed=2;chasePlayer();
+    /** Updates the action for MON_Imp. */
+    public void setAction() {
+        if (isPlayerInAggroRange()) {
+            speed = 2;
+            chasePlayer();
             actionLockCounter = 0;
         } else {
             actionLockCounter++;
-            if(actionLockCounter == 90){
+            if (actionLockCounter == 90) {
                 String[] dirs = {"up", "down", "left", "right"};
                 direction = dirs[new Random().nextInt(4)];
                 actionLockCounter = 0;
@@ -52,11 +57,13 @@ public class MON_Imp extends Monster {
         }
     }
 
-    public void damageReaction(){
+    /** Performs the damage reaction operation for MON_Imp. */
+    public void damageReaction() {
         actionLockCounter = 0;
     }
 
-    public void checkDrop(){
+    /** Performs the check drop operation for MON_Imp. */
+    public void checkDrop() {
         dropItem(new OBJ_bronzecoin(gp));
     }
 }

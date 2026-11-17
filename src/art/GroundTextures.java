@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
+
 import javax.imageio.ImageIO;
 
 /** Shared classpath PNGs. Tiles are views into the sheets, so pixels are decoded once. */
@@ -13,12 +14,14 @@ final class GroundTextures {
     private static final int TILE = 48;
     private static final Map<String, BufferedImage[]> SHEETS = new HashMap<>();
 
+    /** Resolves the tile result used by GroundTextures. */
     BufferedImage tile(String name, int index) {
         synchronized (SHEETS) {
             return SHEETS.computeIfAbsent(name, GroundTextures::load)[index];
         }
     }
 
+    /** Resolves the load result used by GroundTextures. */
     private static BufferedImage[] load(String name) {
         String path = "/ground/" + name + ".png";
         try (InputStream stream = GroundTextures.class.getResourceAsStream(path)) {

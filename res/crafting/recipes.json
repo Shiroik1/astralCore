@@ -311,6 +311,66 @@
       "tool": "",
       "gather": 0,
       "place": "door"
+    },
+    {
+      "id": "fishing_rod",
+      "name": "Fishing Rod",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "raw_fish",
+      "name": "Raw Fish",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "river_fish",
+      "name": "River Fish",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "grilled_fish",
+      "name": "Grilled Fish",
+      "kind": "food",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "hearty_meal",
+      "name": "Hearty Fish Meal",
+      "kind": "food",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "herbal_drink",
+      "name": "Herbal Drink",
+      "kind": "food",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
     }
   ],
   "recipes": [
@@ -584,6 +644,56 @@
       "count": 1,
       "xp": 60,
       "firstBonus": 120
+    },
+    {
+      "id": "fishing_rod",
+      "level": 2,
+      "station": "hand",
+      "ingredients": {
+        "twig": 3,
+        "fiber": 2
+      },
+      "output": "fishing_rod",
+      "count": 1,
+      "xp": 8,
+      "firstBonus": 0
+    },
+    {
+      "id": "grilled_fish",
+      "level": 1,
+      "station": "campfire",
+      "ingredients": {
+        "raw_fish": 1
+      },
+      "output": "grilled_fish",
+      "count": 1,
+      "xp": 10,
+      "firstBonus": 0
+    },
+    {
+      "id": "hearty_meal",
+      "level": 1,
+      "station": "campfire",
+      "ingredients": {
+        "river_fish": 1,
+        "fiber": 1
+      },
+      "output": "hearty_meal",
+      "count": 1,
+      "xp": 16,
+      "firstBonus": 0
+    },
+    {
+      "id": "herbal_drink",
+      "level": 1,
+      "station": "campfire",
+      "ingredients": {
+        "fiber": 3
+      },
+      "output": "herbal_drink",
+      "count": 1,
+      "xp": 8,
+      "firstBonus": 0
     }
   ],
   "nodeHardness": {

@@ -2,19 +2,21 @@ package art;
 
 import java.awt.Color;
 
-// Between the reference painting and the pastel pass: softer than the painting, richer than the pastel.
+// Between the reference painting and the pastel pass: softer than the painting, richer than the
+// pastel.
 public final class Palette {
-    private Palette(){}
+    /** Prevents instantiation of this utility class. */
+    private Palette() {}
 
     // ground tones, lightest to deepest
     public static final Color[] GROUND = {
-            new Color(0xADD786), new Color(0x96C879), new Color(0x80B772), new Color(0x659E6C)
+        new Color(0xADD786), new Color(0x96C879), new Color(0x80B772), new Color(0x659E6C)
     };
     public static final Color PATH = new Color(0xE0C89A);
 
     public static final Color MORTAR = new Color(0x948D90);
     public static final Color[] STONES = {
-            new Color(0xCEC8C5), new Color(0xC8C0C0), new Color(0xD3CCC8)
+        new Color(0xCEC8C5), new Color(0xC8C0C0), new Color(0xD3CCC8)
     };
 
     // roofs, walls, timber
@@ -31,8 +33,11 @@ public final class Palette {
     public static final Color FOLIAGE = new Color(0x5BA063);
     public static final Color FOLIAGE_LIGHT = new Color(0x8BC877);
     public static final Color[] FLOWERS = {
-            new Color(0xED98B2), new Color(0xFAF4E9), new Color(0xF5DA74),
-            new Color(0xAA94DD), new Color(0xF3AE6F)
+        new Color(0xED98B2),
+        new Color(0xFAF4E9),
+        new Color(0xF5DA74),
+        new Color(0xAA94DD),
+        new Color(0xF3AE6F)
     };
 
     // props

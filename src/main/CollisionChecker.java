@@ -2,6 +2,7 @@ package main;
 
 import entity.Entity;
 import entity.Player;
+
 import world.WorldObject;
 
 import java.awt.*;
@@ -9,48 +10,64 @@ import java.awt.*;
 public class CollisionChecker {
     Gamepanel gp;
 
-    public CollisionChecker(Gamepanel gp){
+    /**
+     * Creates a CollisionChecker instance and initializes the state required by its collaborators.
+     */
+    public CollisionChecker(Gamepanel gp) {
         this.gp = gp;
     }
 
-    public void checkTile(Entity entity){checkTile(entity,entity.speed);}
+    /** Performs the check tile operation for CollisionChecker. */
+    public void checkTile(Entity entity) {
+        checkTile(entity, entity.speed);
+    }
 
-    public void checkTile(Entity entity,int distance){
+    /** Performs the check tile operation for CollisionChecker. */
+    public void checkTile(Entity entity, int distance) {
         int left = entity.worldX + entity.solidArea.x;
         int right = left + entity.solidArea.width;
         int top = entity.worldY + entity.solidArea.y;
         int bottom = top + entity.solidArea.height;
-        boolean blocked = switch (entity.direction) {
-            case "up" -> gp.tileM.blocksMovement(left, top - distance, right, top);
-            case "down" -> gp.tileM.blocksMovement(left, bottom, right, bottom + distance);
-            case "left" -> gp.tileM.blocksMovement(left - distance, top, left, bottom);
-            case "right" -> gp.tileM.blocksMovement(right, top, right + distance, bottom);
-            default -> false;
-        };
-        if(world.TerrainHeightResolver.active(gp)){
-            int dx=entity.direction.equals("left")?-distance:entity.direction.equals("right")?distance:0;
-            int dy=entity.direction.equals("up")?-distance:entity.direction.equals("down")?distance:0;
-            blocked|=gp.tileM.blocksMovement(left+dx,top+dy,right-1+dx,bottom-1+dy);
+        boolean blocked =
+                switch (entity.direction) {
+                    case "up" -> gp.tileM.blocksMovement(left, top - distance, right, top);
+                    case "down" -> gp.tileM.blocksMovement(left, bottom, right, bottom + distance);
+                    case "left" -> gp.tileM.blocksMovement(left - distance, top, left, bottom);
+                    case "right" -> gp.tileM.blocksMovement(right, top, right + distance, bottom);
+                    default -> false;
+                };
+        if (world.TerrainHeightResolver.active(gp)) {
+            int dx =
+                    entity.direction.equals("left")
+                            ? -distance
+                            : entity.direction.equals("right") ? distance : 0;
+            int dy =
+                    entity.direction.equals("up")
+                            ? -distance
+                            : entity.direction.equals("down") ? distance : 0;
+            blocked |=
+                    gp.tileM.blocksMovement(left + dx, top + dy, right - 1 + dx, bottom - 1 + dy);
         }
         if (blocked) entity.collisionOn = true;
 
-        checkScenery(entity,distance);
+        checkScenery(entity, distance);
     }
 
-    public int checkObject(Entity entity, boolean player){
+    /** Resolves the check object result used by CollisionChecker. */
+    public int checkObject(Entity entity, boolean player) {
         int index = 999;
 
-        for(int i = 0; i < gp.obj.length; i++){
-            if(gp.obj[i] != null){
-                //Get entity's solid area position
+        for (int i = 0; i < gp.obj.length; i++) {
+            if (gp.obj[i] != null) {
+                // Get entity's solid area position
                 entity.solidArea.x += entity.worldX;
                 entity.solidArea.y += entity.worldY;
 
-                //Get object's solid area position
+                // Get object's solid area position
                 gp.obj[i].solidArea.x += gp.obj[i].worldX;
                 gp.obj[i].solidArea.y += gp.obj[i].worldY;
 
-                switch (entity.direction){
+                switch (entity.direction) {
                     case "up" -> {
                         entity.solidArea.y -= entity.speed;
                     }
@@ -65,11 +82,11 @@ public class CollisionChecker {
                     }
                 }
 
-                if(entity.solidArea.intersects(gp.obj[i].solidArea)){
-                    if(gp.obj[i].collision){
+                if (entity.solidArea.intersects(gp.obj[i].solidArea)) {
+                    if (gp.obj[i].collision) {
                         entity.collisionOn = true;
                     }
-                    if(player){
+                    if (player) {
                         index = i;
                     }
                 }
@@ -79,27 +96,27 @@ public class CollisionChecker {
                 gp.obj[i].solidArea.x = gp.obj[i].solidAreaDefaultX;
                 gp.obj[i].solidArea.y = gp.obj[i].solidAreaDefaultY;
             }
-
         }
 
         return index;
     }
 
-    //NPC OR MONSTER
-    public int checkEntity(Entity entity, Entity[] target){
+    // NPC OR MONSTER
+    /** Resolves the check entity result used by CollisionChecker. */
+    public int checkEntity(Entity entity, Entity[] target) {
         int index = 999;
 
-        for(int i = 0; i < target.length; i++){
-            if(target[i] != null){
-                //Get entity's solid area position
+        for (int i = 0; i < target.length; i++) {
+            if (target[i] != null) {
+                // Get entity's solid area position
                 entity.solidArea.x += entity.worldX;
                 entity.solidArea.y += entity.worldY;
 
-                //Get object's solid area position
+                // Get object's solid area position
                 target[i].solidArea.x += target[i].worldX;
                 target[i].solidArea.y += target[i].worldY;
 
-                switch (entity.direction){
+                switch (entity.direction) {
                     case "up" -> {
                         entity.solidArea.y -= entity.speed;
                     }
@@ -114,8 +131,8 @@ public class CollisionChecker {
                     }
                 }
 
-                if(entity.solidArea.intersects(target[i].solidArea)){
-                    if(target[i] != entity){
+                if (entity.solidArea.intersects(target[i].solidArea)) {
+                    if (target[i] != entity) {
                         entity.collisionOn = true;
                         index = i;
                     }
@@ -126,31 +143,31 @@ public class CollisionChecker {
                 target[i].solidArea.x = target[i].solidAreaDefaultX;
                 target[i].solidArea.y = target[i].solidAreaDefaultY;
             }
-
         }
 
         return index;
     }
 
-    public Player checkPlayer(Entity entity){
+    /** Resolves the check player result used by CollisionChecker. */
+    public Player checkPlayer(Entity entity) {
         Player contactedPlayer = null;
 
-        for(Player p : gp.players){
-            if(p == null || p.isDead || p.inWell!=gp.quests.inDungeon()) continue;
+        for (Player p : gp.players) {
+            if (p == null || p.isDead || p.inWell != gp.quests.inDungeon()) continue;
 
             entity.solidArea.x += entity.worldX;
             entity.solidArea.y += entity.worldY;
             p.solidArea.x += p.worldX;
             p.solidArea.y += p.worldY;
 
-            switch (entity.direction){
+            switch (entity.direction) {
                 case "up" -> entity.solidArea.y -= entity.speed;
                 case "down" -> entity.solidArea.y += entity.speed;
                 case "left" -> entity.solidArea.x -= entity.speed;
                 case "right" -> entity.solidArea.x += entity.speed;
             }
 
-            if(entity.solidArea.intersects(p.solidArea)){
+            if (entity.solidArea.intersects(p.solidArea)) {
                 entity.collisionOn = true;
                 contactedPlayer = p;
             }
@@ -160,48 +177,67 @@ public class CollisionChecker {
             p.solidArea.x = p.solidAreaDefaultX;
             p.solidArea.y = p.solidAreaDefaultY;
 
-            if(contactedPlayer != null) break; // a monster's single collision check only needs the first player it touches
+            if (contactedPlayer != null)
+                break; // a monster's single collision check only needs the first player it touches
         }
 
         return contactedPlayer;
     }
 
-    public boolean isInInteractRange(Entity source, Entity target){
-        Rectangle sourceBounds = new Rectangle(source.worldX + source.solidArea.x, source.worldY + source.solidArea.y,
-                source.solidArea.width, source.solidArea.height);
-        Rectangle targetBounds = new Rectangle(target.worldX + target.solidArea.x, target.worldY + target.solidArea.y,
-                target.solidArea.width, target.solidArea.height);
+    /** Reports whether in interact range for CollisionChecker. */
+    public boolean isInInteractRange(Entity source, Entity target) {
+        Rectangle sourceBounds =
+                new Rectangle(
+                        source.worldX + source.solidArea.x,
+                        source.worldY + source.solidArea.y,
+                        source.solidArea.width,
+                        source.solidArea.height);
+        Rectangle targetBounds =
+                new Rectangle(
+                        target.worldX + target.solidArea.x,
+                        target.worldY + target.solidArea.y,
+                        target.solidArea.width,
+                        target.solidArea.height);
         return sourceBounds.intersects(targetBounds);
     }
 
-    public java.util.List<Integer> checkEntityMultiple(Rectangle bounds,Entity[] targets){
-        var hits=new java.util.ArrayList<Integer>();
-        for(int i=0;i<targets.length;i++){
-            Entity target=targets[i];
-            if(target!=null && target.alive && !target.dying && bounds.intersects(target.worldX+target.solidArea.x,target.worldY+target.solidArea.y,target.solidArea.width,target.solidArea.height))hits.add(i);
+    /** Resolves the check entity multiple result used by CollisionChecker. */
+    public java.util.List<Integer> checkEntityMultiple(Rectangle bounds, Entity[] targets) {
+        var hits = new java.util.ArrayList<Integer>();
+        for (int i = 0; i < targets.length; i++) {
+            Entity target = targets[i];
+            if (target != null
+                    && target.alive
+                    && !target.dying
+                    && bounds.intersects(
+                            target.worldX + target.solidArea.x,
+                            target.worldY + target.solidArea.y,
+                            target.solidArea.width,
+                            target.solidArea.height)) hits.add(i);
         }
         return hits;
     }
 
-    public java.util.List<Integer> checkEntityMultiple(Entity entity, Entity[] target){
+    /** Resolves the check entity multiple result used by CollisionChecker. */
+    public java.util.List<Integer> checkEntityMultiple(Entity entity, Entity[] target) {
         java.util.List<Integer> hits = new java.util.ArrayList<>();
 
-        for(int i = 0; i < target.length; i++){
-            if(target[i] != null){
+        for (int i = 0; i < target.length; i++) {
+            if (target[i] != null) {
                 entity.solidArea.x += entity.worldX;
                 entity.solidArea.y += entity.worldY;
                 target[i].solidArea.x += target[i].worldX;
                 target[i].solidArea.y += target[i].worldY;
 
-                switch (entity.direction){
+                switch (entity.direction) {
                     case "up" -> entity.solidArea.y -= entity.speed;
                     case "down" -> entity.solidArea.y += entity.speed;
                     case "left" -> entity.solidArea.x -= entity.speed;
                     case "right" -> entity.solidArea.x += entity.speed;
                 }
 
-                if(entity.solidArea.intersects(target[i].solidArea)){
-                    if(target[i] != entity){
+                if (entity.solidArea.intersects(target[i].solidArea)) {
+                    if (target[i] != entity) {
                         entity.collisionOn = true;
                         hits.add(i);
                     }
@@ -217,39 +253,51 @@ public class CollisionChecker {
         return hits;
     }
 
-    // Blocks movement into a scenery object's collision box. An entity already overlapping a box is allowed
-    // to move, so nothing can get permanently stuck (spawned inside one, knocked into one, and so on).
-    private void checkScenery(Entity entity,int distance){long performanceStart=gp.performance.start();try{
-        int dx = 0, dy = 0;
-        switch (entity.direction){
-            case "up" -> dy = -distance;
-            case "down" -> dy = distance;
-            case "left" -> dx = -distance;
-            case "right" -> dx = distance;
-        }
+    // Blocks movement into a scenery object's collision box. An entity already overlapping a box is
+    // allowed
+    // to move, so nothing can get permanently stuck (spawned inside one, knocked into one, and so
+    // on).
+    /** Performs the check scenery operation for CollisionChecker. */
+    private void checkScenery(Entity entity, int distance) {
+        long performanceStart = gp.performance.start();
+        try {
+            int dx = 0, dy = 0;
+            switch (entity.direction) {
+                case "up" -> dy = -distance;
+                case "down" -> dy = distance;
+                case "left" -> dx = -distance;
+                case "right" -> dx = distance;
+            }
 
-        int x = entity.worldX + entity.solidArea.x;
-        int y = entity.worldY + entity.solidArea.y;
-        Rectangle now = new Rectangle(x, y, entity.solidArea.width, entity.solidArea.height);
-        Rectangle moved = new Rectangle(x + dx, y + dy, entity.solidArea.width, entity.solidArea.height);
+            int x = entity.worldX + entity.solidArea.x;
+            int y = entity.worldY + entity.solidArea.y;
+            Rectangle now = new Rectangle(x, y, entity.solidArea.width, entity.solidArea.height);
+            Rectangle moved =
+                    new Rectangle(x + dx, y + dy, entity.solidArea.width, entity.solidArea.height);
 
-        if(gp.crafting.blocks(moved) && !gp.crafting.blocks(now)){entity.collisionOn=true;return;}
-        for(WorldObject o : gp.worldObjects.query(moved)){
-            if(!o.blocks) continue;
-            if(Math.abs(o.worldX - entity.worldX) > 300 || Math.abs(o.worldY - entity.worldY) > 300) continue; // cheap reject
-            if(o.blocksEntry(now, moved)){
+            if (gp.crafting.blocks(moved) && !gp.crafting.blocks(now)) {
                 entity.collisionOn = true;
                 return;
             }
+            for (WorldObject o : gp.worldObjects.query(moved)) {
+                if (!o.blocks) continue;
+                if (Math.abs(o.worldX - entity.worldX) > 300
+                        || Math.abs(o.worldY - entity.worldY) > 300) continue; // cheap reject
+                if (o.blocksEntry(now, moved)) {
+                    entity.collisionOn = true;
+                    return;
+                }
+            }
+        } finally {
+            gp.performance.end(main.PerformanceMetrics.Section.COLLISION, performanceStart);
         }
-    }finally{gp.performance.end(main.PerformanceMetrics.Section.COLLISION,performanceStart);}
-}
-
-    // the nearest interactive object within reach of `source`, or null
-    public WorldObject findInteractable(Entity source){
-        if(!(source instanceof Player player))return null;
-        var target=gp.interactions.resolve(player);
-        return target!=null && target.token() instanceof WorldObject object?object:null;
     }
 
+    // the nearest interactive object within reach of `source`, or null
+    /** Finds the interactable for CollisionChecker. */
+    public WorldObject findInteractable(Entity source) {
+        if (!(source instanceof Player player)) return null;
+        var target = gp.interactions.resolve(player);
+        return target != null && target.token() instanceof WorldObject object ? object : null;
+    }
 }

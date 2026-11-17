@@ -3,7 +3,8 @@ package net;
 import com.esotericsoftware.kryonet.EndPoint;
 
 public class NetworkRegistration {
-    public static void register(EndPoint endPoint){
+    /** Performs the register operation for NetworkRegistration. */
+    public static void register(EndPoint endPoint) {
         var kryo = endPoint.getKryo();
         kryo.register(InputState.class);
         kryo.register(boolean[].class);

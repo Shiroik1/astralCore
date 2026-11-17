@@ -1,13 +1,13 @@
 package object;
 
 import entity.Entity;
-import main.Gamepanel;
 
-import javax.imageio.ImageIO;
+import main.Gamepanel;
 
 public class OBJ_key extends Entity {
 
-    public OBJ_key(Gamepanel gp){
+    /** Creates a OBJ_key instance and initializes the state required by its collaborators. */
+    public OBJ_key(Gamepanel gp) {
         super(gp);
         name = "Key";
 

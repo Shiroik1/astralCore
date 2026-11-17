@@ -1,6 +1,7 @@
 package object;
 
 import entity.Entity;
+
 import main.Gamepanel;
 
 import java.util.HashMap;
@@ -10,26 +11,28 @@ public class ItemRegistry {
     private static final Map<Class<?>, ItemType> BY_CLASS = new HashMap<>();
 
     static {
-        for(ItemType t : ItemType.values()){
+        for (ItemType t : ItemType.values()) {
             BY_CLASS.put(t.itemClass, t);
         }
     }
 
-    public static Entity create(ItemType type, Gamepanel gp){
+    /** Resolves the create result used by ItemRegistry. */
+    public static Entity create(ItemType type, Gamepanel gp) {
         return (type != null) ? type.factory.apply(gp) : null;
     }
 
-    public static ItemType typeFor(Entity item){
-        if(item instanceof OBJ_crafted crafted)return crafted.itemType;
-        if(item instanceof OBJ_paladinGear gear)return gear.itemType;
-        if(item instanceof OBJ_greatsword sword)return sword.itemType;
-        if(item instanceof OBJ_rangerbow bow)return bow.itemType;
-        if(item instanceof OBJ_dualdaggers daggers)return daggers.itemType;
-        if(item instanceof OBJ_staff staff)return staff.itemType;
-        if(item instanceof OBJ_prieststaff staff)return staff.itemType;
-        if(item instanceof OBJ_supply supply)return supply.itemType;
-        if(item instanceof OBJ_rewardweapon reward)return reward.itemType;
-        if(item instanceof OBJ_apparel apparel) return apparel.itemType;
+    /** Resolves the type for result used by ItemRegistry. */
+    public static ItemType typeFor(Entity item) {
+        if (item instanceof OBJ_crafted crafted) return crafted.itemType;
+        if (item instanceof OBJ_paladinGear gear) return gear.itemType;
+        if (item instanceof OBJ_greatsword sword) return sword.itemType;
+        if (item instanceof OBJ_rangerbow bow) return bow.itemType;
+        if (item instanceof OBJ_dualdaggers daggers) return daggers.itemType;
+        if (item instanceof OBJ_staff staff) return staff.itemType;
+        if (item instanceof OBJ_prieststaff staff) return staff.itemType;
+        if (item instanceof OBJ_supply supply) return supply.itemType;
+        if (item instanceof OBJ_rewardweapon reward) return reward.itemType;
+        if (item instanceof OBJ_apparel apparel) return apparel.itemType;
         return (item != null) ? BY_CLASS.get(item.getClass()) : null;
     }
 }

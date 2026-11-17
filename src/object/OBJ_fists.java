@@ -1,9 +1,11 @@
 package object;
 
 import entity.Entity;
+
 import main.Gamepanel;
 
 public class OBJ_fists extends Entity {
+    /** Creates a OBJ_fists instance and initializes the state required by its collaborators. */
     public OBJ_fists(Gamepanel gp) {
         super(gp);
         name = "Fists";

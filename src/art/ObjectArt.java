@@ -2,7 +2,6 @@ package art;
 
 import art.ArtKit.OutlineStyle;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.geom.*;
 import java.awt.image.BufferedImage;
@@ -11,18 +10,30 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Random;
 
+import javax.imageio.ImageIO;
+
 // World object art is designed on a 48-unit tile and scaled to `size`.
-// Every sprite carries a foot point (its base-centre) and a collision box relative to it, for the entity phase.
+// Every sprite carries a foot point (its base-centre) and a collision box relative to it, for the
+// entity phase.
 public class ObjectArt {
 
     public static final class Sprite {
         public final String name;
         public final BufferedImage image;
-        public final int footX, footY;      // base-centre of the object, in pixels inside the image
-        public final Rectangle collision;   // blocking box relative to the foot point, in pixels (width 0 = walk-through)
+        public final int footX, footY; // base-centre of the object, in pixels inside the image
+        public final Rectangle
+                collision; // blocking box relative to the foot point, in pixels (width 0 =
+        // walk-through)
         public final boolean interactive;
 
-        Sprite(String name, BufferedImage image, int footX, int footY, Rectangle collision, boolean interactive){
+        /** Creates a Sprite instance and initializes the state required by its collaborators. */
+        Sprite(
+                String name,
+                BufferedImage image,
+                int footX,
+                int footY,
+                Rectangle collision,
+                boolean interactive) {
             this.name = name;
             this.image = image;
             this.footX = footX;
@@ -37,45 +48,81 @@ public class ObjectArt {
     private final int size;
     private final double k; // pixels per design unit
 
-    public ObjectArt(int size){
+    /** Creates a ObjectArt instance and initializes the state required by its collaborators. */
+    public ObjectArt(int size) {
         this.size = size;
         this.k = size / 48.0;
     }
 
-    //HELPERS
-    private ArtKit.Surface begin(int tilesW, int tilesH){
+    // HELPERS
+    /** Resolves the begin result used by ObjectArt. */
+    private ArtKit.Surface begin(int tilesW, int tilesH) {
         ArtKit.Surface s = new ArtKit.Surface(tilesW * size, tilesH * size);
         s.g.scale(k, k);
         return s;
     }
 
-    private Sprite done(String name, ArtKit.Surface s, double footX, double footY,
-                        double colLeft, double colTop, double colW, double colH, boolean interactive){
+    /** Resolves the done result used by ObjectArt. */
+    private Sprite done(
+            String name,
+            ArtKit.Surface s,
+            double footX,
+            double footY,
+            double colLeft,
+            double colTop,
+            double colW,
+            double colH,
+            boolean interactive) {
         return sprite(name, s.finish(), footX, footY, colLeft, colTop, colW, colH, interactive);
     }
 
-    private Sprite sprite(String name, BufferedImage image, double footX, double footY,
-                          double colLeft, double colTop, double colW, double colH, boolean interactive){
-        Rectangle col = new Rectangle((int) Math.round(colLeft * k), (int) Math.round(colTop * k),
-                (int) Math.round(colW * k), (int) Math.round(colH * k));
-        return new Sprite(name, image, (int) Math.round(footX * k), (int) Math.round(footY * k), col, interactive);
+    /** Resolves the sprite result used by ObjectArt. */
+    private Sprite sprite(
+            String name,
+            BufferedImage image,
+            double footX,
+            double footY,
+            double colLeft,
+            double colTop,
+            double colW,
+            double colH,
+            boolean interactive) {
+        Rectangle col =
+                new Rectangle(
+                        (int) Math.round(colLeft * k),
+                        (int) Math.round(colTop * k),
+                        (int) Math.round(colW * k),
+                        (int) Math.round(colH * k));
+        return new Sprite(
+                name,
+                image,
+                (int) Math.round(footX * k),
+                (int) Math.round(footY * k),
+                col,
+                interactive);
     }
 
-    private static void shadow(Graphics2D g, double cx, double cy, double rx, double ry){
+    /** Performs the shadow operation for ObjectArt. */
+    private static void shadow(Graphics2D g, double cx, double cy, double rx, double ry) {
         g.setColor(GROUND_SHADOW);
         g.fill(new Ellipse2D.Double(cx - rx, cy - ry, rx * 2, ry * 2));
     }
 
-    private static Ellipse2D.Double circle(double cx, double cy, double r){
+    /** Resolves the circle result used by ObjectArt. */
+    private static Ellipse2D.Double circle(double cx, double cy, double r) {
         return new Ellipse2D.Double(cx - r, cy - r, r * 2, r * 2);
     }
 
-    private static Area shifted(Area a, double dx, double dy){
+    /** Resolves the shifted result used by ObjectArt. */
+    private static Area shifted(Area a, double dx, double dy) {
         return a.createTransformedArea(AffineTransform.getTranslateInstance(dx, dy));
     }
 
-    // flat fill, one shade crescent along the bottom-right (the light is top-left), optional highlight crescent
-    private static void paint(Graphics2D g, Shape shape, Color base, double shadeK, boolean highlight){
+    // flat fill, one shade crescent along the bottom-right (the light is top-left), optional
+    // highlight crescent
+    /** Performs the paint operation for ObjectArt. */
+    private static void paint(
+            Graphics2D g, Shape shape, Color base, double shadeK, boolean highlight) {
         Area a = new Area(shape);
         g.setColor(base);
         g.fill(a);
@@ -83,7 +130,7 @@ public class ObjectArt {
         shade.subtract(shifted(a, -shadeK, -shadeK));
         g.setColor(ArtKit.shade(base));
         g.fill(shade);
-        if(highlight){
+        if (highlight) {
             Area lit = new Area(a);
             lit.subtract(shifted(a, shadeK * 0.8, shadeK * 0.8));
             g.setColor(ArtKit.light(base));
@@ -91,109 +138,173 @@ public class ObjectArt {
         }
     }
 
-    private static void stroke(Graphics2D g, Shape shape, Color base, OutlineStyle style){
-        if(style == OutlineStyle.NONE) return;
+    /** Performs the stroke operation for ObjectArt. */
+    private static void stroke(Graphics2D g, Shape shape, Color base, OutlineStyle style) {
+        if (style == OutlineStyle.NONE) return;
         g.setColor(ArtKit.outline(base, style));
-        g.setStroke(new BasicStroke(style == OutlineStyle.INTERACTIVE ? 2.0f : 1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setStroke(
+                new BasicStroke(
+                        style == OutlineStyle.INTERACTIVE ? 2.0f : 1.5f,
+                        BasicStroke.CAP_ROUND,
+                        BasicStroke.JOIN_ROUND));
         g.draw(shape);
     }
 
-    private static void part(Graphics2D g, Shape shape, Color base, OutlineStyle style, double shadeK, boolean highlight){
+    /** Performs the part operation for ObjectArt. */
+    private static void part(
+            Graphics2D g,
+            Shape shape,
+            Color base,
+            OutlineStyle style,
+            double shadeK,
+            boolean highlight) {
         paint(g, shape, base, shadeK, highlight);
         stroke(g, shape, base, style);
     }
 
     // Foliage is exported separately and shared by WorldObjectType.
-    public Sprite oak(int variant){
+    /** Resolves the oak result used by ObjectArt. */
+    public Sprite oak(int variant) {
         String name = "oak_" + variant;
         return sprite(name, foliagePng(name), 72, 178, -11, -10, 22, 10, false);
     }
 
-    public Sprite pine(int variant){
+    /** Resolves the pine result used by ObjectArt. */
+    public Sprite pine(int variant) {
         String name = "pine_" + variant;
         return sprite(name, foliagePng(name), 48, 180, -7, -10, 14, 10, false);
     }
 
-    public Sprite bush(boolean flowers){
+    /** Resolves the bush result used by ObjectArt. */
+    public Sprite bush(boolean flowers) {
         String name = flowers ? "flower_bush" : "bush";
         return sprite(name, foliagePng(name), 48, 44, -20, -12, 40, 12, false);
     }
 
-    public Sprite innExit(){
+    /** Resolves the inn exit result used by ObjectArt. */
+    public Sprite innExit() {
         // The room artwork includes the threshold.
-        return sprite("inn_exit", new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB),
-                0, 0, 0, 0, 0, 0, true);
+        return sprite(
+                "inn_exit",
+                new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                true);
     }
 
-    private BufferedImage foliagePng(String name){
+    /** Resolves the foliage png result used by ObjectArt. */
+    private BufferedImage foliagePng(String name) {
         return sceneryPng("/scenery/foliage/" + name + ".png", k);
     }
 
-    public Sprite townProp(TownProp prop){
+    /** Resolves the town prop result used by ObjectArt. */
+    public Sprite townProp(TownProp prop) {
         String name = prop.assetName();
-        BufferedImage image = sceneryPng("/scenery/props/" + name + ".png", k / TownProp.EXPORT_SCALE);
-        return sprite(name, image, prop.footX, prop.footY, prop.left, prop.top, prop.solidWidth, prop.solidHeight,
+        BufferedImage image =
+                sceneryPng("/scenery/props/" + name + ".png", k / TownProp.EXPORT_SCALE);
+        return sprite(
+                name,
+                image,
+                prop.footX,
+                prop.footY,
+                prop.left,
+                prop.top,
+                prop.solidWidth,
+                prop.solidHeight,
                 prop.interactive);
     }
 
-    private BufferedImage sceneryPng(String path, double scale){
-        try(InputStream stream = ObjectArt.class.getResourceAsStream(path)){
-            if(stream == null) throw new IOException("Missing scenery sprite " + path);
+    /** Resolves the scenery png result used by ObjectArt. */
+    private BufferedImage sceneryPng(String path, double scale) {
+        try (InputStream stream = ObjectArt.class.getResourceAsStream(path)) {
+            if (stream == null) throw new IOException("Missing scenery sprite " + path);
             BufferedImage image = ImageIO.read(stream);
-            if(image == null) throw new IOException("Invalid scenery sprite " + path);
-            if(scale == 1) return ArtKit.toArgb(image);
+            if (image == null) throw new IOException("Invalid scenery sprite " + path);
+            if (scale == 1) return ArtKit.toArgb(image);
 
             int width = (int) Math.round(image.getWidth() * scale);
             int height = (int) Math.round(image.getHeight() * scale);
             BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
             Graphics2D graphics = scaled.createGraphics();
-            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            graphics.setRenderingHint(
+                    RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             graphics.drawImage(image, 0, 0, width, height, null);
             graphics.dispose();
             return scaled;
-        } catch(IOException e){
+        } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    //ROCKS AND STUMP
-    public Sprite rockSmall(){
+    // ROCKS AND STUMP
+    /** Resolves the rock small result used by ObjectArt. */
+    public Sprite rockSmall() {
         return townProp(TownProp.ROCK_SMALL);
     }
 
-    public Sprite natureProp(NatureProp prop){
-        return sprite(prop.assetName,sceneryPng("/scenery/nature/"+prop.assetName+".png",k/NatureProp.EXPORT_SCALE),
-                prop.footX,prop.footY,-prop.solidWidth/2.0,-prop.solidHeight,
-                prop.solidWidth,prop.solidHeight,false);
+    /** Resolves the nature prop result used by ObjectArt. */
+    public Sprite natureProp(NatureProp prop) {
+        return sprite(
+                prop.assetName,
+                sceneryPng(
+                        "/scenery/nature/" + prop.assetName + ".png", k / NatureProp.EXPORT_SCALE),
+                prop.footX,
+                prop.footY,
+                -prop.solidWidth / 2.0,
+                -prop.solidHeight,
+                prop.solidWidth,
+                prop.solidHeight,
+                false);
     }
 
-    public Sprite rockLarge(){
+    /** Resolves the rock large result used by ObjectArt. */
+    public Sprite rockLarge() {
         return townProp(TownProp.ROCK_LARGE);
     }
 
-    public Sprite stump(){
+    /** Resolves the stump result used by ObjectArt. */
+    public Sprite stump() {
         ArtKit.Surface s = begin(1, 1);
         Graphics2D g = s.g;
         shadow(g, 28, 41, 16, 4);
-        part(g, new RoundRectangle2D.Double(10, 18, 28, 22, 10, 10), Palette.TRUNK, OutlineStyle.SOFT, 3, false);
-        part(g, new Ellipse2D.Double(10, 12, 28, 13), Palette.WOOD_LIGHT, OutlineStyle.SOFT, 2, false);
+        part(
+                g,
+                new RoundRectangle2D.Double(10, 18, 28, 22, 10, 10),
+                Palette.TRUNK,
+                OutlineStyle.SOFT,
+                3,
+                false);
+        part(
+                g,
+                new Ellipse2D.Double(10, 12, 28, 13),
+                Palette.WOOD_LIGHT,
+                OutlineStyle.SOFT,
+                2,
+                false);
         g.setColor(ArtKit.shade(Palette.WOOD_LIGHT));
         g.setStroke(new BasicStroke(1.2f));
         g.draw(new Ellipse2D.Double(16, 15, 16, 7));
         return done("stump", s, 24, 41, -12, -8, 24, 8, false);
     }
 
-    //FENCES: rails run past the tile edge so neighbouring pieces join with no seam
-    public Sprite fenceH(){
+    // FENCES: rails run past the tile edge so neighbouring pieces join with no seam
+    /** Resolves the fence h result used by ObjectArt. */
+    public Sprite fenceH() {
         return townProp(TownProp.FENCE_H);
     }
 
-    public Sprite fenceV(){
+    /** Resolves the fence v result used by ObjectArt. */
+    public Sprite fenceV() {
         return townProp(TownProp.FENCE_V);
     }
 
-    //HOUSE: plaster walls, timber frame, hip roof, chimney, warm windows with flower boxes
-    public Sprite house(String name, Color roof, long seed){
+    // HOUSE: plaster walls, timber frame, hip roof, chimney, warm windows with flower boxes
+    /** Resolves the house result used by ObjectArt. */
+    public Sprite house(String name, Color roof, long seed) {
         Random rnd = new Random(seed);
         ArtKit.Surface s = begin(5, 5);
         Graphics2D g = s.g;
@@ -201,16 +312,33 @@ public class ObjectArt {
         shadow(g, 128, 230, 104, 11);
 
         // chimney sits behind the roof
-        part(g, new RoundRectangle2D.Double(144, 26, 22, 52, 4, 4), Palette.BRICK, OutlineStyle.SOFT, 4, true);
-        part(g, new RoundRectangle2D.Double(140, 18, 30, 10, 3, 3),
-                ArtKit.mix(Palette.BRICK, Palette.PLASTER, 0.35f), OutlineStyle.SOFT, 2, false);
+        part(
+                g,
+                new RoundRectangle2D.Double(144, 26, 22, 52, 4, 4),
+                Palette.BRICK,
+                OutlineStyle.SOFT,
+                4,
+                true);
+        part(
+                g,
+                new RoundRectangle2D.Double(140, 18, 30, 10, 3, 3),
+                ArtKit.mix(Palette.BRICK, Palette.PLASTER, 0.35f),
+                OutlineStyle.SOFT,
+                2,
+                false);
 
         // walls
-        part(g, new RoundRectangle2D.Double(44, 116, 152, 114, 4, 4), Palette.PLASTER, OutlineStyle.SOFT, 6, false);
+        part(
+                g,
+                new RoundRectangle2D.Double(44, 116, 152, 114, 4, 4),
+                Palette.PLASTER,
+                OutlineStyle.SOFT,
+                6,
+                false);
 
         // timber frame: flat beams, no outline
         g.setColor(Palette.TIMBER);
-        for(double bx : new double[]{47, 94, 142, 193}){
+        for (double bx : new double[] {47, 94, 142, 193}) {
             g.fill(new Rectangle2D.Double(bx - 3, 118, 6, 112));
         }
         g.fill(new Rectangle2D.Double(44, 147, 152, 6));
@@ -221,7 +349,7 @@ public class ObjectArt {
         g.fill(new Rectangle2D.Double(44, 126, 152, 12));
 
         // windows with flower boxes
-        for(double wx : new double[]{54, 152}){
+        for (double wx : new double[] {54, 152}) {
             g.setColor(Palette.TIMBER);
             g.fill(new Rectangle2D.Double(wx - 1, 158, 34, 30));
             g.setColor(Palette.GLOW);
@@ -231,7 +359,7 @@ public class ObjectArt {
             g.fill(new Rectangle2D.Double(wx + 3, 171, 26, 4));
             g.setColor(Palette.WOOD);
             g.fill(new RoundRectangle2D.Double(wx - 3, 188, 38, 9, 3, 3));
-            for(int f = 0; f < 3; f++){
+            for (int f = 0; f < 3; f++) {
                 g.setColor(Palette.FLOWERS[rnd.nextInt(Palette.FLOWERS.length)]);
                 g.fill(circle(wx + 6 + f * 10, 187, 3.6));
             }
@@ -261,49 +389,57 @@ public class ObjectArt {
         g.setClip(roofShape);
         g.setColor(ArtKit.mix(roof, ArtKit.shade(roof), 0.55f));
         g.setStroke(new BasicStroke(2f));
-        for(int row = 1; row <= 5; row++){
+        for (int row = 1; row <= 5; row++) {
             double y = 42 + row * 17;
             g.draw(new Line2D.Double(0, y, 240, y));
-            for(double x = (row % 2 == 0 ? 11 : 0); x < 240; x += 22){ // staggered shingle ticks
+            for (double x = (row % 2 == 0 ? 11 : 0); x < 240; x += 22) { // staggered shingle ticks
                 g.draw(new Line2D.Double(x, y - 17, x, y));
             }
         }
         g.setClip(oldClip);
         stroke(g, roofShape, roof, OutlineStyle.SOFT);
-        part(g, new RoundRectangle2D.Double(56, 38, 128, 10, 5, 5),
-                ArtKit.mix(roof, ArtKit.shade(roof), 0.5f), OutlineStyle.SOFT, 2, false); // ridge cap
+        part(
+                g,
+                new RoundRectangle2D.Double(56, 38, 128, 10, 5, 5),
+                ArtKit.mix(roof, ArtKit.shade(roof), 0.5f),
+                OutlineStyle.SOFT,
+                2,
+                false); // ridge cap
 
         return done(name, s, 120, 230, -76, -100, 152, 100, false);
     }
 
-    //LIGHT (non-interactive for now)
-    public Sprite lantern(){
+    // LIGHT (non-interactive for now)
+    /** Resolves the lantern result used by ObjectArt. */
+    public Sprite lantern() {
         return townProp(TownProp.LANTERN);
     }
 
-    //INTERACTIVE OBJECTS
-    public Sprite well(){
+    // INTERACTIVE OBJECTS
+    /** Resolves the well result used by ObjectArt. */
+    public Sprite well() {
         return townProp(TownProp.WELL);
     }
 
     /** A small bank-side resting stone; the lake itself belongs to the terrain. */
-    public Sprite pondStone(){
+    public Sprite pondStone() {
         ArtKit.Surface s = begin(1, 1);
         Graphics2D g = s.g;
-        shadow(g,24,40,18,4);
-        Shape stone = new RoundRectangle2D.Double(6,23,36,17,12,12);
-        part(g,stone,Palette.ROCK,OutlineStyle.SOFT,6,true);
-        Shape top = new Ellipse2D.Double(7,19,34,16);
-        part(g,top,ArtKit.light(Palette.ROCK),OutlineStyle.SOFT,4,true);
-        g.setPaint(new GradientPaint(15,21,new Color(0xE2F1DF),32,30,new Color(0xA0D2CF)));
-        g.fill(new Ellipse2D.Double(14,22,20,9));
-        g.setColor(new Color(255,255,255,200));
-        g.setStroke(new BasicStroke(1.2f,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
-        g.draw(new Arc2D.Double(17,24,11,3,180,160,Arc2D.OPEN));
-        return done("healing_pond",s,24,40,-15,-12,30,12,true);
+        shadow(g, 24, 40, 18, 4);
+        Shape stone = new RoundRectangle2D.Double(6, 23, 36, 17, 12, 12);
+        part(g, stone, Palette.ROCK, OutlineStyle.SOFT, 6, true);
+        Shape top = new Ellipse2D.Double(7, 19, 34, 16);
+        part(g, top, ArtKit.light(Palette.ROCK), OutlineStyle.SOFT, 4, true);
+        g.setPaint(new GradientPaint(15, 21, new Color(0xE2F1DF), 32, 30, new Color(0xA0D2CF)));
+        g.fill(new Ellipse2D.Double(14, 22, 20, 9));
+        g.setColor(new Color(255, 255, 255, 200));
+        g.setStroke(new BasicStroke(1.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(new Arc2D.Double(17, 24, 11, 3, 180, 160, Arc2D.OPEN));
+        return done("healing_pond", s, 24, 40, -15, -12, 30, 12, true);
     }
 
-    public Sprite sign(){
+    /** Resolves the sign result used by ObjectArt. */
+    public Sprite sign() {
         ArtKit.Surface s = begin(1, 2);
         Graphics2D g = s.g;
         OutlineStyle o = OutlineStyle.INTERACTIVE;
@@ -316,35 +452,82 @@ public class ObjectArt {
         return done("sign", s, 24, 90, -5, -8, 10, 8, true);
     }
 
-    public Sprite barrel(){
+    /** Resolves the barrel result used by ObjectArt. */
+    public Sprite barrel() {
         return townProp(TownProp.BARREL);
     }
 
-    public Sprite crate(){
+    /** Resolves the crate result used by ObjectArt. */
+    public Sprite crate() {
         return townProp(TownProp.CRATE);
     }
 
-    public Sprite wellAltar(){
-        ArtKit.Surface s=begin(2,2);Graphics2D g=s.g;
-        shadow(g,48,83,36,8);
-        part(g,new RoundRectangle2D.Double(14,59,68,24,10,10),new Color(0x626774),OutlineStyle.INTERACTIVE,2,true);
-        part(g,new Ellipse2D.Double(11,46,74,30),new Color(0xA6A3A1),OutlineStyle.INTERACTIVE,2,true);
-        part(g,new Ellipse2D.Double(20,50,56,20),new Color(0x572D3C),OutlineStyle.INTERACTIVE,2,true);
-        g.setColor(new Color(0xF0A174));g.setStroke(new BasicStroke(2));
-        g.draw(new Ellipse2D.Double(32,52,32,15));g.drawLine(48,49,48,68);g.drawLine(29,59,67,59);
-        return done("well_altar",s,48,85,-35,-20,70,22,true);
+    /** Resolves the well altar result used by ObjectArt. */
+    public Sprite wellAltar() {
+        ArtKit.Surface s = begin(2, 2);
+        Graphics2D g = s.g;
+        shadow(g, 48, 83, 36, 8);
+        part(
+                g,
+                new RoundRectangle2D.Double(14, 59, 68, 24, 10, 10),
+                new Color(0x626774),
+                OutlineStyle.INTERACTIVE,
+                2,
+                true);
+        part(
+                g,
+                new Ellipse2D.Double(11, 46, 74, 30),
+                new Color(0xA6A3A1),
+                OutlineStyle.INTERACTIVE,
+                2,
+                true);
+        part(
+                g,
+                new Ellipse2D.Double(20, 50, 56, 20),
+                new Color(0x572D3C),
+                OutlineStyle.INTERACTIVE,
+                2,
+                true);
+        g.setColor(new Color(0xF0A174));
+        g.setStroke(new BasicStroke(2));
+        g.draw(new Ellipse2D.Double(32, 52, 32, 15));
+        g.drawLine(48, 49, 48, 68);
+        g.drawLine(29, 59, 67, 59);
+        return done("well_altar", s, 48, 85, -35, -20, 70, 22, true);
     }
 
-    public Sprite wellLadder(){
-        ArtKit.Surface s=begin(1,2);Graphics2D g=s.g;
-        shadow(g,25,89,18,4);
-        part(g,new RoundRectangle2D.Double(11,6,6,82,3,3),Palette.WOOD,OutlineStyle.INTERACTIVE,2,true);
-        part(g,new RoundRectangle2D.Double(32,6,6,82,3,3),Palette.WOOD,OutlineStyle.INTERACTIVE,2,true);
-        for(int y=15;y<84;y+=13)part(g,new RoundRectangle2D.Double(15,y,19,5,2,2),Palette.WOOD_LIGHT,OutlineStyle.INTERACTIVE,1,true);
-        return done("well_ladder",s,24,90,-15,-8,30,8,true);
+    /** Resolves the well ladder result used by ObjectArt. */
+    public Sprite wellLadder() {
+        ArtKit.Surface s = begin(1, 2);
+        Graphics2D g = s.g;
+        shadow(g, 25, 89, 18, 4);
+        part(
+                g,
+                new RoundRectangle2D.Double(11, 6, 6, 82, 3, 3),
+                Palette.WOOD,
+                OutlineStyle.INTERACTIVE,
+                2,
+                true);
+        part(
+                g,
+                new RoundRectangle2D.Double(32, 6, 6, 82, 3, 3),
+                Palette.WOOD,
+                OutlineStyle.INTERACTIVE,
+                2,
+                true);
+        for (int y = 15; y < 84; y += 13)
+            part(
+                    g,
+                    new RoundRectangle2D.Double(15, y, 19, 5, 2, 2),
+                    Palette.WOOD_LIGHT,
+                    OutlineStyle.INTERACTIVE,
+                    1,
+                    true);
+        return done("well_ladder", s, 24, 90, -15, -8, 30, 8, true);
     }
 
-    public Sprite chest(){
+    /** Resolves the chest result used by ObjectArt. */
+    public Sprite chest() {
         ArtKit.Surface s = begin(1, 1);
         Graphics2D g = s.g;
         OutlineStyle o = OutlineStyle.INTERACTIVE;
@@ -364,12 +547,13 @@ public class ObjectArt {
         return done("chest", s, 24, 41, -16, -12, 32, 12, true);
     }
 
-    public Sprite chestOpen(){
+    /** Resolves the chest open result used by ObjectArt. */
+    public Sprite chestOpen() {
         ArtKit.Surface s = begin(1, 1);
         Graphics2D g = s.g;
         OutlineStyle o = OutlineStyle.INTERACTIVE;
         shadow(g, 27, 42, 17, 4);
-        Path2D.Double lid = new Path2D.Double();   // the lid swung up behind the box
+        Path2D.Double lid = new Path2D.Double(); // the lid swung up behind the box
         lid.moveTo(9, 20);
         lid.lineTo(11, 6);
         lid.quadTo(24, -1, 37, 6);
@@ -378,7 +562,7 @@ public class ObjectArt {
         part(g, lid, ArtKit.mix(Palette.WOOD, Palette.WOOD_LIGHT, 0.4f), o, 3, true);
         part(g, new RoundRectangle2D.Double(8, 20, 32, 21, 4, 4), Palette.WOOD, o, 3, true);
         g.setColor(ArtKit.shade(ArtKit.shade(Palette.WOOD)));
-        g.fill(new RoundRectangle2D.Double(11, 22, 26, 7, 3, 3));   // dark, empty inside
+        g.fill(new RoundRectangle2D.Double(11, 22, 26, 7, 3, 3)); // dark, empty inside
         g.setColor(Palette.GOLD);
         g.fill(new Rectangle2D.Double(21, 29, 6, 12));
         return done("chest_open", s, 24, 41, -16, -12, 32, 12, true);

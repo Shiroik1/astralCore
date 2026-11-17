@@ -1,28 +1,35 @@
 package art;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.geom.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import javax.imageio.ImageIO;
+
 /** Offline vector source for the town buildings and their aligned material masks. */
 public final class GenerateTownBuildingTextures {
     private static final int WIDTH = 248, EXPORT_SCALE = 2;
     private static final int TERRACOTTA = 0xC48578;
     private static final int PLASTER = Palette.PLASTER.getRGB(), PLASTER_SHADE = 0xDECBAE;
-    private static final int TIMBER = Palette.TIMBER.getRGB(), WOOD = Palette.WOOD.getRGB(), WOOD_LIGHT = 0xC9A17A;
+    private static final int TIMBER = Palette.TIMBER.getRGB(),
+            WOOD = Palette.WOOD.getRGB(),
+            WOOD_LIGHT = 0xC9A17A;
     private static final int STONE = 0xB5A99D, STONE_SHADE = 0x9B8C81;
     private static final int GLASS = 0x778A9C, GLASS_SHADE = 0x65798D;
     private static final int DOOR_RECESS = 0x544753, DOOR_FLOOR = 0x655358;
 
     private enum Design {
-        SHOP("general_shop", 264), HOUSE_OPEN("house_open", 264),
-        HOUSE_CLOSED("house_closed", 264), INN("inn", 280);
+        SHOP("general_shop", 264),
+        HOUSE_OPEN("house_open", 264),
+        HOUSE_CLOSED("house_closed", 264),
+        INN("inn", 280);
         final String id;
         final int height;
-        Design(String id, int height){
+
+        /** Creates a Design instance and initializes the state required by its collaborators. */
+        Design(String id, int height) {
             this.id = id;
             this.height = height;
         }
@@ -30,19 +37,29 @@ public final class GenerateTownBuildingTextures {
 
     private enum Layer {
         // Keep the ivy mask slot so previously saved palette overrides still load.
-        ART(""), ROOF("-roof"), IVY("-ivy"), WINDOWS("-windows");
+        ART(""),
+        ROOF("-roof"),
+        IVY("-ivy"),
+        WINDOWS("-windows");
         final String suffix;
-        Layer(String suffix){ this.suffix = suffix; }
+
+        /** Creates a Layer instance and initializes the state required by its collaborators. */
+        Layer(String suffix) {
+            this.suffix = suffix;
+        }
     }
 
-    private GenerateTownBuildingTextures(){}
+    /** Prevents instantiation of this utility class. */
+    private GenerateTownBuildingTextures() {}
 
+    /** Starts this application or command-line tool using the supplied arguments. */
     public static void main(String[] args) throws IOException {
         Path output = Path.of(args.length == 0 ? "res/scenery/buildings" : args[0]);
         Files.createDirectories(output);
-        for(Design design : Design.values()){
-            for(Layer layer : Layer.values()){
-                var surface = new ArtKit.Surface(WIDTH * EXPORT_SCALE, design.height * EXPORT_SCALE);
+        for (Design design : Design.values()) {
+            for (Layer layer : Layer.values()) {
+                var surface =
+                        new ArtKit.Surface(WIDTH * EXPORT_SCALE, design.height * EXPORT_SCALE);
                 surface.g.scale(EXPORT_SCALE, EXPORT_SCALE);
                 new Building(surface.g, layer).paint(design);
                 Path target = output.resolve(design.id + "-flat" + layer.suffix + ".png");
@@ -57,14 +74,16 @@ public final class GenerateTownBuildingTextures {
         private final Layer output;
         private Layer material = Layer.ART;
 
-        Building(Graphics2D g, Layer output){
+        /** Creates a Building instance and initializes the state required by its collaborators. */
+        Building(Graphics2D g, Layer output) {
             this.g = g;
             this.output = output;
-            if(output != Layer.ART) g.setComposite(AlphaComposite.Src);
+            if (output != Layer.ART) g.setComposite(AlphaComposite.Src);
         }
 
-        void paint(Design design){
-            if(design == Design.INN){
+        /** Performs the paint operation for Building. */
+        void paint(Design design) {
+            if (design == Design.INN) {
                 inn();
                 return;
             }
@@ -74,7 +93,7 @@ public final class GenerateTownBuildingTextures {
             boolean shop = design == Design.SHOP;
             chimney(shop ? 52 : 51, 4, 52);
             dormer(0);
-            if(shop){
+            if (shop) {
                 shopEntrance();
                 window(52, 212, true);
                 window(196, 212, true);
@@ -87,13 +106,14 @@ public final class GenerateTownBuildingTextures {
             }
         }
 
-        private void facade(){
+        /** Performs the facade operation for Building. */
+        private void facade() {
             rounded(12, 133, 224, 128, 6, PLASTER);
             rect(12, 143, 224, 15, PLASTER_SHADE);
             rect(12, 177, 224, 8, PLASTER_SHADE);
             rect(12, 238, 224, 6, WOOD);
 
-            for(int x : new int[]{12, 86, 154, 226}){
+            for (int x : new int[] {12, 86, 154, 226}) {
                 rect(x, 145, 10, 98, WOOD);
                 rect(x + 7, 145, 3, 98, TIMBER);
             }
@@ -106,7 +126,8 @@ public final class GenerateTownBuildingTextures {
             foundation();
         }
 
-        private void shopEntrance(){
+        /** Performs the shop entrance operation for Building. */
+        private void shopEntrance() {
             // The recess and posts hold the largest contrast on the facade.
             polygon(DOOR_RECESS, 92, 199, 104, 191, 145, 191, 157, 199, 157, 258, 92, 258);
             polygon(DOOR_FLOOR, 93, 244, 155, 244, 155, 258, 93, 258);
@@ -116,9 +137,10 @@ public final class GenerateTownBuildingTextures {
             rounded(149, 249, 12, 13, 3, STONE);
         }
 
-        private void houseEntrance(boolean closed){
+        /** Performs the house entrance operation for Building. */
+        private void houseEntrance(boolean closed) {
             polygon(DOOR_RECESS, 96, 194, 110, 181, 138, 181, 152, 194, 152, 256, 96, 256);
-            if(closed){
+            if (closed) {
                 polygon(TIMBER, 97, 197, 111, 184, 137, 184, 151, 197, 151, 256, 97, 256);
                 rounded(100, 195, 48, 60, 3, 0xA48166);
                 line(0x97765E, 1.2f, 112, 197, 112, 254);
@@ -137,23 +159,26 @@ public final class GenerateTownBuildingTextures {
             rounded(149, 248, 14, 13, 3, STONE);
         }
 
-        private void foundation(){
+        /** Performs the foundation operation for Building. */
+        private void foundation() {
             rounded(11, 242, 226, 19, 5, STONE_SHADE);
             rounded(11, 242, 226, 7, 4, STONE);
-            for(int x : new int[]{32, 59, 164, 191}){
+            for (int x : new int[] {32, 59, 164, 191}) {
                 rounded(x, 250, 24, 10, 3, STONE);
             }
             rounded(11, 241, 19, 20, 4, 0xC0B4A6);
             rounded(218, 241, 19, 20, 4, 0xC0B4A6);
         }
 
-        private void inn(){
+        /** Performs the inn operation for Building. */
+        private void inn() {
             innWings();
             innFacade();
             innRoof();
         }
 
-        private void innWings(){
+        /** Performs the inn wings operation for Building. */
+        private void innWings() {
             rounded(12, 128, 65, 99, 7, TIMBER);
             rect(18, 146, 54, 69, PLASTER);
             rect(18, 149, 54, 11, PLASTER_SHADE);
@@ -165,7 +190,7 @@ public final class GenerateTownBuildingTextures {
             rounded(12, 211, 65, 5, 4, STONE);
             rounded(19, 218, 23, 7, 2, STONE);
             rounded(44, 218, 25, 7, 2, STONE);
-            for(int y : new int[]{164, 191}){
+            for (int y : new int[] {164, 191}) {
                 rounded(37, y - 7, 13, 16, 2, TIMBER);
                 line(WOOD_LIGHT, 1.2f, 39, y - 5, 48, y + 7);
                 line(WOOD_LIGHT, 1.2f, 48, y - 5, 39, y + 7);
@@ -175,7 +200,7 @@ public final class GenerateTownBuildingTextures {
             rect(183, 157, 47, 64, 0x9E775B);
             polygon(WOOD, 181, 206, 224, 161, 231, 163, 181, 217);
             rounded(228, 171, 8, 54, 4, WOOD);
-            for(int y : new int[]{184, 201}){
+            for (int y : new int[] {184, 201}) {
                 rounded(203, y, 23, 19, 5, 0xDAB578);
                 rounded(203, y, 23, 12, 4, 0xE9C88D);
                 line(WOOD, 1.4f, 211, y + 2, 211, y + 17);
@@ -184,7 +209,8 @@ public final class GenerateTownBuildingTextures {
             innAwning();
         }
 
-        private void innAwning(){
+        /** Performs the inn awning operation for Building. */
+        private void innAwning() {
             var canvas = new Path2D.Double();
             canvas.moveTo(180, 105);
             canvas.curveTo(196, 116, 216, 121, 231, 121);
@@ -195,7 +221,7 @@ public final class GenerateTownBuildingTextures {
             canvas.closePath();
             fill(canvas, 0xE8D9C0);
 
-            for(int stripe = 1; stripe < 6; stripe += 2){
+            for (int stripe = 1; stripe < 6; stripe += 2) {
                 int y = 105 + stripe * 11;
                 var cloth = new Path2D.Double();
                 cloth.moveTo(180, y);
@@ -209,13 +235,14 @@ public final class GenerateTownBuildingTextures {
             }
         }
 
-        private void innFacade(){
+        /** Performs the inn facade operation for Building. */
+        private void innFacade() {
             rounded(59, 144, 130, 132, 5, TIMBER);
             rect(65, 148, 118, 117, PLASTER);
             rect(65, 151, 118, 14, PLASTER_SHADE);
             rect(65, 208, 118, 13, PLASTER_SHADE);
 
-            for(int x : new int[]{59, 119, 181}){
+            for (int x : new int[] {59, 119, 181}) {
                 rect(x, 153, 8, 112, WOOD);
                 rect(x + 6, 153, 2, 112, TIMBER);
             }
@@ -245,14 +272,16 @@ public final class GenerateTownBuildingTextures {
             lantern(153, 246);
         }
 
-        private void innRoof(){
+        /** Performs the inn roof operation for Building. */
+        private void innRoof() {
             roofAt(8, 77, 106, 77);
             roofAt(43, 26, 162, 128);
             chimney(76, 4, 62);
             dormer(2);
         }
 
-        private void roofAt(int x, int y, int width, int height){
+        /** Performs the roof at operation for Building. */
+        private void roofAt(int x, int y, int width, int height) {
             AffineTransform original = g.getTransform();
             g.translate(x, y);
             g.scale(width / (double) WIDTH, height / 128.0);
@@ -261,7 +290,8 @@ public final class GenerateTownBuildingTextures {
             g.setTransform(original);
         }
 
-        private void innSign(){
+        /** Performs the inn sign operation for Building. */
+        private void innSign() {
             rect(108, 199, 4, 11, TIMBER);
             rect(136, 199, 4, 11, TIMBER);
             rounded(104, 207, 40, 23, 7, 0xC6A07A);
@@ -277,7 +307,8 @@ public final class GenerateTownBuildingTextures {
             fill(new Ellipse2D.Double(121, 211, 7, 5), foam);
         }
 
-        private void lantern(int x, int y){
+        /** Performs the lantern operation for Building. */
+        private void lantern(int x, int y) {
             line(0x61515A, 1.8f, x, y - 11, x, y - 6);
             polygon(0x685860, x - 5, y - 5, x, y - 9, x + 5, y - 5);
             polygon(0xDCAF67, x - 4, y - 5, x + 4, y - 5, x + 3, y + 6, x - 3, y + 6);
@@ -285,7 +316,8 @@ public final class GenerateTownBuildingTextures {
             rounded(x - 3.5, y + 4, 7, 2.5, 2, 0x685860);
         }
 
-        private void roof(){
+        /** Performs the roof operation for Building. */
+        private void roof() {
             material = Layer.ROOF;
             var plane = new Path2D.Double();
             plane.moveTo(13, 31);
@@ -303,13 +335,13 @@ public final class GenerateTownBuildingTextures {
             g.clip(plane);
             rect(0, 28, WIDTH, 34, 0xCD8E81);
             polygon(0xBC7D70, 0, 124, WIDTH, 107, WIDTH, 149, 0, 149);
-            for(int y : new int[]{60, 88, 116}){
+            for (int y : new int[] {60, 88, 116}) {
                 line(0xB27A6F, 1.25f, 0, y, WIDTH, y);
             }
-            for(int x : new int[]{39, 94, 151, 206}) line(0xBA8174, 1.15f, x, 36, x - 2, 60);
-            for(int x : new int[]{21, 71, 176, 230}) line(0xB97E72, 1.15f, x, 60, x - 1, 88);
-            for(int x : new int[]{45, 93, 155, 203}) line(0xB97E72, 1.15f, x, 88, x, 116);
-            for(int x : new int[]{24, 74, 178, 228}) line(0xAC7367, 1.15f, x, 116, x, 145);
+            for (int x : new int[] {39, 94, 151, 206}) line(0xBA8174, 1.15f, x, 36, x - 2, 60);
+            for (int x : new int[] {21, 71, 176, 230}) line(0xB97E72, 1.15f, x, 60, x - 1, 88);
+            for (int x : new int[] {45, 93, 155, 203}) line(0xB97E72, 1.15f, x, 88, x, 116);
+            for (int x : new int[] {24, 74, 178, 228}) line(0xAC7367, 1.15f, x, 116, x, 145);
             rect(2, 141, WIDTH - 4, 7, 0xAB6E63);
             g.setClip(original);
             rounded(5, 26, 238, 10, 8, 0xD09283);
@@ -318,7 +350,8 @@ public final class GenerateTownBuildingTextures {
             rounded(6, 147, 236, 7, 5, WOOD_LIGHT);
         }
 
-        private void chimney(int x, int top, int bottom){
+        /** Performs the chimney operation for Building. */
+        private void chimney(int x, int top, int bottom) {
             rounded(x - 11, top + 6, 22, bottom - top - 6, 3, STONE_SHADE);
             rect(x - 11, top + 10, 16, bottom - top - 11, STONE);
             int joint = (top + bottom) / 2 + 5;
@@ -329,7 +362,8 @@ public final class GenerateTownBuildingTextures {
             rounded(x - 7, top + 3, 14, 6, 2, 0x685860);
         }
 
-        private void dormer(int plasterInset){
+        /** Performs the dormer operation for Building. */
+        private void dormer(int plasterInset) {
             int left = 83 + plasterInset, right = 165 - plasterInset;
             polygon(PLASTER, left, 133, 124, 94, right, 133, right, 149, left, 149);
             polygon(PLASTER_SHADE, left, 133, 124, 94, right, 133, right, 141, 124, 105, left, 142);
@@ -347,8 +381,9 @@ public final class GenerateTownBuildingTextures {
             window(124, 128, false);
         }
 
-        private void window(int x, int y, boolean shutters){
-            if(shutters){
+        /** Performs the window operation for Building. */
+        private void window(int x, int y, boolean shutters) {
+            if (shutters) {
                 rounded(x - 24, y - 10, 11, 23, 3, TIMBER);
                 rounded(x + 13, y - 10, 11, 23, 3, TIMBER);
                 rounded(x - 24, y - 10, 8, 20, 2, WOOD);
@@ -357,16 +392,19 @@ public final class GenerateTownBuildingTextures {
             rounded(x - 15, y - 13, 30, 26, 3, TIMBER);
             material = Layer.WINDOWS;
             rect(x - 11, y - 10, 22, 20, GLASS_SHADE);
-            polygon(GLASS, x - 11, y + 4, x + 4, y - 10, x + 11, y - 10, x - 8, y + 10, x - 11, y + 10);
+            polygon(
+                    GLASS, x - 11, y + 4, x + 4, y - 10, x + 11, y - 10, x - 8, y + 10, x - 11,
+                    y + 10);
             material = Layer.ART;
             rect(x - 1.3, y - 11, 2.6, 23, WOOD_LIGHT);
             rect(x - 12, y - 1.2, 24, 2.4, WOOD_LIGHT);
             rounded(x - 16, y + 11, 32, 4, 2, WOOD_LIGHT);
         }
 
-        private void canopy(){
+        /** Performs the canopy operation for Building. */
+        private void canopy() {
             polygon(TIMBER, 79, 178, 169, 178, 173, 202, 75, 202);
-            for(int i = 0; i < 6; i++){
+            for (int i = 0; i < 6; i++) {
                 double top = 81 + i * 14.3, bottom = 77 + i * 15.65;
                 int cloth = i % 2 == 0 ? 0x84969D : 0xE8D9C0;
                 polygon(cloth, top, 179, top + 14.3, 179, bottom + 15.65, 199, bottom, 199);
@@ -379,7 +417,8 @@ public final class GenerateTownBuildingTextures {
             }
         }
 
-        private void sign(){
+        /** Performs the sign operation for Building. */
+        private void sign() {
             rect(108, 151, 4, 12, TIMBER);
             rect(136, 151, 4, 12, TIMBER);
             rounded(102, 158, 44, 24, 7, 0xC6A07A);
@@ -390,39 +429,46 @@ public final class GenerateTownBuildingTextures {
             fill(new Ellipse2D.Double(129, 173.5, 2.4, 2.4), ink);
         }
 
-        private void rect(double x, double y, double w, double h, int rgb){
+        /** Performs the rect operation for Building. */
+        private void rect(double x, double y, double w, double h, int rgb) {
             fill(new Rectangle2D.Double(x, y, w, h), rgb);
         }
 
-        private void rounded(double x, double y, double w, double h, double arc, int rgb){
+        /** Performs the rounded operation for Building. */
+        private void rounded(double x, double y, double w, double h, double arc, int rgb) {
             fill(new RoundRectangle2D.Double(x, y, w, h, arc, arc), rgb);
         }
 
-        private void polygon(int rgb, double... points){
+        /** Draws or constructs the polygon shape used by this artwork. */
+        private void polygon(int rgb, double... points) {
             Path2D path = path(points);
             path.closePath();
             fill(path, rgb);
         }
 
-        private void line(int rgb, float width, double... points){
+        /** Performs the line operation for Building. */
+        private void line(int rgb, float width, double... points) {
             g.setColor(color(rgb));
             g.setStroke(new BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.draw(path(points));
         }
 
-        private void fill(Shape shape, int rgb){
+        /** Performs the fill operation for Building. */
+        private void fill(Shape shape, int rgb) {
             g.setColor(color(rgb));
             g.fill(shape);
         }
 
-        private Color color(int rgb){
+        /** Resolves the color result used by Building. */
+        private Color color(int rgb) {
             return output == Layer.ART ? new Color(rgb) : output == material ? Color.WHITE : CLEAR;
         }
 
-        private static Path2D path(double[] points){
+        /** Resolves the path result used by Building. */
+        private static Path2D path(double[] points) {
             var path = new Path2D.Double();
             path.moveTo(points[0], points[1]);
-            for(int i = 2; i < points.length; i += 2) path.lineTo(points[i], points[i + 1]);
+            for (int i = 2; i < points.length; i += 2) path.lineTo(points[i], points[i + 1]);
             return path;
         }
     }

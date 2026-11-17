@@ -1,12 +1,13 @@
 package object;
 
 import entity.Entity;
+
 import main.Gamepanel;
 
 public class OBJ_door extends Entity {
 
-
-    public OBJ_door(Gamepanel gp){
+    /** Creates a OBJ_door instance and initializes the state required by its collaborators. */
+    public OBJ_door(Gamepanel gp) {
         super(gp);
         name = "Door";
 

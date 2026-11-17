@@ -9,13 +9,19 @@ public class InputState {
     public boolean ePressed;
     public boolean escapePressed;
     public boolean leftClicked;
-    public boolean leftHeld, rightHeld, gameplaySuppressed, movementLocked, chorusSpeed, heavyMovement;
+    public boolean leftHeld,
+            rightHeld,
+            gameplaySuppressed,
+            movementLocked,
+            chorusSpeed,
+            heavyMovement;
     public boolean[] skillKeyPressed = new boolean[5];
     public int targetedMonsterIndex = -1;
     public int aimWorldX, aimWorldY;
 
-
-    public static InputState captureFrom(KeyHandler keyH, MouseHandler mouseH, long tick, int targetedMonsterIndex){
+    /** Captures the from for InputState. */
+    public static InputState captureFrom(
+            KeyHandler keyH, MouseHandler mouseH, long tick, int targetedMonsterIndex) {
         InputState state = new InputState();
         state.tick = tick;
         state.up = keyH.upPressed;
@@ -28,13 +34,14 @@ public class InputState {
         state.leftHeld = mouseH.leftPressed;
         state.rightHeld = mouseH.rightPressed;
         state.targetedMonsterIndex = targetedMonsterIndex;
-        for(int i = 0; i < state.skillKeyPressed.length; i++){
+        for (int i = 0; i < state.skillKeyPressed.length; i++) {
             state.skillKeyPressed[i] = keyH.skillKeyPressed[i];
         }
         return state;
     }
 
-    public void mergeOneShotFlags(InputState newer){
+    /** Performs the merge one shot flags operation for InputState. */
+    public void mergeOneShotFlags(InputState newer) {
         // Keep the newest directional/held state, but latch any one-shot press seen in this batch
         up = newer.up;
         down = newer.down;
@@ -49,13 +56,14 @@ public class InputState {
         ePressed = ePressed || newer.ePressed;
         escapePressed = escapePressed || newer.escapePressed;
         leftClicked = leftClicked || newer.leftClicked;
-        for(int i = 0; i < skillKeyPressed.length; i++){
+        for (int i = 0; i < skillKeyPressed.length; i++) {
             skillKeyPressed[i] = skillKeyPressed[i] || newer.skillKeyPressed[i];
         }
         tick = newer.tick;
     }
 
-    public void suppressGameplay(){
+    /** Performs the suppress gameplay operation for InputState. */
+    public void suppressGameplay() {
         gameplaySuppressed = true;
         leftHeld = false;
         rightHeld = false;
@@ -65,7 +73,7 @@ public class InputState {
         right = false;
         ePressed = false;
         leftClicked = false;
-        for(int i = 0; i < skillKeyPressed.length; i++){
+        for (int i = 0; i < skillKeyPressed.length; i++) {
             skillKeyPressed[i] = false;
         }
         targetedMonsterIndex = -1;

@@ -1,7 +1,9 @@
 package world;
 
 import art.ArtKit;
+
 import entity.Player;
+
 import main.Gamepanel;
 
 import java.awt.*;
@@ -9,24 +11,33 @@ import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
-// One half-resolution "lightmap": ambient colour + cloud shadows + vignette, with warm holes punched out for the
+// One half-resolution "lightmap": ambient colour + cloud shadows + vignette, with warm holes
+// punched out for the
 // lights, scaled up over the world once per frame.
 public class Lighting {
 
     public enum Mood {
         //      ambient r, g,   b,   a      glow   vignette leaves flies clouds
-        DAY(    255, 238, 205,  16,     0.00f, 0.30f,   10,  0, 0.9f),
-        GOLDEN( 255, 176,  98,  44,     0.55f, 0.45f,   18,  0, 1.0f),
-        DUSK(    78,  58, 130,  92,     1.00f, 0.55f,   10, 14, 0.7f),
-        NIGHT(   26,  32,  88, 150,     1.20f, 0.65f,    4, 24, 0.0f);
-
+        DAY(255, 238, 205, 16, 0.00f, 0.30f, 10, 0, 0.9f),
+        GOLDEN(255, 176, 98, 44, 0.55f, 0.45f, 18, 0, 1.0f),
+        DUSK(78, 58, 130, 92, 1.00f, 0.55f, 10, 14, 0.7f),
+        NIGHT(26, 32, 88, 150, 1.20f, 0.65f, 4, 24, 0.0f);
         public final int r, g, b, a, leaves, flies;
         public final float glow, vignette, clouds;
 
-        Mood(int r, int g, int b, int a, float glow, float vignette, int leaves, int flies, float clouds){
+        /** Creates a Mood instance and initializes the state required by its collaborators. */
+        Mood(
+                int r,
+                int g,
+                int b,
+                int a,
+                float glow,
+                float vignette,
+                int leaves,
+                int flies,
+                float clouds) {
             this.r = r;
             this.g = g;
             this.b = b;
@@ -38,9 +49,10 @@ public class Lighting {
             this.clouds = clouds;
         }
 
-        public static Mood fromName(String name){
-            for(Mood m : values()){
-                if(m.name().equalsIgnoreCase(name)) return m;
+        /** Resolves the from name result used by Mood. */
+        public static Mood fromName(String name) {
+            for (Mood m : values()) {
+                if (m.name().equalsIgnoreCase(name)) return m;
             }
             return null;
         }
@@ -50,10 +62,10 @@ public class Lighting {
     private static final int CLOUD_TILE = 512; // lightmap pixels, covering 1024 world pixels
 
     public boolean enabled = true;
-    public float leafLevel, flyLevel;          // 0..1, read by AmbientFX
+    public float leafLevel, flyLevel; // 0..1, read by AmbientFX
 
     private final Gamepanel gp;
-    private int div = 2;   // screen pixels per lightmap pixel (3 in pixel mode)
+    private int div = 2; // screen pixels per lightmap pixel (3 in pixel mode)
     private int lw, lh;
     private BufferedImage lightmap, vignette;
     private final BufferedImage cloudTile;
@@ -66,19 +78,22 @@ public class Lighting {
     private Mood mood = Mood.GOLDEN;
     private float ar, ag, ab, aa, glow, vig, clouds;
     public final DayCycle cycle = new DayCycle();
-    public boolean cycleOn = true;                 // false while a /mood override is active
+    public boolean cycleOn = true; // false while a /mood override is active
     private boolean wasUnderground;
-    private double cloudX, cloudY;                 // accumulated cloud drift, in world pixels
+    private double cloudX, cloudY; // accumulated cloud drift, in world pixels
     private final float[] target = new float[DayCycle.VALUES];
     private static final double CLOUD_SPEED = 0.30; // world px per tick (about 18 px per second)
     private double cloudVelocityX = CLOUD_SPEED;
     private long time = 0;
 
     // reusable light list
-    private final float[] sx = new float[MAX_LIGHTS], sy = new float[MAX_LIGHTS], rad = new float[MAX_LIGHTS];
+    private final float[] sx = new float[MAX_LIGHTS],
+            sy = new float[MAX_LIGHTS],
+            rad = new float[MAX_LIGHTS];
     private final float[] pow = new float[MAX_LIGHTS], warm = new float[MAX_LIGHTS];
 
-    public Lighting(Gamepanel gp){
+    /** Creates a Lighting instance and initializes the state required by its collaborators. */
+    public Lighting(Gamepanel gp) {
         this.gp = gp;
         cloudTile = bakeClouds();
         cloudPaint = new TexturePaint(cloudTile, new Rectangle(0, 0, CLOUD_TILE, CLOUD_TILE));
@@ -89,44 +104,62 @@ public class Lighting {
     }
 
     // 2 = smooth mode, 3 = pixel mode (one lightmap pixel per buffer pixel)
-    public void setDivisor(int d){
+    /** Updates the divisor for Lighting. */
+    public void setDivisor(int d) {
         div = d;
         lw = gp.screenWidth / d;
         lh = gp.screenHeight / d;
-        if(lg != null) lg.dispose();
-        lightmap = new BufferedImage(lw, lh, BufferedImage.TYPE_INT_ARGB_PRE); // premultiplied: much faster scaled blit
+        if (lg != null) lg.dispose();
+        lightmap =
+                new BufferedImage(
+                        lw,
+                        lh,
+                        BufferedImage.TYPE_INT_ARGB_PRE); // premultiplied: much faster scaled blit
         lg = lightmap.createGraphics();
         vignette = bakeVignette();
         punchSprites.clear();
         glowSprites.clear();
     }
 
-    public Mood mood(){
+    /** Returns the current mood value. */
+    public Mood mood() {
         return mood;
     }
 
-    public float nightStrength(){
-        return enabled ? Math.clamp((glow - Mood.GOLDEN.glow) / (Mood.DUSK.glow - Mood.GOLDEN.glow), 0f, 1f) : 0f;
+    /** Resolves the night strength result used by Lighting. */
+    public float nightStrength() {
+        return enabled
+                ? Math.clamp(
+                        (glow - Mood.GOLDEN.glow) / (Mood.DUSK.glow - Mood.GOLDEN.glow), 0f, 1f)
+                : 0f;
     }
 
-    public void setMood(Mood m, boolean instant){
+    /** Updates the mood for Lighting. */
+    public void setMood(Mood m, boolean instant) {
         mood = m;
-        if(instant){
-            ar = m.r; ag = m.g; ab = m.b; aa = m.a;
-            glow = m.glow; vig = m.vignette; clouds = m.clouds;
+        if (instant) {
+            ar = m.r;
+            ag = m.g;
+            ab = m.b;
+            aa = m.a;
+            glow = m.glow;
+            vig = m.vignette;
+            clouds = m.clouds;
             leafLevel = m.leaves / (float) AmbientFX.MAX_LEAVES;
             flyLevel = m.flies / (float) AmbientFX.MAX_FLIES;
         }
     }
 
     // fades toward the current mood
-    public void update(){
+    /** Advances this component for one simulation tick. */
+    public void update() {
         time++;
         cycle.tick();
         Player me = gp.localPlayer();
         boolean underground = me != null && me.inWell;
         pickTarget(underground);
-        if(underground != wasUnderground){       // entering or leaving the well: switch at once, no slow fade
+        if (underground
+                != wasUnderground) { // entering or leaving the well: switch at once, no slow fade
             wasUnderground = underground;
             snapToTarget();
         }
@@ -148,111 +181,137 @@ public class Lighting {
         cloudY += CLOUD_SPEED * 0.3;
     }
 
-    private void pickTarget(boolean underground){
-        if(underground) DayCycle.sampleMood(cycleOn ? Mood.NIGHT : mood, target);
-        else if(cycleOn) cycle.sample(target);
+    /** Performs the pick target operation for Lighting. */
+    private void pickTarget(boolean underground) {
+        if (underground) DayCycle.sampleMood(cycleOn ? Mood.NIGHT : mood, target);
+        else if (cycleOn) cycle.sample(target);
         else DayCycle.sampleMood(mood, target);
     }
 
-    private void snapToTarget(){
-        ar = target[0]; ag = target[1]; ab = target[2]; aa = target[3];
-        glow = target[4]; vig = target[5];
+    /** Performs the snap to target operation for Lighting. */
+    private void snapToTarget() {
+        ar = target[0];
+        ag = target[1];
+        ab = target[2];
+        aa = target[3];
+        glow = target[4];
+        vig = target[5];
         leafLevel = target[6] / AmbientFX.MAX_LEAVES;
         flyLevel = target[7] / AmbientFX.MAX_FLIES;
         clouds = target[8];
     }
 
-    //DRAW (screen space: call after the shake translate is undone)
-    public void draw(Graphics2D g2, int shakeX, int shakeY){
-        if(!enabled) return;
+    // DRAW (screen space: call after the shake translate is undone)
+    /** Renders this component into the supplied Java2D graphics context. */
+    public void draw(Graphics2D g2, int shakeX, int shakeY) {
+        if (!enabled) return;
         Player cam = gp.localPlayer();
-        if(cam == null || InnInterior.contains(gp, cam)) return;
+        if (cam == null || InnInterior.contains(gp, cam)) return;
         int camLeft = cam.worldX - cam.screenX - shakeX;
         int camTop = cam.worldY - cam.screenY - shakeY;
 
-        //1. ambient colour
+        // 1. ambient colour
         lg.setComposite(AlphaComposite.Src);
         lg.setColor(new Color(c255(ar), c255(ag), c255(ab), c255(aa)));
         lg.fillRect(0, 0, lw, lh);
 
-        //2. cloud shadows, drifting with the wind
-        if(clouds > 0.02f){
-            lg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, clouds * 0.45f)));
+        // 2. cloud shadows, drifting with the wind
+        if (clouds > 0.02f) {
+            lg.setComposite(
+                    AlphaComposite.getInstance(
+                            AlphaComposite.SRC_OVER, Math.min(1f, clouds * 0.45f)));
             double ox = ((cloudX - camLeft) / div) % CLOUD_TILE;
             double oy = ((cloudY - camTop) / div) % CLOUD_TILE;
-            if(ox < 0) ox += CLOUD_TILE;
-            if(oy < 0) oy += CLOUD_TILE;
-            // Fractional texture sampling avoids the previous integer-pixel stepping and tile seams.
+            if (ox < 0) ox += CLOUD_TILE;
+            if (oy < 0) oy += CLOUD_TILE;
+            // Fractional texture sampling avoids the previous integer-pixel stepping and tile
+            // seams.
             Object oldCloudInterpolation = lg.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
-            lg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            lg.setRenderingHint(
+                    RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             lg.translate(ox, oy);
             lg.setPaint(cloudPaint);
             cloudArea.setRect(-ox, -oy, lw, lh);
             lg.fill(cloudArea);
             lg.translate(-ox, -oy);
-            lg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldCloudInterpolation != null
-                    ? oldCloudInterpolation : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            lg.setRenderingHint(
+                    RenderingHints.KEY_INTERPOLATION,
+                    oldCloudInterpolation != null
+                            ? oldCloudInterpolation
+                            : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         }
 
-        //3. vignette
+        // 3. vignette
         lg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, vig)));
         lg.drawImage(vignette, 0, 0, null);
 
-        //4. punch the lights out of the darkness
+        // 4. punch the lights out of the darkness
         int n = gatherLights(cam, camLeft, camTop);
-        for(int i = 0; i < n; i++){
+        for (int i = 0; i < n; i++) {
             float a = Math.min(1f, pow[i]);
-            if(a < 0.02f) continue;
+            if (a < 0.02f) continue;
             int r = Math.max(4, Math.round(rad[i] / div));
             lg.setComposite(AlphaComposite.getInstance(AlphaComposite.DST_OUT, a));
-            lg.drawImage(punchSprite(r), Math.round(sx[i] / div) - r, Math.round(sy[i] / div) - r, null);
+            lg.drawImage(
+                    punchSprite(r), Math.round(sx[i] / div) - r, Math.round(sy[i] / div) - r, null);
         }
 
-        //5. warm halo on top of the holes
-        for(int i = 0; i < n; i++){
+        // 5. warm halo on top of the holes
+        for (int i = 0; i < n; i++) {
             float a = Math.min(1f, warm[i]);
-            if(a < 0.02f) continue;
+            if (a < 0.02f) continue;
             int r = Math.max(4, Math.round(rad[i] / div));
             lg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));
-            lg.drawImage(glowSprite(r), Math.round(sx[i] / div) - r, Math.round(sy[i] / div) - r, null);
+            lg.drawImage(
+                    glowSprite(r), Math.round(sx[i] / div) - r, Math.round(sy[i] / div) - r, null);
         }
 
-        //6. one scaled blit over the world
+        // 6. one scaled blit over the world
         Composite oldComposite = g2.getComposite();
         Object oldInterp = g2.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         g2.setComposite(AlphaComposite.SrcOver);
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, div == 3
-                ? RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR : RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2.setRenderingHint(
+                RenderingHints.KEY_INTERPOLATION,
+                div == 3
+                        ? RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR
+                        : RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         g2.drawImage(lightmap, 0, 0, gp.screenWidth, gp.screenHeight, null);
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                oldInterp != null ? oldInterp : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2.setRenderingHint(
+                RenderingHints.KEY_INTERPOLATION,
+                oldInterp != null
+                        ? oldInterp
+                        : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         g2.setComposite(oldComposite);
 
-        //7. fireflies glow above the darkness
+        // 7. fireflies glow above the darkness
         gp.ambient.drawFireflies(g2, camLeft, camTop);
     }
 
-    private int gatherLights(Player cam, int camLeft, int camTop){
+    /** Resolves the gather lights result used by Lighting. */
+    private int gatherLights(Player cam, int camLeft, int camTop) {
         int n = 0;
         double s = gp.tileSize / 48.0;
         float objectPower = Math.min(1f, glow);
         float night = nightStrength();
 
-        if(glow > 0.02f){
-            for(WorldObject o : gp.worldObjects){
-                if(n == MAX_LIGHTS) break;
+        if (glow > 0.02f) {
+            for (WorldObject o : gp.worldObjects) {
+                if (n == MAX_LIGHTS) break;
                 var defs = o.lights();
-                if(defs.isEmpty()) continue;
+                if (defs.isEmpty()) continue;
                 float darkness = o.building == null ? 1f : night;
-                if(darkness == 0f) continue;
-                float flicker = (float) (1 + 0.05 * Math.sin(time * 0.13 + o.col * 1.7)
-                        + 0.03 * Math.sin(time * 0.31 + o.row * 2.3));
-                for(int i = 0; i < defs.size() && n < MAX_LIGHTS; i++){
+                if (darkness == 0f) continue;
+                float flicker =
+                        (float)
+                                (1
+                                        + 0.05 * Math.sin(time * 0.13 + o.col * 1.7)
+                                        + 0.03 * Math.sin(time * 0.31 + o.row * 2.3));
+                for (int i = 0; i < defs.size() && n < MAX_LIGHTS; i++) {
                     var light = defs.get(i);
                     sx[n] = (float) (o.worldX + light.x() * s - camLeft);
                     sy[n] = (float) (o.worldY + light.y() * s - camTop);
                     rad[n] = (float) (light.radius() * s);
-                    if(!onScreen(n)) continue;
+                    if (!onScreen(n)) continue;
                     pow[n] = light.intensity() * objectPower * flicker * darkness;
                     warm[n] = light.intensity() * glow * flicker * darkness;
                     n++;
@@ -260,82 +319,122 @@ public class Lighting {
             }
         }
 
-        for(var d:gp.buildings.decorations()){
-            if(n>=MAX_LIGHTS || glow<=.02f)break;
-            var p=building.PropCatalog.get(d.element());if(p.lightRadius()<=0)continue;
-            sx[n]=(float)(d.x()*s-camLeft);sy[n]=(float)((d.y()-p.height()*.45)*s-camTop);
-            rad[n]=(float)(p.lightRadius()*s);if(!onScreen(n))continue;
-            float flicker=(float)(1+.025*Math.sin(time*.17+d.x()));pow[n]=.85f*objectPower*flicker;
-            warm[n]=.85f*glow*flicker;n++;
+        for (var d : gp.buildings.decorations()) {
+            if (n >= MAX_LIGHTS || glow <= .02f) break;
+            var p = building.PropCatalog.get(d.element());
+            if (p.lightRadius() <= 0) continue;
+            sx[n] = (float) (d.x() * s - camLeft);
+            sy[n] = (float) ((d.y() - p.height() * .45) * s - camTop);
+            rad[n] = (float) (p.lightRadius() * s);
+            if (!onScreen(n)) continue;
+            float flicker = (float) (1 + .025 * Math.sin(time * .17 + d.x()));
+            pow[n] = .85f * objectPower * flicker;
+            warm[n] = .85f * glow * flicker;
+            n++;
         }
-        float need = Math.min(1f, aa / 140f);     // players carry a soft light that grows as the world darkens
-        for(Player p : gp.players){
-            if(p == null || p.isDead || p.inWell!=gp.quests.inDungeon() || n >= MAX_LIGHTS) continue;
+        float need =
+                Math.min(
+                        1f,
+                        aa / 140f); // players carry a soft light that grows as the world darkens
+        for (Player p : gp.players) {
+            if (p == null || p.isDead || p.inWell != gp.quests.inDungeon() || n >= MAX_LIGHTS)
+                continue;
             sx[n] = p.worldX + gp.tileSize / 2f - camLeft;
             sy[n] = p.worldY + gp.tileSize / 3f - camTop;
             rad[n] = (float) (135 * s);
             pow[n] = 0.55f * need;
             warm[n] = 0;
-            if(onScreen(n)) n++;
+            if (onScreen(n)) n++;
         }
         // Hell Slime glows through the dungeon darkness so its red body and charge remain readable.
-        for(entity.Monster monster:gp.monster)if(monster instanceof monster.MON_HellSlime hell && !hell.dying && n<MAX_LIGHTS){
-            sx[n]=hell.worldX+hell.solidArea.x+hell.solidArea.width/2f-camLeft;
-            sy[n]=hell.worldY+hell.solidArea.y-hell.slamHeight()-camTop;
-            rad[n]=(float)(150*s);pow[n]=.9f;warm[n]=.12f;
-            if(onScreen(n))n++;
-        }
+        for (entity.Monster monster : gp.monster)
+            if (monster instanceof monster.MON_HellSlime hell && !hell.dying && n < MAX_LIGHTS) {
+                sx[n] = hell.worldX + hell.solidArea.x + hell.solidArea.width / 2f - camLeft;
+                sy[n] = hell.worldY + hell.solidArea.y - hell.slamHeight() - camTop;
+                rad[n] = (float) (150 * s);
+                pow[n] = .9f;
+                warm[n] = .12f;
+                if (onScreen(n)) n++;
+            }
         return n;
     }
 
-    private boolean onScreen(int i){
-        return sx[i] + rad[i] > 0 && sx[i] - rad[i] < gp.screenWidth && sy[i] + rad[i] > 0 && sy[i] - rad[i] < gp.screenHeight;
+    /** Evaluates the on screen condition for Lighting. */
+    private boolean onScreen(int i) {
+        return sx[i] + rad[i] > 0
+                && sx[i] - rad[i] < gp.screenWidth
+                && sy[i] + rad[i] > 0
+                && sy[i] - rad[i] < gp.screenHeight;
     }
 
-    private static int c255(float v){
+    /** Resolves the c255 result used by Lighting. */
+    private static int c255(float v) {
         return Math.max(0, Math.min(255, Math.round(v)));
     }
 
-    //BAKED IMAGES
-    private BufferedImage punchSprite(int r){
-        return punchSprites.computeIfAbsent(r, k -> radial(k, 255, 255, 255, new int[]{255, 190, 70, 0}));
+    // BAKED IMAGES
+    /** Resolves the punch sprite result used by Lighting. */
+    private BufferedImage punchSprite(int r) {
+        return punchSprites.computeIfAbsent(
+                r, k -> radial(k, 255, 255, 255, new int[] {255, 190, 70, 0}));
     }
 
-    private BufferedImage glowSprite(int r){
-        return glowSprites.computeIfAbsent(r, k -> radial(k, 255, 205, 120, new int[]{120, 90, 35, 0}));
+    /** Resolves the glow sprite result used by Lighting. */
+    private BufferedImage glowSprite(int r) {
+        return glowSprites.computeIfAbsent(
+                r, k -> radial(k, 255, 205, 120, new int[] {120, 90, 35, 0}));
     }
 
-    private static BufferedImage radial(int r, int cr, int cg, int cb, int[] alphas){
+    /** Resolves the radial result used by Lighting. */
+    private static BufferedImage radial(int r, int cr, int cg, int cb, int[] alphas) {
         BufferedImage img = new BufferedImage(r * 2, r * 2, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
-        g.setPaint(new RadialGradientPaint(new Point2D.Float(r, r), r, new float[]{0f, 0.35f, 0.7f, 1f}, new Color[]{
-                new Color(cr, cg, cb, alphas[0]), new Color(cr, cg, cb, alphas[1]),
-                new Color(cr, cg, cb, alphas[2]), new Color(cr, cg, cb, alphas[3])}));
+        g.setPaint(
+                new RadialGradientPaint(
+                        new Point2D.Float(r, r),
+                        r,
+                        new float[] {0f, 0.35f, 0.7f, 1f},
+                        new Color[] {
+                            new Color(cr, cg, cb, alphas[0]), new Color(cr, cg, cb, alphas[1]),
+                            new Color(cr, cg, cb, alphas[2]), new Color(cr, cg, cb, alphas[3])
+                        }));
         g.fillRect(0, 0, r * 2, r * 2);
         g.dispose();
         return img;
     }
 
-    private BufferedImage bakeVignette(){
+    /** Resolves the bake vignette result used by Lighting. */
+    private BufferedImage bakeVignette() {
         BufferedImage img = new BufferedImage(lw, lh, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
         float radius = (float) Math.hypot(lw, lh) / 2f;
-        g.setPaint(new RadialGradientPaint(new Point2D.Float(lw / 2f, lh / 2f), radius, new float[]{0f, 0.6f, 1f},
-                new Color[]{new Color(18, 22, 40, 0), new Color(18, 22, 40, 0), new Color(18, 22, 40, 200)}));
+        g.setPaint(
+                new RadialGradientPaint(
+                        new Point2D.Float(lw / 2f, lh / 2f),
+                        radius,
+                        new float[] {0f, 0.6f, 1f},
+                        new Color[] {
+                            new Color(18, 22, 40, 0),
+                            new Color(18, 22, 40, 0),
+                            new Color(18, 22, 40, 200)
+                        }));
         g.fillRect(0, 0, lw, lh);
         g.dispose();
         return img;
     }
 
     // seamless soft blobs: periodic noise, so the tile repeats without seams
-    private BufferedImage bakeClouds(){
+    /** Resolves the bake clouds result used by Lighting. */
+    private BufferedImage bakeClouds() {
         int n = CLOUD_TILE;
         BufferedImage img = new BufferedImage(n, n, BufferedImage.TYPE_INT_ARGB);
         int[] pixels = new int[n * n];
-        for(int y = 0; y < n; y++){
-            for(int x = 0; x < n; x++){
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
                 double u = x / (double) n * 3, v = y / (double) n * 3;
-                double value = 0.7 * periodicNoise(u, v, 3, 501) + 0.3 * periodicNoise(u * 2 + 0.37, v * 2 + 0.11, 6, 503);
+                double value =
+                        0.7 * periodicNoise(u, v, 3, 501)
+                                + 0.3 * periodicNoise(u * 2 + 0.37, v * 2 + 0.11, 6, 503);
                 double t = Math.max(0, Math.min(1, (value - 0.50) / 0.20));
                 double alpha = t * t * (3 - 2 * t);
                 pixels[y * n + x] = ((int) (alpha * 110) << 24) | 0x1C3440;
@@ -345,7 +444,8 @@ public class Lighting {
         return img;
     }
 
-    private static double periodicNoise(double x, double y, int period, long seed){
+    /** Resolves the periodic noise result used by Lighting. */
+    private static double periodicNoise(double x, double y, int period, long seed) {
         int x0 = (int) Math.floor(x), y0 = (int) Math.floor(y);
         double fx = x - x0, fy = y - y0;
         double sxm = fx * fx * (3 - 2 * fx), sym = fy * fy * (3 - 2 * fy);

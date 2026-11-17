@@ -1,13 +1,13 @@
 package object;
 
 import entity.Entity;
-import main.Gamepanel;
 
-import javax.imageio.ImageIO;
+import main.Gamepanel;
 
 public class OBJ_chest extends Entity {
 
-    public OBJ_chest(Gamepanel gp){
+    /** Creates a OBJ_chest instance and initializes the state required by its collaborators. */
+    public OBJ_chest(Gamepanel gp) {
         super(gp);
         name = "Chest";
 

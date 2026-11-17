@@ -4,71 +4,97 @@ import entity.Entity;
 import entity.Monster;
 import entity.Player;
 import entity.StatusEffect;
+
 import main.Gamepanel;
+
 import monster.MON_SlimeBoss;
+import monster.MonsterType;
+
 import object.ItemRegistry;
 import object.ItemType;
-import monster.MonsterType;
+
+import world.WorldObject;
 
 import java.util.ArrayList;
 import java.util.List;
-import world.WorldObject;
 
 public class SnapshotBuilder {
 
-    public static WorldSnapshot build(Gamepanel gp){
+    /** Resolves the build result used by SnapshotBuilder. */
+    public static WorldSnapshot build(Gamepanel gp) {
         WorldSnapshot snapshot = new WorldSnapshot();
-        snapshot.generationSettings=gp.generationSettingsJson();
+        snapshot.generationSettings = gp.generationSettingsJson();
         snapshot.tick = gp.currentTick;
         snapshot.quest = gp.quests.snapshot();
-        snapshot.dayTime = gp.lighting.cycle.time();snapshot.worldDay=gp.lighting.cycle.day();snapshot.moonWarningDay=gp.lighting.cycle.warnedMoonNight();
+        snapshot.dayTime = gp.lighting.cycle.time();
+        snapshot.worldDay = gp.lighting.cycle.day();
+        snapshot.moonWarningDay = gp.lighting.cycle.warnedMoonNight();
         snapshot.players = buildPlayers(gp);
-        fillArea(snapshot,gp);
-        if(gp.quests.hasOtherScene()){
-            boolean current=gp.quests.inDungeon();gp.quests.activateArea(!current);
-            snapshot.otherArea=new WorldSnapshot();fillArea(snapshot.otherArea,gp);gp.quests.activateArea(current);
+        fillArea(snapshot, gp);
+        if (gp.quests.hasOtherScene()) {
+            boolean current = gp.quests.inDungeon();
+            gp.quests.activateArea(!current);
+            snapshot.otherArea = new WorldSnapshot();
+            fillArea(snapshot.otherArea, gp);
+            gp.quests.activateArea(current);
         }
         return snapshot;
     }
 
-    private static void fillArea(WorldSnapshot snapshot,Gamepanel gp){
-        snapshot.inWellArea=gp.quests.inDungeon();
-        snapshot.slimeProjectiles=buildSlimeProjectiles(gp);
-        List<RangerEffectState> rangerEffects=new ArrayList<>();
-        List<MageEffectState> mageEffects=new ArrayList<>();
-        for(Entity projectile:gp.projectileList){
-            if(projectile instanceof entity.RangerEffect effect && effect.alive)rangerEffects.add(effect.snapshot());
-            else if(projectile instanceof entity.MageEffect effect && effect.alive)mageEffects.add(effect.snapshot());
+    /** Performs the fill area operation for SnapshotBuilder. */
+    private static void fillArea(WorldSnapshot snapshot, Gamepanel gp) {
+        snapshot.inWellArea = gp.quests.inDungeon();
+        snapshot.slimeProjectiles = buildSlimeProjectiles(gp);
+        List<RangerEffectState> rangerEffects = new ArrayList<>();
+        List<MageEffectState> mageEffects = new ArrayList<>();
+        for (Entity projectile : gp.projectileList) {
+            if (projectile instanceof entity.RangerEffect effect && effect.alive)
+                rangerEffects.add(effect.snapshot());
+            else if (projectile instanceof entity.MageEffect effect && effect.alive)
+                mageEffects.add(effect.snapshot());
         }
-        snapshot.rangerEffects=rangerEffects.toArray(RangerEffectState[]::new);
-        snapshot.mageEffects=mageEffects.toArray(MageEffectState[]::new);
+        snapshot.rangerEffects = rangerEffects.toArray(RangerEffectState[]::new);
+        snapshot.mageEffects = mageEffects.toArray(MageEffectState[]::new);
         snapshot.monsters = buildMonsters(gp);
         snapshot.objects = buildObjects(gp);
         snapshot.npcs = buildNpcs(gp);
         snapshot.sceneryState = buildScenery(gp);
     }
 
-    private static SlimeProjectileState[] buildSlimeProjectiles(Gamepanel gp){
-        List<SlimeProjectileState> states=new ArrayList<>();
-        for(Entity entity:gp.projectileList)if(entity instanceof object.OBJ_slimebolt bolt && bolt.alive){
-            SlimeProjectileState state=new SlimeProjectileState();state.worldX=bolt.worldX;state.worldY=bolt.worldY;
-            state.velocityX=bolt.velocityX();state.velocityY=bolt.velocityY();
-            state.direction=bolt.direction;state.hell=bolt.hell;state.frame=bolt.spriteNum;states.add(state);
-        }return states.toArray(SlimeProjectileState[]::new);
+    /** Builds the slime projectiles for SnapshotBuilder. */
+    private static SlimeProjectileState[] buildSlimeProjectiles(Gamepanel gp) {
+        List<SlimeProjectileState> states = new ArrayList<>();
+        for (Entity entity : gp.projectileList)
+            if (entity instanceof object.OBJ_slimebolt bolt && bolt.alive) {
+                SlimeProjectileState state = new SlimeProjectileState();
+                state.worldX = bolt.worldX;
+                state.worldY = bolt.worldY;
+                state.velocityX = bolt.velocityX();
+                state.velocityY = bolt.velocityY();
+                state.direction = bolt.direction;
+                state.hell = bolt.hell;
+                state.frame = bolt.spriteNum;
+                states.add(state);
+            }
+        return states.toArray(SlimeProjectileState[]::new);
     }
 
-    public static PlayerState[] buildPlayers(Gamepanel gp){
+    /** Builds the players for SnapshotBuilder. */
+    public static PlayerState[] buildPlayers(Gamepanel gp) {
         List<PlayerState> states = new ArrayList<>();
-        for(Player p : gp.players){
-            if(p == null) continue;
+        for (Player p : gp.players) {
+            if (p == null) continue;
 
             PlayerState ps = new PlayerState();
             ps.playerId = p.playerId;
-            ps.merchantOpen=p.merchantOpen;ps.inWell=p.inWell;ps.resolve=p.resolve;
+            ps.merchantOpen = p.merchantOpen;
+            ps.inWell = p.inWell;
+            ps.resolve = p.resolve;
             ps.playerName = p.playerName;
             ps.playerClass = p.playerClass;
             ps.gender = p.gender;
-            ps.hairStyle=p.hairStyle;ps.hairColor=p.hairColor;
+            ps.hairStyle = p.hairStyle;
+            ps.hairColor = p.hairColor;
             ps.worldX = p.worldX;
             ps.worldY = p.worldY;
             ps.direction = p.direction;
@@ -81,10 +107,15 @@ public class SnapshotBuilder {
             ps.ackTick = p.lastProcessedInputTick;
             ps.isDead = p.isDead;
             p.hotbar.normalize(p);
-            ps.hotbarTypes=p.hotbar.snapshot();ps.selectedHotbar=p.hotbar.selected;
-            ps.craftingLevel=p.craftingProgress.level;ps.craftingXP=p.craftingProgress.xp;
-            ps.craftingBonuses=p.craftingProgress.claimed.stream().sorted().toArray(String[]::new);
-            ps.meleeMasteryXP=p.meleeMasteryXP;ps.magicMasteryXP=p.magicMasteryXP;ps.bowMasteryXP=p.bowMasteryXP;
+            ps.hotbarTypes = p.hotbar.snapshot();
+            ps.selectedHotbar = p.hotbar.selected;
+            ps.craftingLevel = p.craftingProgress.level;
+            ps.craftingXP = p.craftingProgress.xp;
+            ps.craftingBonuses =
+                    p.craftingProgress.claimed.stream().sorted().toArray(String[]::new);
+            ps.meleeMasteryXP = p.meleeMasteryXP;
+            ps.magicMasteryXP = p.magicMasteryXP;
+            ps.bowMasteryXP = p.bowMasteryXP;
             ps.level = p.level;
             ps.exp = p.exp;
             ps.nextLevelExp = p.nextLevelExp;
@@ -96,39 +127,54 @@ public class SnapshotBuilder {
             ps.rage = p.rage;
             ps.maxRage = p.maxRage;
             ps.arcaneCharge = p.arcaneCharge;
-            if(p.usesMana()){
-                ps.mageKit=p.isMage();ps.mageCastTicks=p.mage.castTicks();ps.mageCastLength=p.mage.castLength();
-                ps.mageFrame=p.spriteNum;ps.mageHeading=p.mage.heading();
+            if (p.usesMana()) {
+                ps.mageKit = p.isMage();
+                ps.mageCastTicks = p.mage.castTicks();
+                ps.mageCastLength = p.mage.castLength();
+                ps.mageFrame = p.spriteNum;
+                ps.mageHeading = p.mage.heading();
             }
-            if(p.attacking && p.usesMeleeSlash()){
-                ps.meleeFrame=p.spriteNum;ps.meleeFrameTicks=p.attackFrameTicks();
+            if (p.attacking && p.usesMeleeSlash()) {
+                ps.meleeFrame = p.spriteNum;
+                ps.meleeFrameTicks = p.attackFrameTicks();
             }
-            if(p.isPaladin()){
+            if (p.isPaladin()) {
                 p.paladin.snapshot(ps);
             }
-            if(p.isBerserker()){
-                ps.berserkerAction=p.berserker.action();ps.berserkerAge=p.berserker.age();ps.berserkerSerial=p.berserker.serial();
-                ps.berserkerHeading=p.berserker.heading();ps.berserkerWaveStopped=p.berserker.waveStopped();
+            if (p.isBerserker()) {
+                ps.berserkerAction = p.berserker.action();
+                ps.berserkerAge = p.berserker.age();
+                ps.berserkerSerial = p.berserker.serial();
+                ps.berserkerHeading = p.berserker.heading();
+                ps.berserkerWaveStopped = p.berserker.waveStopped();
             }
-            if(p.isPriest())ps.priestBeaconId=p.priest.beaconId();
-            if(p.isRanger()){
-                ps.rangerFrame=p.spriteNum;ps.rangerMarkIndex=p.ranger.markIndex();
-                ps.rangerMarkTicks=p.ranger.markTicks();ps.rangerDraw=p.ranger.drawTicks();
-                ps.rangerDeadeye=p.ranger.deadeyeTicks();ps.rangerHeading=p.ranger.heading();
-                ps.rangerHopAge=p.ranger.hopAge();ps.rangerRecovery=p.ranger.recoveryTicks();
+            if (p.isPriest()) ps.priestBeaconId = p.priest.beaconId();
+            if (p.isRanger()) {
+                ps.rangerFrame = p.spriteNum;
+                ps.rangerMarkIndex = p.ranger.markIndex();
+                ps.rangerMarkTicks = p.ranger.markTicks();
+                ps.rangerDraw = p.ranger.drawTicks();
+                ps.rangerDeadeye = p.ranger.deadeyeTicks();
+                ps.rangerHeading = p.ranger.heading();
+                ps.rangerHopAge = p.ranger.hopAge();
+                ps.rangerRecovery = p.ranger.recoveryTicks();
             }
 
-            if(p.isAssassin()){
-                ps.assassinKit=true;ps.assassinAction=p.assassin.action();ps.assassinAge=p.assassin.age();
-                ps.assassinFrame=p.spriteNum;ps.assassinHeading=p.assassin.heading();
-                ps.assassinCrit=p.assassin.critTicks();ps.assassinCritHeading=p.assassin.critHeading();
+            if (p.isAssassin()) {
+                ps.assassinKit = true;
+                ps.assassinAction = p.assassin.action();
+                ps.assassinAge = p.assassin.age();
+                ps.assassinFrame = p.spriteNum;
+                ps.assassinHeading = p.assassin.heading();
+                ps.assassinCrit = p.assassin.critTicks();
+                ps.assassinCritHeading = p.assassin.critHeading();
             }
 
             ps.inventoryTypes = new ItemType[p.inventorySlots.length];
             ps.inventoryStackCounts = new int[p.inventorySlots.length];
-            for(int i = 0; i < p.inventorySlots.length; i++){
+            for (int i = 0; i < p.inventorySlots.length; i++) {
                 Entity slot = p.inventorySlots[i];
-                if(slot != null){
+                if (slot != null) {
                     ps.inventoryTypes[i] = ItemRegistry.typeFor(slot);
                     ps.inventoryStackCounts[i] = slot.stackCount;
                 }
@@ -136,11 +182,12 @@ public class SnapshotBuilder {
             ps.weaponType = ItemRegistry.typeFor(p.currentWeapon);
             ps.shieldType = ItemRegistry.typeFor(p.currentShield);
             ps.apparelTypes = new ItemType[p.apparelSlots.length];
-            for(int i=0;i<ps.apparelTypes.length;i++)ps.apparelTypes[i]=ItemRegistry.typeFor(p.apparelSlots[i]);
+            for (int i = 0; i < ps.apparelTypes.length; i++)
+                ps.apparelTypes[i] = ItemRegistry.typeFor(p.apparelSlots[i]);
 
             ps.skillCooldowns = new int[p.skills.length];
-            for(int i = 0; i < p.skills.length; i++){
-                if(p.skills[i] != null){
+            for (int i = 0; i < p.skills.length; i++) {
+                if (p.skills[i] != null) {
                     ps.skillCooldowns[i] = p.skills[i].cooldownRemaining;
                 }
             }
@@ -149,13 +196,14 @@ public class SnapshotBuilder {
             ps.effectTypes = new String[effectCount];
             ps.effectDurations = new int[effectCount];
             ps.effectValues = new int[effectCount];
-            for(int i = 0; i < effectCount; i++){
+            for (int i = 0; i < effectCount; i++) {
                 StatusEffect e = p.statusEffects.get(i);
                 ps.effectTypes[i] = e.type;
                 ps.effectDurations[i] = e.duration;
                 ps.effectValues[i] = e.value;
             }
-            ps.auraRgb = (p.auraActive && p.auraColor != null) ? (p.auraColor.getRGB() & 0xFFFFFF) : -1;
+            ps.auraRgb =
+                    (p.auraActive && p.auraColor != null) ? (p.auraColor.getRGB() & 0xFFFFFF) : -1;
             p.captureSavedCombat(ps);
 
             states.add(ps);
@@ -163,11 +211,12 @@ public class SnapshotBuilder {
         return states.toArray(new PlayerState[0]);
     }
 
-    private static MonsterState[] buildMonsters(Gamepanel gp){
+    /** Builds the monsters for SnapshotBuilder. */
+    private static MonsterState[] buildMonsters(Gamepanel gp) {
         MonsterState[] states = new MonsterState[gp.monster.length];
-        for(int i = 0; i < gp.monster.length; i++){
+        for (int i = 0; i < gp.monster.length; i++) {
             Monster m = gp.monster[i];
-            if(m == null) continue;
+            if (m == null) continue;
 
             MonsterState ms = new MonsterState();
             ms.worldX = m.worldX;
@@ -176,47 +225,50 @@ public class SnapshotBuilder {
             ms.HP = m.HP;
             ms.maxHP = m.maxHP;
             ms.comboStacks = m.comboStacks;
-            ms.assassinPairMask=m.assassinPairMask();
+            ms.assassinPairMask = m.assassinPairMask();
             ms.hitSequence = m.hitSequence;
             ms.criticalHitRgb = m.criticalHitRgb;
             ms.hitDirection = m.hitDirection;
             ms.dying = m.dying;
-            ms.rangerPinned=m.hasStatusEffect("rangerSlow");
-            ms.assassinBleeding=m.hasAssassinBleed();
-            ms.berserkerSundered=m.hasBerserkerSunder();
-            ms.paladinChallenged=m.isChallenged();
+            ms.rangerPinned = m.hasStatusEffect("rangerSlow");
+            ms.assassinBleeding = m.hasAssassinBleed();
+            ms.berserkerSundered = m.hasBerserkerSunder();
+            ms.paladinChallenged = m.isChallenged();
             ms.alive = m.alive;
             ms.monsterType = MonsterType.of(m);
-            if(m instanceof MON_SlimeBoss boss){
-                ms.chargeX=boss.chargeX();ms.chargeY=boss.chargeY();
+            if (m instanceof MON_SlimeBoss boss) {
+                ms.chargeX = boss.chargeX();
+                ms.chargeY = boss.chargeY();
                 ms.isBoss = true;
                 ms.bossState = boss.bossState;
                 ms.bossStateTimer = boss.bossStateTimer;
                 ms.lastAttackWasSlam = boss.lastAttackWasSlam;
             }
-            if(m instanceof monster.SlimeActor slime)slime.captureSlime(ms);
-            if(m instanceof monster.MON_Skeleton skeleton)skeleton.capture(ms);
+            if (m instanceof monster.SlimeActor slime) slime.captureSlime(ms);
+            if (m instanceof monster.MON_Skeleton skeleton) skeleton.capture(ms);
             states[i] = ms;
         }
         return states;
     }
 
-    private static ObjectState[] buildObjects(Gamepanel gp){
+    /** Builds the objects for SnapshotBuilder. */
+    private static ObjectState[] buildObjects(Gamepanel gp) {
         ObjectState[] states = new ObjectState[gp.obj.length];
-        for(int i = 0; i < gp.obj.length; i++){
+        for (int i = 0; i < gp.obj.length; i++) {
             Entity o = gp.obj[i];
-            if(o == null) continue;
+            if (o == null) continue;
 
             states[i] = save.CharacterState.item(o);
         }
         return states;
     }
 
-    private static NpcState[] buildNpcs(Gamepanel gp){
+    /** Builds the npcs for SnapshotBuilder. */
+    private static NpcState[] buildNpcs(Gamepanel gp) {
         NpcState[] states = new NpcState[gp.npc.length];
-        for(int i = 0; i < gp.npc.length; i++){
+        for (int i = 0; i < gp.npc.length; i++) {
             Entity n = gp.npc[i];
-            if(n == null) continue;
+            if (n == null) continue;
 
             NpcState ns = new NpcState();
             ns.worldX = n.worldX;
@@ -227,15 +279,16 @@ public class SnapshotBuilder {
         return states;
     }
 
-    private static byte[] buildScenery(Gamepanel gp){
+    /** Builds the scenery for SnapshotBuilder. */
+    private static byte[] buildScenery(Gamepanel gp) {
         int n = 0;
-        for(WorldObject o : gp.worldObjects){
-            if(o.hasState()) n++;
+        for (WorldObject o : gp.worldObjects) {
+            if (o.hasState()) n++;
         }
         byte[] states = new byte[n];
         int i = 0;
-        for(WorldObject o : gp.worldObjects){
-            if(o.hasState()) states[i++] = (byte) o.state;
+        for (WorldObject o : gp.worldObjects) {
+            if (o.hasState()) states[i++] = (byte) o.state;
         }
         return states;
     }

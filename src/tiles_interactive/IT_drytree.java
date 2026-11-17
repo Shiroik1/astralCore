@@ -1,12 +1,14 @@
 package tiles_interactive;
 
 import entity.Entity;
+
 import main.Gamepanel;
 
 import java.awt.*;
 
-public class IT_drytree extends InteractiveTile{
+public class IT_drytree extends InteractiveTile {
 
+    /** Creates a IT_drytree instance and initializes the state required by its collaborators. */
     public IT_drytree(Gamepanel gp, int col, int row) {
         super(gp, col, row);
         HP = 3;
@@ -18,41 +20,47 @@ public class IT_drytree extends InteractiveTile{
         destructible = true;
     }
 
-    public boolean isCorrectItem(Entity entity){
+    /** Reports whether correct item for IT_drytree. */
+    public boolean isCorrectItem(Entity entity) {
         boolean isCorrectItem = false;
-        if(entity.currentWeapon.type == type_axe){
+        if (entity.currentWeapon.type == type_axe) {
             isCorrectItem = true;
         }
         return isCorrectItem;
     }
 
-    public InteractiveTile getDestroyedForm(){
-        InteractiveTile tile = new IT_trunk(gp, worldX/gp.tileSize, worldY/gp.tileSize);
+    /** Returns the destroyed form for IT_drytree. */
+    public InteractiveTile getDestroyedForm() {
+        InteractiveTile tile = new IT_trunk(gp, worldX / gp.tileSize, worldY / gp.tileSize);
         return tile;
     }
 
-    public void playSE(){
+    /** Performs the play se operation for IT_drytree. */
+    public void playSE() {
         gp.playSE(10);
     }
 
-    public Color getParticleColor(){
-        Color color = new Color(65,50,50);
-        return  color;
+    /** Returns the particle color for IT_drytree. */
+    public Color getParticleColor() {
+        Color color = new Color(65, 50, 50);
+        return color;
     }
 
-    public int getParticleSize(){
+    /** Returns the particle size for IT_drytree. */
+    public int getParticleSize() {
         int size = 5;
         return size;
     }
 
-    public int getParticleSpeed(){
+    /** Returns the particle speed for IT_drytree. */
+    public int getParticleSpeed() {
         int speed = 1;
         return speed;
     }
 
-    public int getParticleMaxHP(){
+    /** Returns the particle max hp for IT_drytree. */
+    public int getParticleMaxHP() {
         int maxHP = 20;
         return maxHP;
     }
-
 }

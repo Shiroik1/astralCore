@@ -2,7 +2,8 @@ package tiles_interactive;
 
 import main.Gamepanel;
 
-public class IT_trunk extends InteractiveTile{
+public class IT_trunk extends InteractiveTile {
+    /** Creates a IT_trunk instance and initializes the state required by its collaborators. */
     public IT_trunk(Gamepanel gp, int col, int row) {
         super(gp, col, row);
 

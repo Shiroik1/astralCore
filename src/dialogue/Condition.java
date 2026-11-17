@@ -6,10 +6,12 @@ import java.util.regex.Pattern;
 public record Condition(boolean negated, boolean stage, String value) {
     private static final Pattern NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
+    /** Evaluates the valid name condition for Condition. */
     public static boolean validName(String name) {
         return name != null && NAME.matcher(name).matches();
     }
 
+    /** Resolves the parse result used by Condition. */
     public static Condition parse(String text) {
         String t = text == null ? "" : text.trim();
         boolean negated = t.startsWith("!");
@@ -17,17 +19,21 @@ public record Condition(boolean negated, boolean stage, String value) {
         boolean stage = t.startsWith("stage:");
         if (stage) t = t.substring("stage:".length()).trim();
         if (!validName(t)) {
-            throw new IllegalArgumentException("Invalid " + (stage ? "stage" : "flag") + " name \"" + t + "\"");
+            throw new IllegalArgumentException(
+                    "Invalid " + (stage ? "stage" : "flag") + " name \"" + t + "\"");
         }
         return new Condition(negated, stage, t);
     }
 
+    /** Evaluates the test condition for Condition. */
     public boolean test(DialogueContext ctx) {
         boolean holds = stage ? value.equals(ctx.stage()) : ctx.flag(value);
         return holds != negated;
     }
 
-    @Override public String toString() {
+    /** Returns a textual representation of this value. */
+    @Override
+    public String toString() {
         return (negated ? "!" : "") + (stage ? "stage:" : "") + value;
     }
 }
