@@ -13,12 +13,18 @@ public final class Pathfinder {
     private final Gamepanel gp;
     private final ArrayDeque<Point> route=new ArrayDeque<>();
     private int scene=-1,goalX=Integer.MIN_VALUE,goalY,ticks;
+    private int waypointX,waypointY;
+    private long lastTick;
+    public Point waypoint(){return new Point(waypointX,waypointY);}
     public Pathfinder(Gamepanel gp){this.gp=gp;}
 
     public void chase(Monster m,Player target){
-        int ts=gp.tileSize;ticks++;
         int tx=target.worldX+target.solidArea.x+target.solidArea.width/2-m.solidArea.x-m.solidArea.width/2;
         int ty=target.worldY+target.solidArea.y+target.solidArea.height/2-m.solidArea.y-m.solidArea.height/2;
+        toward(m,tx,ty);
+    }
+    public void toward(Monster m,int tx,int ty){
+        int ts=gp.tileSize;ticks+=(int)Math.max(1,Math.min(60,gp.currentTick-lastTick));lastTick=gp.currentTick;
         if(scene!=gp.quests.areaVersion()){route.clear();scene=gp.quests.areaVersion();ticks=30;}
         if(clearLine(m,m.worldX,m.worldY,tx,m.worldY) && clearLine(m,tx,m.worldY,tx,ty)){
             route.clear();steer(m,tx,m.worldX!=tx?m.worldY:ty);if(!m.collisionOn)return;
@@ -34,6 +40,7 @@ public final class Pathfinder {
         }else m.speed=0;
     }
     private void steer(Monster m,int x,int y){
+        waypointX=x;waypointY=y;
         int dx=x-m.worldX,dy=y-m.worldY;
         if(dx==0 && dy==0){m.speed=0;return;}
         boolean horizontal=Math.abs(dx)>Math.abs(dy);
@@ -48,8 +55,8 @@ public final class Pathfinder {
     }
     private boolean walkable(Monster m,int x,int y,List<WorldObject> scenery){
         int left=x+m.solidArea.x,top=y+m.solidArea.y,right=left+m.solidArea.width,bottom=top+m.solidArea.height;
-        if(gp.tileM.blocksMovement(left,top,right,bottom))return false;
-        for(WorldObject o:scenery!=null?scenery:gp.worldObjects)if(o.blocksArea(left,top,right-left,bottom-top))return false;
+        if(gp.tileM.blocksMovement(left,top,right,bottom) || (!gp.quests.inDungeon() && gp.crafting.blocks(new Rectangle(left,top,right-left,bottom-top))))return false;
+        for(WorldObject o:scenery!=null?scenery:gp.worldObjects.query(new Rectangle(left,top,right-left,bottom-top)))if(o.blocksArea(left,top,right-left,bottom-top))return false;
         for(var tile:gp.interactable)if(tile!=null && tile.collision && new Rectangle(tile.worldX+tile.solidArea.x,tile.worldY+tile.solidArea.y,tile.solidArea.width,tile.solidArea.height).intersects(left,top,right-left,bottom-top))return false;
         return true;
     }
@@ -61,7 +68,7 @@ public final class Pathfinder {
         int maxX=Math.min(gp.maxWorldCol-1,Math.max(sx,gx)+5),maxY=Math.min(gp.maxWorldRow-1,Math.max(sy,gy)+5);
         int width=maxX-minX+1,height=maxY-minY+1;if(width<=0 || height<=0)return List.of();
         var nearby=new ArrayList<WorldObject>();
-        for(WorldObject o:gp.worldObjects)if(o.blocksArea(minX*ts,minY*ts,(width+3)*ts,(height+3)*ts))nearby.add(o);
+        for(WorldObject o:gp.worldObjects.query(new Rectangle(minX*ts,minY*ts,(width+3)*ts,(height+3)*ts)))if(o.blocksArea(minX*ts,minY*ts,(width+3)*ts,(height+3)*ts))nearby.add(o);
         int[] distance=new int[width*height],parent=new int[width*height];Arrays.fill(distance,Integer.MAX_VALUE);Arrays.fill(parent,-1);
         byte[] valid=new byte[width*height];boolean[] closed=new boolean[width*height];
         int start=(sy-minY)*width+sx-minX;if(start<0 || start>=distance.length)return List.of();
@@ -76,6 +83,7 @@ public final class Pathfinder {
             for(int i=0;i<4;i++){
                 int nx=x+dx[i],ny=y+dy[i];if(nx<minX || nx>maxX || ny<minY || ny>maxY)continue;
                 int next=(ny-minY)*width+nx-minX;if(closed[next])continue;
+                if(world.TerrainHeightResolver.active(gp) && gp.tileM.buildingElevation(nx,ny)!=gp.tileM.buildingElevation(x,y))continue;
                 if(valid[next]==0)valid[next]=(byte)(walkable(m,nx*ts,ny*ts,nearby)?1:-1);
                 if(valid[next]<0 || distance[next]<=distance[id]+1)continue;
                 distance[next]=distance[id]+1;parent[next]=id;

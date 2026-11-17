@@ -1,153 +1,82 @@
 package entity;
 
 import main.Gamepanel;
+import monster.SlimeMotion;
+import java.awt.Rectangle;
+import java.util.Set;
 
-public class Projectile extends Entity{
-
+/** Fixed-step projectile motion with fractional positions and swept collision samples. */
+public class Projectile extends Entity {
     Entity user;
-    public boolean networkReplica;
+    public boolean networkReplica,collidesWithWorld,clearOnAreaExit;
+    public Set<Player> burstHits;
     public float replicaVelocityX,replicaVelocityY;
-    public float velocityX(){return useAngledMovement?vx:direction.equals("right")?speed:direction.equals("left")?-speed:0;}
-    public float velocityY(){return useAngledMovement?vy:direction.equals("down")?speed:direction.equals("up")?-speed:0;}
-    private float vx, vy;
-    private boolean useAngledMovement = false;
+    private double x,y,vx,vy;
+    private boolean positionReady,angled;
+    private int sceneVersion;
+    private CombatHit hit;
     public Entity target;
-    public boolean empowered = false;
-
-    public Projectile(Gamepanel gp) {
-        super(gp);
+    public boolean empowered;
+    public Projectile(Gamepanel gp){super(gp);}
+    public boolean firedBy(Entity source){return user==source;}
+    public float velocityX(){return (float)(angled?vx:direction.equals("right")?speed:direction.equals("left")?-speed:0);}
+    public float velocityY(){return (float)(angled?vy:direction.equals("down")?speed:direction.equals("up")?-speed:0);}
+    private void launch(int px,int py,boolean live,Entity source){
+        worldX=px;worldY=py;x=px;y=py;positionReady=true;alive=live;user=source;HP=maxHP;sceneVersion=gp.quests.areaVersion();
+        hit=new CombatHit("projectile");if(source instanceof Player p && p.currentWeapon!=null && !p.currentWeapon.isPlaceholder)hit.mastery(p.currentWeapon.type);
     }
-
-    public void set(int worldX, int worldY, String direction, boolean alive, Entity user){
-        set(worldX, worldY, direction, alive, user, null);
+    public void set(int px,int py,String heading,boolean live,Entity source){set(px,py,heading,live,source,null);}
+    public void set(int px,int py,String heading,boolean live,Entity source,Entity target){
+        launch(px,py,live,source);direction=heading;this.target=target;angled=false;
     }
-
-    public void set(int worldX, int worldY, String direction, boolean alive, Entity user, Entity target){
-        this.worldX = worldX;
-        this.worldY = worldY;
-        this.direction = direction;
-        this.alive = alive;
-        this.user = user;
-        this.target = target;
-        this.HP = this.maxHP;
-        this.useAngledMovement = false;
+    public void setAngled(int px,int py,double angle,boolean live,Entity source){setVector(px,py,Math.cos(angle),Math.sin(angle),live,source);}
+    public void setVector(int px,int py,double dx,double dy,boolean live,Entity source){
+        launch(px,py,live,source);target=null;angled=true;
+        double length=Math.hypot(dx,dy);if(length<1e-9){dx=0;dy=1;length=1;}
+        vx=dx/length*speed;vy=dy/length*speed;direction=SlimeMotion.facing(vx,vy);
     }
-
-    public void setAngled(int worldX, int worldY, double angleRadians, boolean alive, Entity user){
-        this.worldX = worldX;
-        this.worldY = worldY;
-        this.vx = (float)(Math.cos(angleRadians) * speed);
-        this.vy = (float)(Math.sin(angleRadians) * speed);
-        this.direction = angleToDirection(angleRadians);
-        this.alive = alive;
-        this.user = user;
-        this.HP = this.maxHP;
-        this.useAngledMovement = true;
-    }
-
-    private String angleToDirection(double angleRadians){
-        double deg = Math.toDegrees(angleRadians);
-        deg = ((deg % 360) + 360) % 360;
-        if(deg >= 45 && deg < 135) return "down";
-        if(deg >= 135 && deg < 225) return "left";
-        if(deg >= 225 && deg < 315) return "up";
-        return "right";
-    }
-
-    public void update(){
+    @Override public void update(){
         if(!alive)return;
-        if(networkReplica){worldX+=replicaVelocityX;worldY+=replicaVelocityY;updateAnimation();return;}
-
-        if(user.type == type_player){
-            int monsterIndex = gp.collisionChecker.checkEntity(this, gp.monster);
-            if(monsterIndex != 999){
-                if(((Player) user).canResolveWorldActions()){
-                    ((Player)user).damageMonster(monsterIndex,attack,empowered,direction);
-                }
-                generateParticle(user.projectile==null?this:user.projectile, gp.monster[monsterIndex]);
-                alive = false;
-            }
+        if(!positionReady || worldX!=(int)Math.round(x) || worldY!=(int)Math.round(y)){x=worldX;y=worldY;positionReady=true;}
+        if(networkReplica){x+=replicaVelocityX;y+=replicaVelocityY;worldX=(int)Math.round(x);worldY=(int)Math.round(y);updateAnimation();return;}
+        if(clearOnAreaExit && sceneVersion!=gp.quests.areaVersion()){alive=false;return;}
+        if(user==null){alive=false;return;}
+        double dx=velocityX(),dy=velocityY();
+        if(target!=null && target.alive && !target.dying){
+            double tx=target.worldX+gp.tileSize/2.0-x-gp.tileSize/2.0,ty=target.worldY+gp.tileSize/2.0-y-gp.tileSize/2.0;
+            double length=Math.hypot(tx,ty),travel=Math.min(speed,length);
+            if(length>0){dx=tx/length*travel;dy=ty/length*travel;direction=SlimeMotion.facing(dx,dy);}else{dx=0;dy=0;}
         }
-        else {
-            int dx=(int)(worldX+velocityX())-worldX,dy=(int)(worldY+velocityY())-worldY;
-            Player contactedPlayer=hitPlayerAlongFlight(dx,dy);
-            if(PaladinCombat.interceptProjectile(this,dx,dy,contactedPlayer)){
-                alive=false;
-                return;
-            }
-            if(contactedPlayer != null && !contactedPlayer.invincible){
-                if(!gp.isNetworked || gp.isHost){
-                    damagePlayer(contactedPlayer, attack);
+        double startX=x,startY=y;int steps=Math.max(1,(int)Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/2));
+        for(int i=1;i<=steps && alive;i++){
+            double nx=startX+dx*i/steps,ny=startY+dy*i/steps;int px=(int)Math.round(nx),py=(int)Math.round(ny);
+            Rectangle body=SlimeMotion.body(this,px,py);
+            if(collidesWithWorld && !SlimeMotion.clear(gp,body)){alive=false;break;}
+            if(user instanceof Player owner){
+                for(int j=0;j<gp.monster.length;j++){
+                    Monster monster=gp.monster[j];if(monster==null || !monster.alive || monster.dying || !body.intersects(SlimeMotion.body(monster,monster.worldX,monster.worldY)))continue;
+                    double push=owner.currentWeapon!=null && owner.currentWeapon.type==type_staff?CombatTuning.BOLT:CombatTuning.ARROW;
+                    owner.damageMonsterOnce(j,attack,empowered,direction,hit,push);generateParticle(this,monster);alive=false;break;
                 }
-                generateParticle(this, contactedPlayer);
-                alive = false;
-            }
-        }
-
-        if(target != null && target.alive && !target.dying){
-            moveToward(target.worldX + gp.tileSize/2, target.worldY + gp.tileSize/2);
-        } else {
-            if(useAngledMovement){
-                worldX += vx;
-                worldY += vy;
-            } else {
-                switch (direction) {
-                    case "up" -> worldY -= speed;
-                    case "down" -> worldY += speed;
-                    case "left" -> worldX -= speed;
-                    case "right" -> worldX += speed;
+            }else{
+                Player contacted=null;
+                for(Player p:gp.players)if(SlimeMotion.activePlayer(gp,p) && body.intersects(SlimeMotion.body(p,p.worldX,p.worldY))){contacted=p;break;}
+                if(PaladinCombat.interceptProjectile(this,px-worldX,py-worldY,contacted)){alive=false;break;}
+                if(contacted!=null){
+                    if((!gp.isNetworked || gp.isHost) && !contacted.invincible && (burstHits==null || !burstHits.contains(contacted))){
+                        if(burstHits!=null)burstHits.add(contacted);damagePlayer(contacted,attack);generateParticle(this,contacted);
+                    }
+                    alive=false;
                 }
             }
+            x=nx;y=ny;worldX=px;worldY=py;
         }
-
-        HP--;
-        if(HP <= 0){
-            alive = false;
-        }
-
-        spriteCounter++;
-        SpriteAnimation animation=getCurrentAnimation();
-        int frameDelay=animation!=null?animation.frameDelay:12;
-        int frameCount=animation!=null?animation.frames.length:2;
-        if(spriteCounter>frameDelay){
-            spriteNum=spriteNum%frameCount+1;
-            spriteCounter=0;
-        }
+        if(collidesWithWorld && (worldX+solidArea.x+solidArea.width<0 || worldY+solidArea.y+solidArea.height<0
+                || worldX+solidArea.x>=gp.maxWorldCol*gp.tileSize || worldY+solidArea.y>=gp.maxWorldRow*gp.tileSize))alive=false;
+        if(--HP<=0)alive=false;
+        spriteCounter++;SpriteAnimation a=getCurrentAnimation();int delay=a==null?12:a.frameDelay,count=a==null?2:a.frames.length;
+        if(spriteCounter>delay){spriteNum=spriteNum%count+1;spriteCounter=0;}
     }
-
-    private Player hitPlayerAlongFlight(int dx,int dy){
-        java.awt.Rectangle swept=new java.awt.Rectangle(worldX+solidArea.x+Math.min(0,dx),worldY+solidArea.y+Math.min(0,dy),solidArea.width+Math.abs(dx),solidArea.height+Math.abs(dy));
-        for(Player p:gp.players)if(p!=null && p.inWell==gp.quests.inDungeon() && !p.isDead && !p.invincible && swept.intersects(p.worldX+p.solidArea.x,p.worldY+p.solidArea.y,p.solidArea.width,p.solidArea.height))return p;
-        return null;
-    }
-
-    private void moveToward(int targetX, int targetY){
-        int centerX = worldX + gp.tileSize/2;
-        int centerY = worldY + gp.tileSize/2;
-        double dx = targetX - centerX;
-        double dy = targetY - centerY;
-        double distance = Math.sqrt(dx*dx + dy*dy);
-
-        if(distance < speed){
-            worldX = targetX - gp.tileSize/2;
-            worldY = targetY - gp.tileSize/2;
-            return;
-        }
-
-        worldX += (int) Math.round((dx / distance) * speed);
-        worldY += (int) Math.round((dy / distance) * speed);
-
-        direction = Math.abs(dx) > Math.abs(dy)
-                ? (dx > 0 ? "right" : "left")
-                : (dy > 0 ? "down" : "up");
-    }
-
-    public boolean hasResource(Entity user){
-        boolean hasResource = false;
-        return hasResource;
-    }
-
-    public void subtractResource(Entity user){
-
-    }
+    public boolean hasResource(Entity user){return false;}
+    public void subtractResource(Entity user){}
 }

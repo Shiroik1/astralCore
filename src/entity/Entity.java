@@ -21,6 +21,8 @@ public class Entity {
     public int spriteCounter = 0;
     public int spriteNum = 1;
 
+    /** Player hit feedback imposed by this damage source; negative knockback keeps the player default. */
+    public int incomingHitImmunity=60, incomingHitKnockback=-1;
     public int invincibilityDuration=40;
     public boolean invincible = false;
     public int invincibleCounter = 0;
@@ -52,6 +54,7 @@ public class Entity {
     public String animState = "idle";
     public boolean moving = false;
 
+    public int groundElevation=-1; // Optional fixed ground anchor for transient visual effects.
     public Rectangle solidArea = new Rectangle(0,0,48,48);
     public Rectangle attackArea = new Rectangle(0, 0, 0, 0);
     public int solidAreaDefaultX, solidAreaDefaultY;
@@ -67,6 +70,10 @@ public class Entity {
     public boolean collision = false;
     public boolean attacking = false;
     public boolean pickupBlocked = false; // true right after a player-initiated drop, until the player's hitbox leaves this item's hitbox
+    public boolean groundLoot;
+    public int lootAge;
+    public double lootVX,lootVY;
+    public float lootLift;
     public boolean alive = true;
     public boolean dying = false;
     public boolean hpBarOn = false;
@@ -171,14 +178,7 @@ public class Entity {
     }
 
     public void dropItem(Entity droppedItem){
-        for(int i = 0; i < gp.obj.length; i++){
-            if(gp.obj[i] == null){
-                gp.obj[i] = droppedItem;
-                gp.obj[i].worldX = worldX;
-                gp.obj[i].worldY = worldY;
-                break;
-            }
-        }
+        gp.quests.dropLoot(droppedItem,worldX,worldY);
     }
 
     protected void loadDialogue(String jsonResourcePath){
@@ -293,10 +293,10 @@ public class Entity {
         int screenX = worldX - gp.localPlayer().worldX + gp.localPlayer().screenX;
         int screenY = worldY - gp.localPlayer().worldY + gp.localPlayer().screenY;
 
-        if(worldX + gp.tileSize > gp.localPlayer().worldX - gp.localPlayer().screenX &&
-                worldX - gp.tileSize < gp.localPlayer().worldX + gp.localPlayer().screenX &&
-                worldY + gp.tileSize > gp.localPlayer().worldY - gp.localPlayer().screenY &&
-                worldY - gp.tileSize < gp.localPlayer().worldY + gp.localPlayer().screenY){
+        Player camera=gp.localPlayer();int viewLeft=camera.worldX-camera.screenX,viewTop=camera.worldY-camera.screenY;
+        int groundLift=world.TerrainHeightResolver.lift(gp,this);
+        if(worldX+gp.tileSize>viewLeft && worldX-gp.tileSize<viewLeft+gp.screenWidth
+                && worldY+gp.tileSize-groundLift>viewTop && worldY-gp.tileSize-groundLift<viewTop+gp.screenHeight){
 
             SpriteAnimation anim = getCurrentAnimation();
             image = getCurrentFrame();
@@ -306,14 +306,8 @@ public class Entity {
             }
 
             //HP Bar
-            if(type == type_monster && hpBarOn && !(this instanceof Monster m && m.isBoss())){
-                double oneScale = (double) gp.tileSize/maxHP;
-                double hpBarValue = oneScale * HP;
-
-                g2.setColor(Color.black);
-                g2.fillRect(screenX - 1, screenY - 16, gp.tileSize + 2, 7);
-                g2.setColor(Color.red);
-                g2.fillRect(screenX, screenY - 15, (int) hpBarValue , 5);
+            if(type == type_monster && (hpBarOn || highlighted) && !(this instanceof Monster m && m.isBoss())){
+                ui.UITheme.bar(g2,new Rectangle(screenX,screenY-16-Math.round(spriteLiftPixels()),gp.tileSize,6),HP,maxHP,ui.UITheme.HP,null);
             }
 
             //COMBO STACK PIPS
@@ -340,8 +334,9 @@ public class Entity {
                     drawY = screenY + solidArea.y + solidArea.height - 2 - (int)(anim.height * footFraction);
                 }
             }
-            drawY -= Math.round(spriteLiftPixels());
-            if(highlighted) drawOutline(g2, getFlashVersion(image), drawX, drawY);
+            drawY -= Math.round(spriteLiftPixels()+lootLift);
+            if(object.ItemRegistry.typeFor(this)!=null && image!=null)art.ItemOutline.draw(g2,image,drawX,drawY,image.getWidth(),image.getHeight());
+            if(highlighted){if(type==type_monster && !gp.interactions.blocked())drawOutline(g2,getFlashVersion(image),drawX,drawY);else if(gp.interactions.selected(this))art.InteractionOutline.draw(g2,image,drawX,drawY);}
             g2.drawImage(image, drawX, drawY, null);
             changeAlpha(g2, 1f);
         }

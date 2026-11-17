@@ -79,7 +79,7 @@ public final class CharacterSlots {
             g2.drawString(slot.name(),r.x+53,r.y+26);
             g2.setFont(font.deriveFont(12f));g2.setColor(new Color(174,187,205));
             String detail=slot.empty()?"Create a new adventurer":slot.error()!=null?"Save unavailable; original files are preserved":
-                    entity.CharacterClass.fromId(slot.classId()).label+" · Level "+slot.level()+" · "+(slot.dungeon()?"Well Depths":"Astravale");
+                    "Level "+slot.level()+" · "+(slot.dungeon()?"Well Depths":"Astravale");
             g2.drawString(detail,r.x+53,r.y+48);
             if(!slot.empty() && slot.error()==null){
                 String date=DateTimeFormatter.ofPattern("MMM d, HH:mm").format(Instant.ofEpochMilli(slot.savedAt()).atZone(ZoneId.systemDefault()));

@@ -4,16 +4,18 @@ The first survival crafting implementation uses the existing JPanel loop, Java2D
 
 ## Controls and progression
 
-- **K** opens/closes crafting; **Escape** closes it or cancels station placement.
-- **Up/Down** or **W/S** selects a recipe, including locked recipes below the visible list.
+- **E** (also I / K) opens/closes Inventory & Crafting; **Escape** closes it or cancels station placement.
+- **Up/Down** selects a recipe, including locked recipes below the visible list.
 - **Enter** or **Craft** completes the selected recipe. Ingredient counts, station, output count, level requirement and XP bar are shown. Unavailable crafts are rejected without mutation.
 - **+ / −** changes batch count after Crafting Level 9 (maximum 99 batches).
-- **P / Place** begins placing a crafted station, furniture or component. Click within three tiles for stations. Press E near a station to reopen the common crafting menu. Press **F** near a station to recover it if the bag has space.
-- **E** collects nearby Twigs/Stones or works a nearby resource with the equipped tool. **LMB** aims at a resource within about two tiles and gathers it. Gathering uses an attack animation and cooldown. Equip tools by dragging them into the existing weapon slot.
+- **P / Place** begins placing a crafted station, furniture or component. Click within three tiles for stations. Face the adjacent station footprint and press **F** to reopen the common crafting menu, or **G** to recover it if the bag has space. Existing recipe-proximity validation is unchanged.
+- **F** collects Twigs/Stones or works a resource only on the adjacent tile the player faces. **LMB** gathering uses that same directional resource target. Gathering uses an attack animation and cooldown. Equip tools by dragging them into the existing weapon slot.
 - Crafted bows consume Wooden Arrows; crafted bows and staffs fire through the existing projectile list and respect terrain, building, scenery and station collision. Crafted melee weapons use existing damage resolution. Each hit advances a separate Melee/Magic/Bow mastery XP counter; complete mastery trees are intentionally absent.
 - Placing wooden floor, wall, door or simple bed consumes the corresponding crafted item. Removing it returns that item if inventory space permits. Automatically inserted corner walls cost additional wall items; changing connectivity/orientation does not charge again. Blueprint placements reserve all ingredients before applying anything.
 
-Collect three Twigs and two Stones and make the first Wooden Axe: its 5 base XP plus 20 first-craft bonus reach Level 2 exactly. Chop trees for Logs and cut the distinct harvestable grass tufts for Fiber. Make weapons and a Workbench; reach Level 3 for Planks/components, Level 4 for Campfire/Charcoal, Level 5 for a Pickaxe, then progress through Chest, Bed, Improved Axe and batch crafting to the Forge and iron recipes at Level 10. All 21 requested recipes are present. No roofs, armor recipes, other professions, durability or survival meters were added.
+Collect three Twigs and two Stones and make the first Wooden Axe: its 5 base XP plus 20 first-craft bonus reach Level 2 exactly. Chop trees for Logs and cut the existing green, dark or golden tall-grass fields for Fiber. Make weapons and a Workbench; reach Level 3 for Planks/components, Level 4 for Campfire/Charcoal, Level 5 for a Pickaxe, then progress through Chest, Bed, Improved Axe and batch crafting to the Forge and iron recipes at Level 10. All 21 requested recipes are present. No roofs, armor recipes, other professions, durability or survival meters were added.
+
+The [Phase 3 interaction and encounter guide](phase3-interactions-encounters.md) documents footprint/elevation validation and development diagnostics.
 
 ## Configuration
 
@@ -28,7 +30,7 @@ Only completed recipes award crafting XP. First bonuses are claimed once per rec
 
 ## Resource and station state
 
-Existing scenery trees, large rocks and twigs become resource sources. Additional loose stones, twigs, harvestable grass and iron deposits are deterministically scattered across walkable ground using the world seed. A traversal from spawn chooses a nearby guaranteed starter cache of seven Twigs and five Stones. Background terrain and decorative grass are untouched; harvestable tufts are separate objects. Existing procedural slime spawn protection keeps hostiles away from the initial area; new stations are excluded from later slime spawn locations.
+Existing scenery trees, large rocks, small loose rocks and twigs become resource sources. Additional loose stones, twigs and iron deposits are deterministically scattered across walkable ground using the world seed. Loose stones render with the existing world rock sprite; the new stone texture is used only for inventory/UI icons. A traversal from spawn chooses a nearby guaranteed starter cache of seven Twigs and five Stones. Background terrain and flowers are untouched. Existing green, dark and golden tall-grass cells supply Fiber; no separate crafting grass texture is spawned. Harvested cells are tracked with stable `tallgrass:col:row` IDs and hidden in the normal grass renderer, so depletion survives reloading without changing the field art. Existing procedural slime spawn protection keeps hostiles away from the initial area; new stations are excluded from later slime spawn locations.
 
 Resource identities use kind/coordinates or generated tile coordinates. Remaining hits and exhaustion are saved, so reinitializing the scenery does not regenerate harvested resources. The current engine does not stream chunks; these same stable identities support scene reinitialization and future chunk reloads. Nodes deliver resources atomically to the existing bag. If the bag cannot hold the reward, the final hit does not exhaust the node: its resources remain available, avoiding untracked/despawning loot or duplication. Loose and mined Stone both use `STONE`.
 
@@ -80,3 +82,9 @@ java -Djava.awt.headless=true -cp /tmp/astral-craft-art art.GenerateCraftingText
 The requested checks were run as temporary headless integration harnesses rather than restoring the previously removed test suite. They covered empty start, initial gathering/tool gates, axe XP, grass/log drops, exhaustion, atomic insufficient/full-inventory handling, station range, Planks, mining, Charcoal, component consumption/refunds, auto-corner planning, blueprint placement/material charges, batch unlock, iron recipes, character snapshots, real character-file save/load and crafting UI rendering. All Java sources compiled. The headless environment lacks an audio output device; existing sound loading printed nonfatal warnings. Live manual playtesting and multiplayer sessions were not performed.
 
 For a manual progression pass, create a **new** character, follow the controls and progression above and check each unlocked recipe at its listed level. Use each station from nearby, then move away and verify its recipes become unavailable. Fill the inventory and try collecting/crafting/recovering a station; no items or node rewards should disappear. Build and erase a room; verify automatic corner walls consume the correct count and removing one returns one component. At Level 9 craft two or more batches; at Level 10 mine Iron Ore and use a Forge to make Ingots and equipment. Save with F5, exit and reload: equipment, inventory, XP/bonus claims, harvested trees, stations and the room must remain. Finally check the existing class combat and dungeon content manually for regressions.
+
+## Gathering and inventory polish
+
+Crafted item images are fitted into a padded 48-pixel inventory canvas with their original aspect ratio; full-resolution station art remains separate. The Workbench is 72 design units wide with a 60×16 ground footprint. Station recipe access and E interaction share a 2.5-tile range measured from the player's body to the footprint, and stations take priority over nearby resource pickups when pressing E. The one selected actionable resource/station receives a warm-white silhouette outline, based on facing, range and tool requirements; grass and trees use their current animated frames. Flowers do not become harvestable. This follow-up was compiled and reviewed in code; gameplay checks were not run.
+
+See [Placement feedback and interaction targets](placement-feedback.md) for bounce/smoke effects, target selection, tuning constants and verification.

@@ -91,6 +91,7 @@ public class MouseHandler implements MouseListener, MouseMotionListener, MouseWh
     }
 
     void handleWheel(int rotation){
+        if(gp.ui.game.canControl()){gp.ui.game.wheel(rotation);return;}
         wheelRotation += rotation;
     }
 

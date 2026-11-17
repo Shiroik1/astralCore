@@ -105,6 +105,7 @@ public class KeyHandler implements KeyListener {
     }
 
     void handleKeyReleased(int code){
+        if(code==KeyEvent.VK_SHIFT)gp.ui.game.shift=false;
         if(code == KeyEvent.VK_W){
             upPressed = false;
         }
@@ -117,7 +118,7 @@ public class KeyHandler implements KeyListener {
         if(code == KeyEvent.VK_D){
             rightPressed = false;
         }
-        if(code == KeyEvent.VK_E){
+        if(code == KeyEvent.VK_F){
             ePressed = false;
         }
         if(code == KeyEvent.VK_ESCAPE){
@@ -152,8 +153,9 @@ public class KeyHandler implements KeyListener {
             if(code==KeyEvent.VK_ESCAPE)gp.merchant.close();
             return;
         }
+        if(gp.ui.game.key(code))return;
         if(gp.crafting.key(code)) return;
-        if(code==KeyEvent.VK_F && gp.crafting.available()){
+        if(code==KeyEvent.VK_G && gp.crafting.available()){
             gp.crafting.recoverStation(gp.localPlayer());return;
         }
         if(gp.buildings.handleKey(code)) return;
@@ -181,10 +183,7 @@ public class KeyHandler implements KeyListener {
                 gp.paused = true;
             }
         }
-        if(code == KeyEvent.VK_C){
-            gp.inventoryOpen = !gp.inventoryOpen;
-        }
-        if(code == KeyEvent.VK_E){
+        if(code == KeyEvent.VK_F){
             ePressed = true;
         }
         if(code == KeyEvent.VK_ESCAPE){
@@ -196,12 +195,6 @@ public class KeyHandler implements KeyListener {
             }
         }
 
-        //SKILL KEYS
-        if(code == KeyEvent.VK_1){ skillKeyPressed[0] = true; }
-        if(code == KeyEvent.VK_2){ skillKeyPressed[1] = true; }
-        if(code == KeyEvent.VK_3){ skillKeyPressed[2] = true; }
-        if(code == KeyEvent.VK_4){ skillKeyPressed[3] = true; }
-        if(code == KeyEvent.VK_5){ skillKeyPressed[4] = true; }
     }
 
     public void pauseState(int code){
@@ -314,19 +307,7 @@ public class KeyHandler implements KeyListener {
     }
 
     private void characterCreationStep(int code){
-        if(code==KeyEvent.VK_ESCAPE){gp.ui.characterSlots.open();return;}
-        if(code == KeyEvent.VK_A){
-            selectedClassIndex = Math.floorMod(selectedClassIndex - 1, entity.CharacterClass.CREATION_CHOICES.size());
-        }
-        if(code == KeyEvent.VK_D){
-            selectedClassIndex = (selectedClassIndex + 1) % entity.CharacterClass.CREATION_CHOICES.size();
-        }
-        if(code == KeyEvent.VK_W || code == KeyEvent.VK_S){
-            selectedGenderIndex = 1 - selectedGenderIndex;
-        }
-        if(code == KeyEvent.VK_ENTER){
-            gp.ui.customization.open();
-        }
+        gp.ui.customization.open();gp.ui.customization.key(code);
     }
 
     public void beginEnteringCharacterName(){

@@ -124,6 +124,45 @@ public class GroundTiles {
         }
     }
 
+    /** Existing ledge artwork only: repeat its unscaled wall body (omit the grassy lip), clipped by a connected silhouette. */
+    public void drawCliffFace(Graphics2D original,Shape silhouette,int tone){
+        var g=(Graphics2D)original.create();g.clip(silhouette);
+        Rectangle b=silhouette.getBounds();BufferedImage source=textures.tile("ledge",Math.max(0,Math.min(LEVELS-1,tone))*4+3);
+        int strip=Math.max(1,size/3);
+        for(int y=Math.floorDiv(b.y,strip)*strip;y<b.y+b.height;y+=strip)
+            for(int x=Math.floorDiv(b.x,size)*size;x<b.x+b.width;x+=size)
+                g.drawImage(source,x,y,x+size,y+strip,0,32,48,48,null);
+        g.dispose();
+    }
+
+    /** New modular sprites are decoded once by GroundTextures and drawn only while terrain caches are baked. */
+    public void drawCliffCap(Graphics2D original,World world,int col,int row,int mask,int x,int y){
+        // Bake the existing grass/tone transitions through the exported cap alpha, preserving ground continuity.
+        var colored=new BufferedImage(size,size,BufferedImage.TYPE_INT_ARGB);var g=colored.createGraphics();
+        drawCell(g,world,col,row,0,0);g.setComposite(AlphaComposite.DstIn);
+        draw(g,textures.tile("cliff-top-"+Math.max(0,Math.min(LEVELS-1,world.level(col,row))),mask&255),0,0);g.dispose();
+        original.drawImage(colored,x,y,null);
+    }
+    private void cliffMaterial(Graphics2D original,Shape area,String sheet,int variant,int anchorX,int anchorY){
+        if(area.getBounds().isEmpty())return;
+        var g=(Graphics2D)original.create();g.clip(area);var bounds=area.getBounds();var image=textures.tile(sheet,variant);
+        for(int y=Math.floorDiv(bounds.y-anchorY,size)*size+anchorY;y<bounds.y+bounds.height;y+=size)
+            for(int x=Math.floorDiv(bounds.x-anchorX,size)*size+anchorX;x<bounds.x+bounds.width;x+=size)draw(g,image,x,y);
+        g.dispose();
+    }
+    public void drawCliffWall(Graphics2D g,Area wall,Shape highestCap,int tone,int footTone,int x,int y,int lift){
+        cliffMaterial(g,wall,"cliff-middle",0,x,y);
+        var left=new Area(wall);left.intersect(new Area(new Rectangle(x,y-lift,size/6,size+lift)));
+        cliffMaterial(g,left,"cliff-side-left",0,x,y);
+        var right=new Area(wall);right.intersect(new Area(new Rectangle(x+size-size/6,y-lift,size/6,size+lift)));
+        cliffMaterial(g,right,"cliff-side-right",0,x,y);
+        var lip=new Area(new BasicStroke(Math.max(2,size/6f),BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND).createStrokedShape(highestCap));lip.intersect(wall);
+        cliffMaterial(g,lip,"cliff-lip",Math.max(0,Math.min(LEVELS-1,tone)),x,y);
+        var foot=new Area(wall);foot.subtract(new Area(AffineTransform.getTranslateInstance(0,-Math.max(2,size/10)).createTransformedShape(wall)));
+        // The union's bottom, not every repeated strip, receives the lower-ground transition.
+        foot.subtract(lip);cliffMaterial(g,foot,"cliff-foot",Math.max(0,Math.min(LEVELS-1,footTone)),x,y);
+    }
+
     private static boolean pavingLike(World world,int col,int row){
         Terrain terrain=world.terrain(col,row);
         return terrain==Terrain.COBBLE || terrain==Terrain.MOSS_PATH;

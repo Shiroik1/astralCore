@@ -53,7 +53,7 @@ public class GrassEditor {
     public void update(){
         if(!active) return;
         Player me = gp.localPlayer();
-        if(me == null || gp.inventoryOpen || gp.optionsOpen || gp.paused || gp.keyH.enteringChat) return;
+        if(me == null || gp.inventoryOpen || gp.ui.game.blocksWorld() || gp.ui.game.pointerOverHotbar() || gp.optionsOpen || gp.paused || gp.keyH.enteringChat) return;
 
         boolean paint = gp.mouseH.leftPressed;
         boolean erase = gp.mouseH.rightPressed;

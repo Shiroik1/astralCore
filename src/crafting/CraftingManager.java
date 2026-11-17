@@ -17,14 +17,42 @@ public final class CraftingManager {
     public final CraftingUI ui;
     public boolean open;
     private final Map<String,Node> nodes=new LinkedHashMap<>();
-    private final List<Station> stations=new ArrayList<>();
+    private final world.spatial.SpatialIndex<Node> nodeIndex;
+    private final Map<Long,Node> tallGrassNodes=new HashMap<>();
+    private final world.spatial.SpatialIndex<Station> stationIndex;
+    private final Map<String,BufferedImage> stationArt=new HashMap<>();
+    private final List<Station> stations=new ArrayList<>(){
+        @Override public boolean add(Station value){boolean added=super.add(value);stationIndex.add(value,value.bounds().rectangle());return added;}
+        @Override public boolean remove(Object value){boolean removed=super.remove(value);if(removed && value instanceof Station station)stationIndex.remove(station);return removed;}
+        @Override public void clear(){super.clear();stationIndex.clear();}
+    };
     private final Map<String,Integer> savedHits=new LinkedHashMap<>();
     private long seed=Long.MIN_VALUE;
     private boolean initialized;
     private int cooldown;
+    private art.ObjectArt.Sprite looseStoneSprite;
     private String placing;
-    public String feedback="K: craft · E: gather/use station · LMB: gather with tool";
-    public CraftingManager(Gamepanel gp){this.gp=gp;ui=new CraftingUI(this,gp);}
+    public String feedback="E: inventory/crafting · F: gather/use station · G: recover station";
+    public CraftingManager(Gamepanel gp){this.gp=gp;nodeIndex=new world.spatial.SpatialIndex<>(gp.tileSize);stationIndex=new world.spatial.SpatialIndex<>(gp.tileSize*2);ui=new CraftingUI(this,gp);}
+    public void cancelPlacement(){placing=null;}
+    public boolean placingObject(){return placing!=null;}
+    private static long grassKey(int col,int row){return ((long)col<<32)|(row&0xffffffffL);}
+    public void collectTargets(interaction.InteractionTargetResolver resolver){
+        if(!available())return;ensureWorld();Player p=resolver.player();
+        for(Node node:nodeIndex.query(resolver.validator.frontBounds(p)))if(nodes.get(node.id)==node && canHarvest(p,node))
+            resolver.offer(node,node.id,node.footprint(),node.kind.equals("twig") || node.kind.equals("stone")?4:1,()->gather(p,node));
+        for(Station station:stationIndex.query(resolver.validator.frontBounds(p)))resolver.offer(station,"station:"+station.id,station.bounds().rectangle(),3,()->{open=true;feedback="Nearby "+station.type+" ready.";});
+    }
+    private String requiredTool(Node node){return switch(node.kind){case "tree"->"axe";case "rock","iron"->"pickaxe";case "grass"->"cut";default->"";};}
+    public boolean usableTarget(Object token){return !(token instanceof Node node) || canHarvest(gp.localPlayer(),node);}
+    private boolean canHarvest(Player p,Node node){
+        if(node.exhausted() || node.source!=null && !gp.worldObjects.contains(node.source))return false;
+        if(node.kind.equals("grass") && !gp.grass.isHarvestable(Math.floorDiv(node.x,gp.tileSize),Math.floorDiv(node.y,gp.tileSize)))return false;
+        String required=requiredTool(node);if(required.isEmpty())return true;
+        RecipeRegistry.Item tool=p.currentWeapon instanceof OBJ_crafted c?c.definition:null;
+        String category=tool!=null?tool.tool():p.currentWeapon==null || p.currentWeapon.isPlaceholder?"":p.currentWeapon.type==Entity.type_axe?"axe":p.currentWeapon.type==Entity.type_sword?"cut":"";
+        return category.equals(required) || required.equals("cut") && category.equals("axe");
+    }
     public boolean available(){Player p=gp.localPlayer();return !gp.isNetworked && p!=null && !p.inWell && !p.isDead && !p.inDialogue && !world.InnInterior.contains(gp,p);}
     public void message(String text){feedback=text;gp.ui.addMessage(text);}
     public boolean key(int code){
@@ -55,7 +83,7 @@ public final class CraftingManager {
         message("Crafted "+r.count()*quantity+" "+RecipeRegistry.item(r.output()).name()+" · +"+gained+" Crafting XP");
         if(p.craftingProgress.level>level)message("Crafting Level "+p.craftingProgress.level+"! New recipes unlocked." );return true;
     }
-    public boolean stationAvailable(String type,Player p){return type.equals("hand") || stations.stream().anyMatch(s->s.type.equals(type) && s.bounds().distance(p.worldX,p.worldY)<gp.tileSize*2.5);}
+    public boolean stationAvailable(String type,Player p){return type.equals("hand") || stationIndex.query(new Rectangle(p.worldX-gp.tileSize*3,p.worldY-gp.tileSize*3,gp.tileSize*6,gp.tileSize*6)).stream().anyMatch(s->s.type.equals(type) && stationDistance(s,p)<=gp.tileSize*2.5);}
     public void beginPlace(ItemType item){
         var def=RecipeRegistry.item(item);if(def==null || def.place().isEmpty()){message("Select a placeable recipe first.");return;}
         if(InventoryTransaction.count(gp.localPlayer(),item)<1){message("Craft or retrieve this item first.");return;}
@@ -71,15 +99,12 @@ public final class CraftingManager {
             else if(in.leftClicked){placeStation(p,in.aimWorldX,in.aimWorldY);}
             in.suppressGameplay();return true;
         }
-        if(in.ePressed){
-            Node near=nearest(p,p.worldX,p.worldY+gp.tileSize/2,true);
-            if(near!=null){gather(p,near);in.ePressed=false;in.leftClicked=false;return true;}
-            Station station=stations.stream().filter(s->s.bounds().distance(p.worldX,p.worldY)<gp.tileSize*2).min(Comparator.comparingDouble(s->s.bounds().distance(p.worldX,p.worldY))).orElse(null);
-            if(station!=null){open=true;feedback="Nearby "+station.type+" ready.";in.suppressGameplay();return true;}
-        }
+        if(in.ePressed && gp.interactions.interact()){in.ePressed=false;in.leftClicked=false;return true;}
         if(in.leftClicked && !gp.buildings.active && !gp.inventoryOpen){
-            Node near=nearest(p,in.aimWorldX,in.aimWorldY,false);
-            if(near!=null){gather(p,near);in.leftClicked=false;in.leftHeld=false;return true;}
+            var target=gp.interactions.target();
+            if(target!=null && target.token() instanceof Node node && canHarvest(p,node)){
+                gp.interactions.interact();in.leftClicked=false;in.leftHeld=false;return true;
+            }
             if(p.currentWeapon instanceof OBJ_crafted item && (item.type==Entity.type_staff || item.type==Entity.type_bow)){
                 if(cooldown==0){
                     if(item.type==Entity.type_bow && !InventoryTransaction.commit(gp,p,Map.of(ItemType.WOODEN_ARROW,1),Map.of()))message("Craft Wooden Arrows first.");
@@ -90,46 +115,51 @@ public final class CraftingManager {
         }
         return false;
     }
-    private Node nearest(Player p,double x,double y,boolean pickupFirst){
-        Node best=null;double distance=Double.MAX_VALUE;
-        for(Node n:nodes.values()){
-            if(n.exhausted() || n.source!=null && !gp.worldObjects.contains(n.source))continue;
-            if(Math.hypot(n.x-p.worldX,n.y-(p.worldY+gp.tileSize*.5))>gp.tileSize*2.1)continue;
-            double d=Math.hypot(n.x-x,n.y-y);if(d>gp.tileSize*1.1)continue;
-            if(pickupFirst && (n.kind.equals("twig") || n.kind.equals("stone")))d-=gp.tileSize;
-            if(d<distance){distance=d;best=n;}
-        }
-        return best;
-    }
     private void gather(Player p,Node n){
-        if(cooldown>0)return;
+        if(cooldown>0 || !canHarvest(p,n) || !gp.interactions.accepts(p,n.footprint(),n))return;
         RecipeRegistry.Item tool=p.currentWeapon instanceof OBJ_crafted c?c.definition:null;
-        String required=switch(n.kind){case "tree"->"axe";case "rock","iron"->"pickaxe";case "grass"->"cut";default->"";};
+        String required=requiredTool(n);
         String category=tool!=null?tool.tool():p.currentWeapon==null || p.currentWeapon.isPlaceholder?"":p.currentWeapon.type==Entity.type_axe?"axe":p.currentWeapon.type==Entity.type_sword?"cut":"";
         if(!required.isEmpty() && !(category.equals(required) || required.equals("cut") && category.equals("axe"))){message("Requires "+(required.equals("cut")?"a cutting weapon or axe":required)+".");cooldown=15;return;}
         int power=required.isEmpty()?n.hits:tool==null?1:tool.gather();
         if(n.hits<=power){
             ItemType drop=switch(n.kind){case "tree"->ItemType.LOG;case "rock","stone"->ItemType.STONE;case "grass"->ItemType.FIBER;case "iron"->ItemType.IRON_ORE;default->ItemType.TWIG;};
             int amount=switch(n.kind){case "tree"->4;case "rock"->4;case "grass"->3;case "iron"->3;default->1;};
-            if(!InventoryTransaction.commit(gp,p,Map.of(),Map.of(drop,amount))){message("Inventory full. Resource remains here.");return;}
-            n.hits=0;if(n.source!=null)n.source.resourceDepleted=true;message("Collected "+amount+" "+RecipeRegistry.item(drop).name());
+            Rectangle footprint=n.footprint();
+            if(required.isEmpty()){
+                if(!InventoryTransaction.commit(gp,p,Map.of(),Map.of(drop,amount))){message("Inventory full. Resource remains here.");return;}
+                message("Collected "+amount+" "+RecipeRegistry.item(drop).name());
+                gp.spawnFloatingText(footprint.x+footprint.width/2,footprint.y,"+"+amount+" "+RecipeRegistry.item(drop).name(),new Color(220,231,185));
+            }
+            n.hits=0;if(n.source!=null)n.source.resourceDepleted=true;
+            if(!required.isEmpty()){
+                // Separate pieces fan out from the depleted resource's ground footprint.
+                for(int i=0;i<amount;i++)gp.quests.dropLoot(object.ItemRegistry.create(drop,gp),
+                        footprint.x+footprint.width/2-gp.tileSize/2,footprint.y+footprint.height/2-gp.tileSize/2);
+            }
         }else n.hits-=power;
         savedHits.put(n.id,n.hits);cooldown=required.isEmpty()?8:24;
         if(!required.isEmpty()){
-            int dx=n.x-p.worldX,dy=n.y-p.worldY;p.direction=Math.abs(dx)>Math.abs(dy)?dx>0?"right":"left":dy>0?"down":"up";
+            Rectangle footprint=n.footprint();
+            if(n.kind.equals("tree")&&n.source!=null)n.source.chopped(p);
+            Color material=switch(n.kind){case "tree"->new Color(181,144,102);case "grass"->new Color(142,165,111);default->new Color(171,163,155);};
+            Particle.spray(n,Particle.Style.CHIP,material,n.exhausted()?12:6,5.5f,28,2.5f,-Math.PI/2,Math.PI*.55,
+                    footprint.x+footprint.width/2f-n.worldX-n.solidArea.x-n.solidArea.width/2f,
+                    footprint.y+footprint.height/2f-n.worldY-n.solidArea.y-n.solidArea.height/2f);
             p.animState="attack";p.spriteNum=1;p.attacking=true;
         }
     }
     public void drawPreview(Graphics2D original){
         if(placing==null || !available())return;
         Player p=gp.localPlayer();var def=RecipeRegistry.item(placing);BufferedImage art=CraftingArt.icon(def);
-        int x=gp.mouseH.getScaledX(),y=gp.mouseH.getScaledY(),w=(def.place().equals("workbench")?108:def.place().equals("forge")?72:48)*gp.tileSize/48,h=art.getHeight()*w/art.getWidth();
+        int x=gp.mouseH.getScaledX(),y=gp.mouseH.getScaledY(),w=(def.place().equals("workbench")?72:def.place().equals("forge")?72:48)*gp.tileSize/48,h=art.getHeight()*w/art.getWidth();
         Graphics2D g=(Graphics2D)original.create();g.setComposite(AlphaComposite.SrcOver.derive(.55f));g.drawImage(art,x-w/2,y-h,w,h,null);g.dispose();
     }
     private void placeStation(Player p,int x,int y){
         if(placing==null)return;var def=RecipeRegistry.item(placing);
         Station station=new Station(UUID.randomUUID().toString(),def.place(),placing,x,y);
         Rectangle box=station.bounds().rectangle();
+        if(world.TerrainHeightResolver.active(gp) && !gp.generatedWorld.lowland(Math.floorDiv(x,gp.tileSize),Math.floorDiv(y,gp.tileSize))){message("Station needs connected lowland ground.");return;}
         if(Math.hypot(x-p.worldX,y-p.worldY)>gp.tileSize*3){message("Place within three tiles.");return;}
         if(gp.tileM.blocksMovement(box.x,box.y,box.x+box.width-1,box.y+box.height-1) || blocks(box)
                 || gp.buildings.blocksArea(box.x,box.y,box.width,box.height)) {message("Station needs clear, level ground.");return;}
@@ -142,30 +172,47 @@ public final class CraftingManager {
         for(Entity actor:gp.npc)if(actor!=null && box.intersects(actor.worldX+actor.solidArea.x,actor.worldY+actor.solidArea.y,actor.solidArea.width,actor.solidArea.height)){message("An actor is standing here.");return;}
         if(InventoryTransaction.commit(gp,p,Map.of(def.type(),1),Map.of())){
             for(Node n:nodes.values())if(box.contains(n.x,n.y)){n.hits=0;savedHits.put(n.id,0);if(n.source!=null)n.source.resourceDepleted=true;}
-            stations.add(station);placing=null;message("Placed "+def.name()+". E to use; F to recover.");}
+            stations.add(station);gp.placementEffects.object(station.id,station.worldX,station.worldY,station.bounds().width());placing=null;message("Placed "+def.name()+". F to use; G to recover.");}
     }
     public boolean recoverStation(Player p){
-        Station s=stations.stream().filter(v->v.bounds().distance(p.worldX,p.worldY)<gp.tileSize*2).findFirst().orElse(null);
+        gp.interactions.refresh();Station s=gp.interactions.token() instanceof Station station?station:null;
         if(s==null)return false;
         if(InventoryTransaction.commit(gp,p,Map.of(),Map.of(RecipeRegistry.item(s.item).type(),1))){stations.remove(s);message("Recovered station.");}else message("Inventory full.");return true;
     }
-    public boolean blocks(Rectangle box){if(!availableWorld())return false;return stations.stream().anyMatch(s->s.bounds().rectangle().intersects(box));}
+    public Object collisionOwner(Object token){return token instanceof Node node && node.source!=null?node.source:token;}
+    public boolean blocks(Rectangle box){return blocksExcept(box,null);}
+    public boolean blocksExcept(Rectangle box,Object ignored){if(!availableWorld())return false;return stationIndex.query(box).stream().anyMatch(s->s!=ignored);}
     private boolean availableWorld(){return !gp.isNetworked && gp.localPlayer()!=null && !gp.localPlayer().inWell;}
     public void addDrawLayers(List<Entity> layers){
         if(!availableWorld())return;ensureWorld();
-        for(Node n:nodes.values())if(n.source==null && !n.exhausted())layers.add(n);
-        layers.addAll(stations);
+        for(Node n:nodeIndex.query(new Rectangle(gp.localPlayer().worldX-gp.localPlayer().screenX-gp.tileSize,gp.localPlayer().worldY-gp.localPlayer().screenY-gp.tileSize,gp.screenWidth+gp.tileSize*2,gp.screenHeight+gp.tileSize*2)))if(nodes.get(n.id)==n && n.source==null && !n.kind.equals("grass") && !n.exhausted())layers.add(n);
+        layers.addAll(stationIndex.query(gp.chunks.camera(4)));
     }
-    public void reset(){for(WorldObject o:gp.worldObjects)o.resourceDepleted=false;initialized=false;nodes.clear();savedHits.clear();stations.clear();open=false;placing=null;seed=Long.MIN_VALUE;}
+    private void prepareResourceArt(){
+        if(looseStoneSprite==null)looseStoneSprite=new art.ObjectArt(gp.tileSize).rockSmall();
+        CraftingArt.inventoryIcon(RecipeRegistry.item("twig"),gp.tileSize/2);
+        CraftingArt.inventoryIcon(RecipeRegistry.item("iron_ore"),gp.tileSize*3/4);
+    }
+    private BufferedImage stationImage(String type,String item){return stationArt.computeIfAbsent(type,key->{
+        BufferedImage image=CraftingArt.icon(RecipeRegistry.item(item));int w=(type.equals("workbench") || type.equals("forge")?72:48)*gp.tileSize/48,h=image.getHeight()*w/image.getWidth();
+        BufferedImage out=new BufferedImage(w,h,BufferedImage.TYPE_INT_ARGB);Graphics2D scaled=out.createGraphics();try{scaled.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BICUBIC);scaled.drawImage(image,0,0,w,h,null);}finally{scaled.dispose();}return out;
+    });}
+    public void reset(){for(WorldObject o:gp.worldObjects)o.resourceDepleted=false;initialized=false;nodes.clear();nodeIndex.clear();tallGrassNodes.clear();savedHits.clear();stations.clear();open=false;placing=null;seed=Long.MIN_VALUE;}
     public void ensureWorld(){
         if(gp.localPlayer()==null || gp.localPlayer().inWell || gp.quests.inDungeon())return;
         if(initialized && seed==gp.worldConfig.seed())return;
         if(initialized && seed!=gp.worldConfig.seed())reset();
-        initialized=true;seed=gp.worldConfig.seed();nodes.clear();
+        prepareResourceArt();
+        initialized=true;seed=gp.worldConfig.seed();nodes.clear();nodeIndex.clear();
         for(WorldObject o:gp.worldObjects){
-            String kind=o.kind.swaysInWind()?"tree":o.kind==WorldObjectType.ROCK_LARGE?"rock":o.kind==WorldObjectType.TWIG?"twig":null;
+            String kind=o.kind.swaysInWind()?"tree":(o.kind==WorldObjectType.ROCK_LARGE || o.kind==WorldObjectType.ROCK_LARGE_MOSS)?"rock":(o.kind==WorldObjectType.ROCK_SMALL || o.kind==WorldObjectType.ROCK_SMALL_MOSS)?"stone":o.kind==WorldObjectType.TWIG?"twig":null;
             if(kind!=null)addNode("scenery:"+o.kind+":"+o.col+":"+o.row,kind,o.worldX,o.worldY,o);
         }
+        if(gp.chunks.enabled()){gp.chunks.reloadResources();return;}
+        if(gp.generatedWorld!=null && gp.generatedWorld.generatorVersion>=6){
+            for(var resource:gp.generatedWorld.resources())addNode("generated:"+resource.col()+":"+resource.row(),resource.kind(),
+                    resource.col()*gp.tileSize+gp.tileSize/2,resource.row()*gp.tileSize+gp.tileSize/2,null);
+        }else{
         // Traverse walkable ground from spawn: guaranteed starter pickups cannot be on inaccessible islands.
         Player p=gp.localPlayer();int sx=gp.generatedWorld==null?p.worldX/gp.tileSize:gp.generatedWorld.spawnCol,sy=gp.generatedWorld==null?p.worldY/gp.tileSize:gp.generatedWorld.spawnRow;
         ArrayDeque<Point> queue=new ArrayDeque<>();Set<Long> seen=new HashSet<>();List<Point> clear=new ArrayList<>();queue.add(new Point(sx,sy));
@@ -178,16 +225,47 @@ public final class CraftingManager {
         for(Point at:clear){
             double distance=Math.hypot(at.x-sx,at.y-sy);String kind=null;
             if(distance>0 && distance<5 && starter<12){kind=starter++<7?"twig":"stone";}
-            else if(random.nextDouble()<.09)kind=switch(random.nextInt(10)){case 0,1,2->"twig";case 3,4->"stone";case 5->"iron";default->"grass";};
+            else if(random.nextDouble()<.09)kind=switch(random.nextInt(10)){case 0,1,2->"twig";case 3,4->"stone";case 5->"iron";default->null;};
             if(kind!=null)addNode("generated:"+at.x+":"+at.y,kind,at.x*gp.tileSize+gp.tileSize/2,at.y*gp.tileSize+gp.tileSize/2,null);
         }
+        }
+        for(int row=0;row<gp.maxWorldRow;row++)for(int col=0;col<gp.maxWorldCol;col++)if(gp.grass.isHarvestable(col,row))
+            addNode("tallgrass:"+col+":"+row,"grass",col*gp.tileSize+gp.tileSize/2,row*gp.tileSize+gp.tileSize/2,null);
+    }
+    /** Resident node objects are disposable; compact savedHits is the persistent authority. */
+    public void loadChunk(world.chunk.WorldChunks.Chunk chunk){
+        if(!initialized)return;
+        int size=world.chunk.ChunkConfig.SIZE,ts=gp.tileSize;
+        for(WorldObject o:gp.worldObjects.query(new Rectangle(chunk.x*size*ts,chunk.y*size*ts,size*ts,size*ts))){
+            if(Math.floorDiv(o.col,size)!=chunk.x || Math.floorDiv(o.row,size)!=chunk.y)continue;
+            String kind=o.kind.swaysInWind()?"tree":(o.kind==WorldObjectType.ROCK_LARGE || o.kind==WorldObjectType.ROCK_LARGE_MOSS)?"rock":(o.kind==WorldObjectType.ROCK_SMALL || o.kind==WorldObjectType.ROCK_SMALL_MOSS)?"stone":o.kind==WorldObjectType.TWIG?"twig":null;
+            if(kind!=null)addNode("scenery:"+o.kind+":"+o.col+":"+o.row,kind,o.worldX,o.worldY,o);
+        }
+        for(var r:chunk.resources)addNode("generated:"+r.col()+":"+r.row(),r.kind(),r.col()*ts+ts/2,r.row()*ts+ts/2,null);
+        for(int row=chunk.y*size;row<Math.min(gp.maxWorldRow,(chunk.y+1)*size);row++)for(int col=chunk.x*size;col<Math.min(gp.maxWorldCol,(chunk.x+1)*size);col++)if(gp.grass.isHarvestable(col,row))addNode("tallgrass:"+col+":"+row,"grass",col*ts+ts/2,row*ts+ts/2,null);
+    }
+    public void unloadChunk(world.chunk.WorldChunks.Chunk chunk){
+        int size=world.chunk.ChunkConfig.SIZE;
+        var iterator=nodes.values().iterator();while(iterator.hasNext()){
+            Node n=iterator.next();int col=n.source==null?Math.floorDiv(n.x,gp.tileSize):n.source.col,row=n.source==null?Math.floorDiv(n.y,gp.tileSize):n.source.row;
+            if(Math.floorDiv(col,size)!=chunk.x || Math.floorDiv(row,size)!=chunk.y)continue;
+            nodeIndex.remove(n);if(n.kind.equals("grass"))tallGrassNodes.remove(grassKey(col,row));iterator.remove();
+        }
+    }
+    private double stationDistance(Station s,Player p){return s.bounds().distance(p.worldX+(int)p.solidArea.getCenterX(),p.worldY+(int)p.solidArea.getCenterY());}
+    public boolean grassHarvested(int col,int row){Node n=tallGrassNodes.get(grassKey(col,row));return availableWorld() && n!=null && n.exhausted();}
+    public boolean nearTallGrass(int col,int row){Node node=tallGrassNodes.get(grassKey(col,row));return node!=null && !node.exhausted() && gp.interactions.selected(node);}
+    public boolean nearHarvestable(WorldObject object){
+        if(object.resourceDepleted)return false;
+        Node node=nodes.get("scenery:"+object.kind+":"+object.col+":"+object.row);
+        return node!=null && !node.exhausted() && gp.interactions.selected(node);
     }
     private boolean clearGround(int c,int r){
         if(c<1 || r<1 || c>=gp.maxWorldCol-1 || r>=gp.maxWorldRow-1)return false;
         int t=gp.tileSize,x=c*t,y=r*t;if(gp.tileM.blocksMovement(x+t/4,y+t/4,x+t*3/4,y+t*3/4))return false;
         for(WorldObject o:gp.worldObjects)if(o.blocksArea(x+t/4,y+t/4,t/2,t/2))return false;return true;
     }
-    private void addNode(String id,String kind,int x,int y,WorldObject source){Node n=new Node(id,kind,x,y,source);n.hits=savedHits.getOrDefault(id,n.hits);if(gp.buildings.coversGround(Math.floorDiv(x,gp.tileSize),Math.floorDiv(y,gp.tileSize)))n.hits=0;nodes.put(id,n);if(source!=null)source.resourceDepleted=n.exhausted();}
+    private void addNode(String id,String kind,int x,int y,WorldObject source){Node n=new Node(id,kind,x,y,source);n.hits=savedHits.getOrDefault(id,n.hits);if(gp.buildings.coversGround(Math.floorDiv(x,gp.tileSize),Math.floorDiv(y,gp.tileSize)))n.hits=0;Node old=nodes.put(id,n);if(old!=null)nodeIndex.remove(old);nodeIndex.add(n,n.footprint());if(kind.equals("grass"))tallGrassNodes.put(grassKey(Math.floorDiv(x,gp.tileSize),Math.floorDiv(y,gp.tileSize)),n);if(source!=null)source.resourceDepleted=n.exhausted();}
     public ItemType buildingItem(String element){
         return switch(element){case "floor"->ItemType.WOODEN_FLOOR;case "wall"->ItemType.WOODEN_WALL;case "door"->ItemType.WOODEN_DOOR;case "bed_blue"->ItemType.SIMPLE_BED;default->null;};
     }
@@ -208,14 +286,19 @@ public final class CraftingManager {
         out.append("},\"stations\":[");i=0;for(Station s:stations){if(i++>0)out.append(',');out.append("{\"id\":\"").append(s.id).append("\",\"item\":\"").append(s.item).append("\",\"x\":").append(s.worldX).append(",\"y\":").append(s.worldY).append('}');}
         return out.append("]}").toString();
     }
+    public static long savedWorldSeed(String json){
+        var matcher=java.util.regex.Pattern.compile("\\A\\s*\\{\\s*\"seed\"\\s*:\\s*(-?\\d+)\\s*[,}]").matcher(json);
+        if(!matcher.find())throw new IllegalArgumentException("Missing exact saved world seed");
+        return Long.parseLong(matcher.group(1));
+    }
     public static void validateSavedWorld(String json,int width,int height,int tileSize,long expectedSeed){
         if(json==null || json.isBlank())return;
         Object parsed=MiniJson.parse(json);
         if(!(parsed instanceof Map<?,?> root) || !(root.get("seed") instanceof Number seed)
-                || seed.longValue()!=expectedSeed || !(root.get("hits") instanceof Map<?,?> hits)
+                || savedWorldSeed(json)!=expectedSeed || !(root.get("hits") instanceof Map<?,?> hits)
                 || !(root.get("stations") instanceof List<?> stations))throw new IllegalArgumentException("Invalid crafting state or different world seed");
         for(var entry:hits.entrySet()){
-            if(!(entry.getKey() instanceof String id) || !id.matches("(?:scenery:[A-Z0-9_]+|generated):[0-9]+:[0-9]+")
+            if(!(entry.getKey() instanceof String id) || !id.matches("(?:scenery:[A-Z0-9_]+|generated|tallgrass):[0-9]+:[0-9]+")
                     || !(entry.getValue() instanceof Number hp) || hp.doubleValue()!=hp.intValue() || hp.intValue()<0 || hp.intValue()>100000)throw new IllegalArgumentException("Invalid resource state");
         }
         Set<String> ids=new HashSet<>();for(Object value:stations){
@@ -228,7 +311,7 @@ public final class CraftingManager {
     public void restoreWorld(String json){
         validateSavedWorld(json,gp.maxWorldCol,gp.maxWorldRow,gp.tileSize,gp.worldConfig.seed());
         reset();if(json==null || json.isBlank()){ensureWorld();return;}
-        Map<?,?> root=(Map<?,?>)MiniJson.parse(json);if(((Number)root.get("seed")).longValue()!=gp.worldConfig.seed())throw new IllegalArgumentException("Saved crafting world seed differs from current world");
+        Map<?,?> root=(Map<?,?>)MiniJson.parse(json);if(savedWorldSeed(json)!=gp.worldConfig.seed())throw new IllegalArgumentException("Saved crafting world seed differs from current world");
         ((Map<?,?>)root.get("hits")).forEach((k,v)->{int hp=((Number)v).intValue();if(hp<0 || hp>100000)throw new IllegalArgumentException("Invalid resource state");savedHits.put((String)k,hp);});
         Set<String> ids=new HashSet<>();for(Object value:(List<?>)root.get("stations")){
             Map<?,?> s=(Map<?,?>)value;String id=(String)s.get("id"),item=(String)s.get("item");var def=RecipeRegistry.item(item);
@@ -240,25 +323,40 @@ public final class CraftingManager {
     }
     private record Box(int x,int y,int width,int height){Rectangle rectangle(){return new Rectangle(x,y,width,height);}double distance(int px,int py){return Math.hypot(Math.max(x-px,Math.max(0,px-x-width)),Math.max(y-py,Math.max(0,py-y-height)));}}
     private final class Station extends Entity {
-        final String id,type,item;
-        Station(String id,String type,String item,int x,int y){super(CraftingManager.this.gp);this.id=id;this.type=type;this.item=item;worldX=x;worldY=y;}
-        Box bounds(){int w=(type.equals("workbench")?96:60)*gp.tileSize/48;return new Box(worldX-w/2,worldY-gp.tileSize/3,w,gp.tileSize/3);}
+        final String id,type,item;private final BufferedImage display;
+        Station(String id,String type,String item,int x,int y){super(CraftingManager.this.gp);this.id=id;this.type=type;this.item=item;worldX=x;worldY=y;display=stationImage(type,item);}
+        Box bounds(){int w=60*gp.tileSize/48;return new Box(worldX-w/2,worldY-gp.tileSize/3,w,gp.tileSize/3);}
         @Override public int sortY(){return worldY;}
-        @Override public void draw(Graphics2D g){Player p=gp.localPlayer();BufferedImage art=CraftingArt.icon(RecipeRegistry.item(item));int w=(type.equals("workbench")?108:type.equals("forge")?72:48)*gp.tileSize/48,h=art.getHeight()*w/art.getWidth();g.drawImage(art,worldX-p.worldX+p.screenX-w/2,worldY-p.worldY+p.screenY-h,w,h,null);}
+        @Override public void draw(Graphics2D g){
+            Player p=gp.localPlayer();
+            int x=worldX-p.worldX+p.screenX-display.getWidth()/2,y=worldY-p.worldY+p.screenY-display.getHeight();
+            Graphics2D visual=(Graphics2D)g.create();gp.placementEffects.object(visual,id,worldX-p.worldX+p.screenX,worldY-p.worldY+p.screenY);
+            if(gp.interactions.selected(this))art.InteractionOutline.draw(visual,display,x,y);
+            visual.drawImage(display,x,y,null);visual.dispose();
+        }
     }
     private final class Node extends Entity {
-        final String id,kind;final int x,y;final WorldObject source;int hits;
+        final String id,kind;final int x,y;final WorldObject source;int hits;private Rectangle interactionBounds;
         Node(String id,String kind,int x,int y,WorldObject source){super(CraftingManager.this.gp);this.id=id;this.kind=kind;this.x=x;this.y=y;this.source=source;worldX=x;worldY=y;hits=RecipeRegistry.HARDNESS.getOrDefault(kind,1);}
+        Rectangle footprint(){
+            if(interactionBounds==null)interactionBounds=source!=null && !source.solidArea.isEmpty()?interaction.InteractionValidator.bounds(source):new Rectangle(Math.floorDiv(x,gp.tileSize)*gp.tileSize,Math.floorDiv(y,gp.tileSize)*gp.tileSize,gp.tileSize,gp.tileSize);
+            return interactionBounds;
+        }
         boolean exhausted(){return hits<=0;}
         @Override public int sortY(){return y;}
         @Override public void draw(Graphics2D g){
             Player p=gp.localPlayer();int px=x-p.worldX+p.screenX,py=y-p.worldY+p.screenY,t=gp.tileSize;
             if(px<-t || py<-t || px>gp.screenWidth+t || py>gp.screenHeight+t)return;
-            if(kind.equals("grass")){
-                g.setColor(art.Palette.FOLIAGE_DARK);for(int i=0;i<4;i++)g.fillPolygon(new int[]{px-14+i*7,px-10+i*7,px-5+i*7},new int[]{py,py-20-i%2*9,py},3);
+            if(kind.equals("grass"))return;
+            if(kind.equals("stone")){
+                BufferedImage image=looseStoneSprite.image;int sx=px-looseStoneSprite.footX,sy=py-looseStoneSprite.footY;
+                if(gp.interactions.selected(this))art.InteractionOutline.draw(g,image,sx,sy);
+                g.drawImage(image,sx,sy,null);
             }else{
-                BufferedImage icon=CraftingArt.icon(RecipeRegistry.item(kind.equals("iron")?"iron_ore":kind));int size=kind.equals("iron")?t*3/4:t/2;
-                g.drawImage(icon,px-size/2,py-size/2,size,size,null);
+                int size=kind.equals("iron")?t*3/4:t/2;
+                BufferedImage image=CraftingArt.inventoryIcon(RecipeRegistry.item(kind.equals("iron")?"iron_ore":kind),size);
+                if(gp.interactions.selected(this))art.InteractionOutline.draw(g,image,px-size/2,py-size/2);
+                g.drawImage(image,px-size/2,py-size/2,null);
             }
         }
     }

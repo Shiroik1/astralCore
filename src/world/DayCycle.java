@@ -16,9 +16,17 @@ public final class DayCycle {
 
     private double time = START_HOUR / 24.0;   // 0..1 of a day
 
+    private int day=1,warnedMoonNight;
+    public int day(){return day;}
+    public boolean night(){return hour()>=19.5f || hour()<6.5f;}
+    public int nightDay(){return hour()<6.5f?Math.max(1,day-1):day;}
+    public boolean fullMoon(int period){return night() && nightDay()%period==0;}
+    public int warnedMoonNight(){return warnedMoonNight;}
+    public boolean claimMoonWarning(int period){if(!fullMoon(period)||warnedMoonNight==nightDay())return false;warnedMoonNight=nightDay();return true;}
+    public void restore(int worldDay,float timeOfDay,int warningDay){day=Math.max(1,worldDay);warnedMoonNight=Math.max(0,warningDay);setTime(timeOfDay);}
     public void tick() {
         time += 1.0 / TICKS_PER_DAY;
-        if (time >= 1.0) time -= 1.0;
+        if (time >= 1.0){time -= 1.0;if(day<Integer.MAX_VALUE)day++;}
     }
 
     public float time() { return (float) time; }

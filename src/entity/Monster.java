@@ -13,6 +13,8 @@ public class Monster extends Entity {
     protected int monsterAttackCooldown = 40; // ticks of rest between attack cycles
     protected int deathAnimFrameDelay = 6;
     protected int deathDuration = 65;
+    private static final java.util.concurrent.atomic.AtomicLong COMBAT_IDS=new java.util.concurrent.atomic.AtomicLong();
+    public final long combatId=COMBAT_IDS.incrementAndGet();
     public String questId = "";
     public int hitSequence, criticalHitRgb;
     private boolean rangerPinnedReplica,assassinBleedReplica;
@@ -25,6 +27,7 @@ public class Monster extends Entity {
     private int attackCooldownCounter = 0;
     private int deathAnimFrameCounter = 0;
     private boolean attackDamageAppliedThisCycle = false;
+    private long nextBasicImpactTick=Long.MIN_VALUE;
 
     public Monster(Gamepanel gp){
         super(gp);
@@ -34,12 +37,31 @@ public class Monster extends Entity {
 
     void stagger(int ticks){
         if(isBoss() || dying)return;
+        onStagger(ticks);
         if(attackState){animState="idle";spriteNum=1;}
         attackState=false;
         attacking=false;
         attackCooldownCounter=Math.max(attackCooldownCounter,ticks);
     }
 
+    /** Custom combat keeps the shared effects, immunity and existing death animation. */
+    protected final void tickCombatEffects(){
+        updateAnimation();updateStatusEffects();updateAura();
+        if(invincible && ++invincibleCounter>invincibilityDuration){invincible=false;invincibleCounter=0;}
+    }
+    protected void onStagger(int ticks){}
+    /** Damage always applies; ordinary hit reactions cannot endlessly reset an enemy's action. */
+    public final void reactToHit(String direction,double knockbackTiles){
+        onDamagingHit();
+        if(isBoss()){damageReaction();return;}
+        if(resistsBasicImpact() || gp.currentTick<nextBasicImpactTick)return;
+        nextBasicImpactTick=gp.currentTick+60;
+        CombatTuning.push(this,direction,knockbackTiles);
+        damageReaction();
+    }
+    protected void onDamagingHit(){}
+    protected boolean resistsBasicImpact(){return attackState;}
+    public boolean showBossHealth(){return isBoss() && alive && !dying;}
     public boolean isBoss(){ return false; }
     public boolean canDealContactDamage(){ return true; }
 

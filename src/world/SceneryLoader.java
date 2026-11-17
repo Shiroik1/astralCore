@@ -24,11 +24,11 @@ public class SceneryLoader {
     public static void load(Gamepanel gp){
         gp.worldObjects.clear();
         if(gp.generatedWorld != null){
-            for(var placement : gp.generatedWorld.objects())
-                gp.worldObjects.add(new WorldObject(gp, placement.type(), placement.col(), placement.row(), null));
+            gp.chunks.resetPlan();
             return;
         }
 
+        gp.chunks.resetPlan();
         String json = readExternal();
         if(json == null) json = readResource();
         if(json == null){

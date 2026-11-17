@@ -1,6 +1,8 @@
 # Procedural grassland — Phase 1
 
-The default launch builds a finite 100 × 100 temperate grassland with seed `123456789L`, using the existing 48-pixel game tile size. It uses the JPanel/Java2D renderer and threaded game loop. Generation runs at startup, before gameplay, and only repeats when explicitly requested through the development command.
+**Current generation is version 11.** Square borders and collision-only forest routes replace the earlier irregular border and wide clearings in new worlds. See [modular cliffs and rare formations](cliff-redesign.md) for native sprite mapping, the 8% target/10% cap and 95% accessibility. See [elevation and natural boundaries](elevation-boundaries.md) for physical heights, cliff rendering, collision and version-nine tuning. See [procedural encounters](procedural-encounters.md) for the current nest and wilderness spawning behavior. See [region-driven generation](region-generation.md) for Flower Plains, Forest Groves, pond shores, connected Golden Meadows, tuning, debug mode and save compatibility. Historical generation details below are retained for version-four/five worlds.
+
+The default launch builds a finite 100 × 100 temperate grassland with seed `123456789L`, using the existing 48-pixel game tile size. It uses the JPanel/Java2D renderer and threaded game loop. Generation runs before gameplay when a world is first created or a different pinned save configuration is loaded; the development command can explicitly rebuild it.
 
 ## Configuration
 
@@ -26,16 +28,16 @@ For a packaged JAR, put these options before `-jar`. Seeds are signed decimal Ja
 | `astral.world.terrainScale` | `0.055` | Ground-tone noise frequency. Lower values make broader tone regions. |
 | `astral.world.dirtThreshold` | `0.77` | 0–1 dirt noise cutoff. Lower values create more dirt; 1 disables dirt. |
 | `astral.world.toneContrast` | `1.0` | Positive grass-tone contrast. Smaller values favor the middle tones. |
-| `astral.world.fields` | `0.75` | 0–1 coverage of body-height grass fields; 0 disables them. Green and dark green mix; golden fields use a separate noise region. |
+| `astral.world.fields` | `0.75` | 0–1 ordinary green/dark body-height field coverage. Version 6 uses `astral.regions.goldenCoverage` for connected golden meadows and always retains starter Fiber. |
 | `astral.world.ponds` | `1.0` | 0–1 small-pond density; 0 disables ponds. The default budget is about four per 100 × 100 world, subject to space. |
 | `astral.world.details` | `0.65` | 0–1 mushroom, stump and twig density in suitable vegetation/dampness regions. |
 | `astral.world.mossPaths` | `0.7` | 0–1 continuity of the weathered mossy trail; 0 disables it. |
 | `astral.world.cobblePatches` | `0.7` | 0–1 density of irregular moss-cobblestone clearings/patches, separate from the trail. 0 disables patches. |
-| `astral.world.slimes` | `20` | Target overworld slime population, capped by available monster slots. Set 0 to stop new spawns. |
-| `astral.world.slimeRespawnSeconds` | `15` | Active-play seconds between attempts to replace one missing slime. |
+| `astral.world.slimes` | `20` | Ordinary overworld population cap, with eight separate encounter slots. Set 0 to stop new spawns. |
+| `astral.world.slimeRespawnSeconds` | `15` | Base active-play encounter interval; rolls are jittered from this value to twice this value. |
 | `astral.dev` | `false` | Enables `/regenworld <seed>`. |
 
-Dimensions must each be at least 16, with at most 1,000,000 tiles total. This is an allocation guard, not a performance promise: terrain images and meadow state are still allocated for the whole finite world. Start with 100 × 100. Width/height and other settings take effect on restart.
+Dimensions must each be at least 16, with at most 1,000,000 tiles total. This is an allocation guard, not a performance promise: terrain images and meadow state are still allocated for the whole finite world. Start with 100 × 100. Launch settings select new worlds; existing versioned saves restore their own settings.
 
 Enable `-Dastral.dev=true`, open the existing chat command input, and enter:
 
@@ -43,7 +45,7 @@ Enable `-Dastral.dev=true`, open the existing chat command input, and enter:
 /regenworld 42
 ```
 
-This runs on the game thread, rebuilds terrain caches and scenery once, resets meadow animation, and moves players to the clear spawn. It is restricted to the offline procedural overworld. A short pause during rebuilding is expected. It does not change inventory, character stats, quest progress or the character save format. Use a development character: existing dropped items or effects keep their positions when the landscape changes.
+This runs on the game thread, rebuilds terrain caches and scenery once, resets meadow animation, and moves players to the clear spawn. It is restricted to the offline procedural overworld. A short pause during rebuilding is expected. It does not change inventory, character stats, or quest progress. It retains the loaded generator version. Use a development character: existing dropped items or effects keep their positions when the landscape changes.
 
 ## How generation works
 
@@ -51,7 +53,7 @@ This runs on the game thread, rebuilds terrain caches and scenery once, resets m
 
 `TerrainGenerator` assigns grass and existing dirt-path terrain, plus four existing ground tones. The tile renderer already blends adjacent tones and path borders. These tones are color variation, not elevation.
 
-`ObjectGenerator` places tree candidates only in high-density vegetation, bushes in medium/high density, flowers in smaller correlated patches, and rocks in sparse rock regions. Coordinate hashes select candidates and variants within those fields. It then checks the actual sprite dimensions and collision footprints from the existing asset catalog. A conservative occupancy grid reserves half a tile around solid footprints to prevent overlap and leave walking gaps. Crowns may overlap other crowns for natural clusters; solid footprints cannot overlap. Meadow placement avoids occupied cells.
+For retained version-four/five worlds, `ObjectGenerator` places tree candidates only in high-density vegetation, bushes in medium/high density, flowers in smaller correlated patches, and rocks in sparse rock regions. Coordinate hashes select candidates and variants within those fields. It then checks the actual sprite dimensions and collision footprints from the existing asset catalog. A conservative occupancy grid reserves half a tile around solid footprints to prevent overlap and leave walking gaps. Crowns may overlap other crowns for natural clusters; solid footprints cannot overlap. Meadow placement avoids occupied cells.
 
 A gently wandering, five-tile-wide grassy corridor connects the left and right boundaries. Consecutive column bands overlap, including with unusual configured dimensions. A seven-by-seven clear spawn area joins that corridor at one quarter of the world width. Scenery image bounds and collision clearance cannot enter these reserved cells. Meadow has extra horizontal/vertical buffers so body-height bend frames also leave the route, water and map boundary clear. Sprite bounds stay within the world. Grass and paths remain walkable. Pond water is solid through the existing tile collision checker, which also stops players at world boundaries. Ponds and their shore margins cannot enter the reserved route or spawn clearing.
 
@@ -94,13 +96,13 @@ The authored `maps/` files are retained and never overwritten by procedural star
 
 ## Boundaries and compatibility
 
-World identity is seed **plus all generation settings, generator version and the existing asset catalog**. `WorldConfig.GENERATOR_VERSION` is currently 4; increment it when changing generation rules. Animated wind and other transient effects are not part of deterministic world layout. Authored ground/path micro-variants already use fixed coordinate hashes; generated terrain regions, tones, meadow variants and scenery follow the configurable seed.
+World identity is seed **plus all generation settings, generator version and the existing asset catalog**. `WorldConfig.GENERATOR_VERSION` is currently 11; increment it when changing generation rules. Animated wind and other transient effects are not part of deterministic world layout. Authored ground/path micro-variants already use fixed coordinate hashes; generated terrain regions, tones, meadow variants and scenery follow the configurable seed.
 
-The current revision adds ordinary Green Slimes to procedural overworlds. It adds no buildings, NPCs, new dungeons, quests or multiplayer generation. Use `-Dastral.world.mode=authored` for the existing town/quest content and existing multiplayer play. No network protocol or seed synchronization is added. Existing combat, inventory, saves and authored content remain available; procedural mode supplies the landscape and a small slime population using existing combat and drops.
+The current revision adds ordinary Green Slimes to procedural overworlds. It adds no buildings, NPCs, new dungeons, quests or multiplayer generation. Use `-Dastral.world.mode=authored` for the existing town/quest content and existing multiplayer play. Version 6 shares the pinned generation descriptor through existing world snapshots; both peers need the updated source build. Existing combat, inventory, saves and authored content remain available; procedural mode supplies the landscape and a small slime population using existing combat and drops.
 
-Seeds/settings and generated objects are not persisted in character saves yet. Relaunch with the same settings to reconstruct the same landscape. Prefer a separate development character; old saves retain their quest and dungeon state. An outdoor position blocked by a different seed is relocated to the generated spawn. Future world persistence should store configuration/version alongside characters/worlds before supporting durable edits.
+Character format 2 now records the complete seed, generation settings and version. Existing worlds stay on their retained version-four/five algorithms; new worlds use version eleven. See [save compatibility and first migration](region-generation.md#save-and-multiplayer-compatibility) before changing launch settings for an old unversioned save.
 
-Noise uses global coordinates in preparation for chunks, but placement resolves occupancy in a stable row-major finite-world pass. Future independent chunk generation will need deterministic neighboring candidate resolution/halos; it is not implemented here. Extra biomes, rivers/larger lakes, elevation, structures, streaming and persistence remain future work.
+Noise uses global coordinates in preparation for chunks, but placement resolves occupancy in a stable row-major finite-world pass. Future independent chunk generation will need deterministic neighboring candidate resolution/halos; it is not implemented here. Extra biomes, rivers/larger lakes, elevation, structures and streaming remain future work. Existing building and harvesting persistence is preserved.
 
 ## Verification status
 
@@ -126,7 +128,9 @@ New controls can be supplied alongside the original options:
 ```
 
 
-## Minimalist vector textures, baked grass and slime population
+## Historical minimalist vector textures, baked grass and slime population
+
+The population details in this historical section are superseded by the [encounter director](procedural-encounters.md#ordinary-encounter-director).
 
 Nature exports use the exact supplied sprite artwork and its original colors, shadows and highlights. There is no color remapping or material classification, so mushroom caps and stems keep their source appearance. Antialiased silhouette edges remain transparent.
 

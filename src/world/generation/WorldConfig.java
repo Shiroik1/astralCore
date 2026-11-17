@@ -8,7 +8,7 @@ public record WorldConfig(boolean procedural, int width, int height, long seed, 
                           double pondDensity, double detailDensity, double mossPathDensity,
                           int slimeCount, int slimeRespawnSeconds, double cobblePatchDensity) {
     public enum Biome { TEMPERATE_GRASSLAND }
-    public static final int GENERATOR_VERSION = 4;
+    public static final int GENERATOR_VERSION = 11;
 
     public WorldConfig {
         if(width < 16 || height < 16 || (long) width * height > 1_000_000)

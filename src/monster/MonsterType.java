@@ -10,7 +10,9 @@ public enum MonsterType {
     GREEN_SLIME(MON_GreenSlime.class, MON_GreenSlime::new),
     SLIME_BOSS(MON_SlimeBoss.class, MON_SlimeBoss::new),
     IMP(MON_Imp.class, MON_Imp::new),
-    HELL_SLIME(MON_HellSlime.class,MON_HellSlime::new);
+    HELL_SLIME(MON_HellSlime.class,MON_HellSlime::new),
+    CROWNED_SLIME(MON_CrownedSlime.class,MON_CrownedSlime::new),
+    SKELETON(MON_Skeleton.class,MON_Skeleton::new);
 
     private final Class<? extends Monster> monsterClass;
     private final Function<Gamepanel, Monster> factory;

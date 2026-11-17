@@ -6,7 +6,7 @@
   <p><code>v0.1.0-alpha</code> &nbsp; · &nbsp; First playable alpha</p>
   <p>
     <a href="#download">Download</a> &nbsp; / &nbsp;
-    <a href="#choose-your-class">Classes</a> &nbsp; / &nbsp;
+    <a href="#weapon-combat-styles">Combat styles</a> &nbsp; / &nbsp;
     <a href="#screenshots">Screenshots</a> &nbsp; / &nbsp;
     <a href="#controls">Controls</a>
   </p>
@@ -20,7 +20,7 @@
 
 The old man has a simple job for you: **clear ten slimes from the village well**.
 
-Choose a class, gather supplies, and descend into the lantern-lit Well Depths. The tenth slime is only the beginning. Defeat the Slime King, return for a class weapon, and use its Slime Essence to awaken a stronger opponent.
+Choose your appearance, gather supplies, and descend into the lantern-lit Well Depths. The tenth slime is only the beginning. Defeat the Slime King, return for a class weapon, and use its Slime Essence to awaken a stronger opponent.
 
 **Talk → descend → hunt → face the King → claim your reward → challenge Hell Slime.**
 
@@ -43,21 +43,21 @@ Every download includes **Java, game assets, maps, and libraries**. No separate 
 
 **Testing status:** Mac startup verified. The Windows x64 package is built; native Windows launch and gameplay testing are still pending. Fifteen automated checks passed against the bundled Java 21 runtime.
 
-## Choose your class
+## Weapon combat styles
 
 ![The character creation screen shows Hunter, Mage, and Warrior, with male and female appearance choices.](docs/images/character-creation.png)
 
-| Class | Equipment | What makes it different |
+| Weapon style | Equipment | What makes it different |
 | :--- | :--- | :--- |
 | **Hunter** | Fast, short-range dual daggers | Land hits to build **yellow Focus** and chain your attacks into a combo finisher. |
 | **Mage** | Staff and fireballs | Land spells to build **runes**, then spend them on empowered magic. Missed casts do not charge runes. |
 | **Warrior** | Longer-reach sword and a visible shield | Build **Resolve** through shield-mitigated damage, then turn defense into a stronger counterattack. |
 
-Each class has **five skills**. Warrior's kit mixes Shield Bash, Bulwark, Retaliation, Shield Breaker, and Rally; Hunter emphasizes quick strikes and offensive buffs; Mage combines rune generation, detonation, haste, ignition, and shielding.
+Existing weapon combat kits have **five abilities**, available with **Shift + 1–5**. Warrior's kit mixes Shield Bash, Bulwark, Retaliation, Shield Breaker, and Rally; Hunter emphasizes quick strikes and offensive buffs; Mage combines rune generation, detonation, haste, ignition, and shielding.
 
 The published alpha offers short or long hair at creation. Equipment layers—including clothing, boots, gloves, hair, cloaks, and Mage headwear—can be equipped and removed.
 
-**Current source builds:** character creation now includes **40 reference-inspired vector hairstyles** and **20 muted hair colors**, with clickable choices and front/side/back previews. Hairstyle and color save with the character and synchronize in co-op. Both hairstyle collections work with every class and preset; equipped headwear remains a separate layer.
+**Current source builds:** character creation now includes **40 reference-inspired vector hairstyles** and **20 muted hair colors**, with clickable choices and front/side/back previews. Hairstyle and color save with the character and synchronize in co-op. Both hairstyle collections work with any appearance; equipped headwear remains a separate layer.
 
 ## Screenshots
 
@@ -92,8 +92,8 @@ The published alpha offers short or long hair at creation. Equipment layers—in
 - **A forest healing pond:** follow the west path north into the trees, then press **E** at the pale stone to restore HP.
 - **An underground dungeon:** ten quest slimes, live objective tracking, and a Slime King encounter with dialogue.
 - **A repeatable boss challenge:** offer one Slime Essence at the well altar to summon Hell Slime. It drops another essence and stronger class weapons.
-- **Six playable class choices:** Hunter Assassin, Hunter Ranger, Caster Mage, Caster Priest, Warrior Berserker, and Warrior Paladin, each with distinct equipment and skills.
-- **Hunter Ranger:** tap left click for a quick shot, or hold until the bow flashes and release for a clean shot. Land arrows to build Focus for skills on **1–5**. Mira sells Ranger bows and leathers at levels 1, 5, 10, 17, and 25.
+- **Six weapon combat styles:** Hunter Assassin, Hunter Ranger, Caster Mage, Caster Priest, Warrior Berserker, and Warrior Paladin, each with distinct equipment and skills.
+- **Hunter Ranger:** tap left click for a quick shot, or hold until the bow flashes and release for a clean shot. Land arrows to build Focus for abilities on **Shift + 1–5**. Mira sells Ranger bows and leathers at levels 1, 5, 10, 17, and 25.
 - **Hunter Assassin:** land two dagger pairs on one target to crit on the fourth cut. Mira sells five tiers of paired daggers and leathers.
 - **Caster Mage:** land free Staff Bolts to build runes. Place Ember and Frost spells with the cursor, then spend runes on a close-range Detonation or a distant Cometfall. Mira stocks five tiers of staves and robes.
 - **Caster Priest** uses Mend to link a Beacon to the ally under the cursor. Land Radiant Bolts to heal your Beacon, ward it with Aegis, and support your group with Hallowed Ground, Dawn Chorus, and Sanctuary. Mira stocks five tiers of Priest staves and vestments.
@@ -103,23 +103,31 @@ The published alpha offers short or long hair at creation. Equipment layers—in
 - **Solo and host/join co-op:** shared quest progress with independent plaza respawns. A surviving boss resets after a party wipe.
 - **Adjustable display settings:** device-supported resolutions, fullscreen options, and an optional pixel filter.
 
+Current source builds use classless creation and a unified Java2D interface. See the [Phase 5 UI guide](docs/ui-phase5.md) for controls, compatibility, configuration and implementation details.
+
 ## Controls
 
 | Input | Action |
 | :--- | :--- |
 | **W A S D** | Move |
 | **Left mouse** | Attack or cast |
-| **E** | Interact with NPCs, the well, ladder, or altar |
-| **1–5** | Use class skills |
-| **C** | Open equipment and inventory |
+| **F** | Interact with the single adjacent tile you face (pickups, resources, stations, doors and NPCs) |
+| **G** | Recover the adjacent station you face |
+| **E** (also I / K) | Inventory & Crafting |
+| **1–9 / 0** | Select item hotbar slots 1–10 |
+| **Mouse wheel** | Cycle hotbar; scroll recipes inside Inventory & Crafting |
+| **Shift + 1–5** | Existing weapon abilities |
+| **C** | Character, Equipment and Skills tabs |
 | **Esc** | Close a shop/dialogue, or open options |
 | **P** | Pause in single-player |
 | **F5** | Save the active character (current source builds) |
 | **Enter** | Open chat |
 
+See [Phase 3 interactions and encounters](docs/phase3-interactions-encounters.md) for the directional rules and developer spawn diagnostics.
+
 Hover shop items for descriptions and prices. Hover skill icons for their effects, costs, and cooldowns.
 
-Current source builds also include a single-player [tile building tool](docs/building-system.md). Enter `/build floor`, then use **1 / 2 / 3** for floor, wall and door, **left click** to place, **right click** to remove from the selected layer, **R** for vertical orientation, and `/savebuild` to save. Pieces connect automatically; exposed edges keep their complete borders.
+Current source builds also include a single-player [tile building tool](docs/building-system.md). Enter `/build floor`, select floor, wall or door through its `/build` command or assigned item shortcut, **left click** to place, **right click** to remove from the selected layer, **R** for vertical orientation, and `/savebuild` to save. Pieces connect automatically; exposed edges keep their complete borders.
 
 ## Play with friends
 
@@ -172,3 +180,15 @@ See the [packaging guide](packaging/README.md) for prerequisites, verification, 
 The standalone [JavaFX Builder](tools/building-maker/README.md) creates reusable building blueprints using the game's floor, wall, and door tiles. It provides standard JavaFX controls, painting, room rectangles, rotation, door states, undo/redo, zoom, and anchor placement. With JDK 21 and Maven, run `mvn -f tools/building-maker/pom.xml compile javafx:run`. Presets save under `maps/blueprints/` and can be placed with `/blueprint <id> <anchor-col> <anchor-row>`, then persisted with `/savebuild`. Automatic village/settlement placement is a later step. Compilation and runtime verification of this tool are pending owner approval.
 
 Crafting levels 1–10: press **K** for recipes, **E** to gather/use a nearby station, and **P** in the crafting menu to place a crafted item. New characters begin unarmed with an empty bag. This prototype shares the building system's single-player restriction. See [Crafting and gathering](docs/crafting-system.md) for controls, recipe editing, persistence, verification and remaining artwork.
+
+Placement bounce, smoke and selected interaction outlines: [behavior and tuning](docs/placement-feedback.md).
+
+Slime hop combat and the optional Crowned Slime nest: [behavior, balance and save details](docs/slime-combat.md). Verification is pending owner approval.
+
+New worlds use version-eleven [region-driven grassland generation](docs/region-generation.md): open flower plains, forest groves, pond shores and rare connected golden meadows. Existing saves retain their previous generation version. See [procedural encounters](docs/procedural-encounters.md) for per-attack hit tracking, the eight-way boss burst, five summons, reliable nest clearing and offscreen encounter rolls.
+
+Physical plateaus, connected cliff layers, irregular highland boundaries, camera bounds and save compatibility: [Phase 4 elevation guide](docs/elevation-boundaries.md). Verification awaits owner approval.
+
+[Modular cliff sprites and rare inland formations](docs/cliff-redesign.md): new worlds aim for 8% inland elevation with a hard 10% maximum, preserve separate border cliffs, and require 95% lowland access.
+
+Generator 11 restores the square border and removes wide forest reservation strips; cliff caps/corners and first-tile camera bounds are updated. Existing worlds keep their layout. See [current cliff fixes](docs/cliff-redesign.md).

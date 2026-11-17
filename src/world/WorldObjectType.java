@@ -88,8 +88,10 @@ public enum WorldObjectType {
     }
 
     // each sprite is baked once and shared by every object of that type
-    public synchronized ObjectArt.Sprite sprite(Gamepanel gp){
-        if(sprite == null) sprite = factory.apply(art(gp));
+    public synchronized ObjectArt.Sprite sprite(Gamepanel gp){return sprite(gp.tileSize);}
+    /** Generation tooling can inspect real cached artwork without creating a game panel. */
+    public synchronized ObjectArt.Sprite sprite(int tileSize){
+        if(sprite == null) sprite = factory.apply(art(tileSize));
         return sprite;
     }
 
@@ -99,8 +101,9 @@ public enum WorldObjectType {
         return altSprite;
     }
 
-    private static synchronized ObjectArt art(Gamepanel gp){
-        if(art == null) art = new ObjectArt(gp.tileSize);
+    private static synchronized ObjectArt art(Gamepanel gp){return art(gp.tileSize);}
+    private static synchronized ObjectArt art(int tileSize){
+        if(art == null) art = new ObjectArt(tileSize);
         return art;
     }
 

@@ -13,7 +13,7 @@ public final class OBJ_slimebolt extends Projectile {
     public final boolean hell;
     public OBJ_slimebolt(Gamepanel gp){this(gp,false);}
     public OBJ_slimebolt(Gamepanel gp,boolean hell){
-        super(gp);this.hell=hell;name="Slime Droplet";speed=5;maxHP=80;HP=maxHP;attack=2;useCost=1;alive=false;
+        super(gp);collidesWithWorld=true;this.hell=hell;name="Slime Droplet";speed=5;maxHP=80;HP=maxHP;attack=2;useCost=1;alive=false;
         for(String dir:new String[]{"down","up","left","right"}){
             BufferedImage[] frames;
             synchronized(FRAMES){

@@ -1,0 +1,621 @@
+{
+  "initial_100": {
+    "timings_ms": {
+      "idle.update": {
+        "mean": 1.051,
+        "p95": 1.295,
+        "max": 1.58
+      },
+      "idle.render_including_ui": {
+        "mean": 8.617,
+        "p95": 9.153,
+        "max": 10.214
+      },
+      "idle.isolated_interaction": {
+        "mean": 0.393,
+        "p95": 0.491,
+        "max": 0.569
+      },
+      "forest_walk_axe.update": {
+        "mean": 0.583,
+        "p95": 1.002,
+        "max": 5.62
+      },
+      "forest_walk_axe.render_including_ui": {
+        "mean": 8.262,
+        "p95": 9.747,
+        "max": 18.148
+      },
+      "forest_walk_axe.isolated_interaction": {
+        "mean": 0.244,
+        "p95": 0.418,
+        "max": 0.484
+      },
+      "inventory.update": {
+        "mean": 0.077,
+        "p95": 0.148,
+        "max": 0.2
+      },
+      "inventory.render_including_ui": {
+        "mean": 9.516,
+        "p95": 10.625,
+        "max": 10.774
+      },
+      "inventory.isolated_interaction": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.002
+      }
+    },
+    "work_frames_per_second": {
+      "idle": 103.4,
+      "forest_walk_axe": 113.1,
+      "inventory": 104.2
+    },
+    "spawn_checks_ms": [
+      {
+        "ms": 5.099,
+        "result": "FAILED: INSIDE_CAMERA"
+      },
+      {
+        "ms": 28.213,
+        "result": "SUCCESS: 1"
+      }
+    ],
+    "sections_ms": {},
+    "jfr_cpu_samples": [
+      "java.awt.TexturePaintContext$Int.setRaster via world.Lighting.draw=16",
+      "java.awt.geom.Rectangle2D.intersects via world.WorldObject.blocksArea=12",
+      "java.util.ArrayList.indexOfRange via crafting.CraftingManager.canHarvest=5",
+      "crafting.CraftingManager.collectTargets via crafting.CraftingManager.collectTargets=2",
+      "sun.java2d.marlin.MarlinCache.copyAARowNoRLE=2",
+      "sun.java2d.marlin.ArrayCacheInt.fill=1",
+      "interaction.InteractionValidator.front via interaction.InteractionValidator.front=1",
+      "world.GrassLayer.isHarvestable via world.GrassLayer.isHarvestable=1",
+      "monster.SlimeMotion.clear via world.SlimeSpawner.reachable=1",
+      "java.util.ArrayList$Itr.next via world.SlimeSpawner.routeClear=1",
+      "interaction.InteractionValidator.tile via interaction.InteractionValidator.tile=1",
+      "world.Lighting.punchSprite via world.Lighting.punchSprite=1",
+      "sun.font.FontDesignMetrics.getMetrics=1",
+      "sun.java2d.marlin.Renderer._endRendering=1",
+      "interaction.InteractionTargetResolver.resolve via interaction.InteractionTargetResolver.resolve=1",
+      "java.nio.ByteBufferAsIntBufferB.byteOffset=1",
+      "crafting.CraftingManager$Node.footprint via crafting.CraftingManager$Node.footprint=1",
+      "crafting.CraftingManager.requiredTool via crafting.CraftingManager.requiredTool=1"
+    ],
+    "jfr_allocation_weights": [
+      "world.building.BuildSystem$Cell via world.building.BuildSystem.coversGround=72732400",
+      "java.awt.Point via interaction.InteractionValidator.tile=45523400",
+      "java.awt.Rectangle via crafting.CraftingManager$Node.footprint=29555648",
+      "crafting.CraftingManager$$Lambda.0x00001ff801184720 via crafting.CraftingManager.collectTargets=28215792",
+      "world.building.BuildSystem$Cell via world.building.BuildSystem.blocksAreaExcept=12429528",
+      "[Ljava.lang.reflect.Type; via sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl.getActualTypeArguments=7848840",
+      "[B via sun.awt.image.ByteInterleavedRaster.getByteData=7230520",
+      "[B via javax.imageio.ImageTypeSpecifier.createBufferedImage=6488112",
+      "[Ljava.lang.reflect.Type; via sun.reflect.generics.repository.ClassRepository.getSuperInterfaces=5232496",
+      "java.awt.Rectangle via interaction.InteractionValidator.bounds=5232488",
+      "java.lang.Long via crafting.CraftingManager.grassHarvested=3139544",
+      "[I via sun.java2d.pipe.AlphaPaintPipe.renderPathTile=3139488"
+    ],
+    "gc_events": 2,
+    "end_used_heap_mib": 525
+  },
+  "initial_256": {
+    "timings_ms": {
+      "idle.update": {
+        "mean": 20.52,
+        "p95": 21.418,
+        "max": 23.125
+      },
+      "idle.render_including_ui": {
+        "mean": 11.56,
+        "p95": 12.465,
+        "max": 13.178
+      },
+      "idle.isolated_interaction": {
+        "mean": 9.274,
+        "p95": 10.143,
+        "max": 10.693
+      },
+      "forest_walk_axe.update": {
+        "mean": 13.392,
+        "p95": 14.566,
+        "max": 15.186
+      },
+      "forest_walk_axe.render_including_ui": {
+        "mean": 8.212,
+        "p95": 9.127,
+        "max": 9.553
+      },
+      "forest_walk_axe.isolated_interaction": {
+        "mean": 6.813,
+        "p95": 7.699,
+        "max": 8.046
+      },
+      "inventory.update": {
+        "mean": 0.234,
+        "p95": 0.347,
+        "max": 0.351
+      },
+      "inventory.render_including_ui": {
+        "mean": 9.841,
+        "p95": 10.721,
+        "max": 10.87
+      },
+      "inventory.isolated_interaction": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.001
+      }
+    },
+    "work_frames_per_second": {
+      "idle": 31.2,
+      "forest_walk_axe": 46.3,
+      "inventory": 99.3
+    },
+    "spawn_checks_ms": [
+      {
+        "ms": 141.757,
+        "result": "SUCCESS: 2"
+      }
+    ],
+    "sections_ms": {},
+    "jfr_cpu_samples": [
+      "java.util.ArrayList.indexOfRange via crafting.CraftingManager.canHarvest=206",
+      "java.awt.geom.Rectangle2D.intersects via world.WorldObject.blocksArea=73",
+      "java.awt.TexturePaintContext$Int.setRaster via world.Lighting.draw=11",
+      "crafting.CraftingManager.blocks via crafting.CraftingManager.blocks=9",
+      "java.util.ArrayList.grow via crafting.CraftingManager.addDrawLayers=8",
+      "world.GrassLayer.isHarvestable via world.GrassLayer.isHarvestable=4",
+      "interaction.InteractionTargetResolver.resolve via interaction.InteractionTargetResolver.resolve=4",
+      "sun.java2d.marlin.MarlinCache.copyAARowNoRLE=3",
+      "interaction.InteractionValidator.valid via interaction.InteractionValidator.valid=3",
+      "sun.java2d.marlin.MarlinCache.copyAARowRLE_WithBlockFlags=2",
+      "interaction.InteractionValidator.bounds via interaction.InteractionValidator.bounds=1",
+      "java.util.TimSort.mergeHi=1",
+      "java.util.TimSort.binarySort=1",
+      "monster.SlimeMotion.clear via world.SlimeSpawner.reachable=1",
+      "world.ElevationCollisionHandler.blocks via world.ElevationCollisionHandler.blocks=1",
+      "world.WorldObject.update via world.WorldObject.update=1",
+      "tile.TileManager.blocksTerrainMovement via interaction.InteractionValidator.valid=1",
+      "main.Gamepanel.update=1"
+    ],
+    "jfr_allocation_weights": [
+      "world.building.BuildSystem$Cell via world.building.BuildSystem.coversGround=320053600",
+      "crafting.CraftingManager$$Lambda.0x00001ff801184720 via crafting.CraftingManager.collectTargets=124228072",
+      "java.awt.Rectangle via crafting.CraftingManager$Node.footprint=100806168",
+      "java.awt.Rectangle via interaction.InteractionValidator.bounds=44476472",
+      "world.building.BuildSystem$Cell via world.building.BuildSystem.blocksAreaExcept=7325624",
+      "[B via sun.awt.image.ByteInterleavedRaster.getByteData=6890040",
+      "[B via javax.imageio.ImageTypeSpecifier.createBufferedImage=6855064",
+      "[Ljava.lang.reflect.Type; via sun.reflect.generics.repository.ClassRepository.getSuperInterfaces=3662768",
+      "java.lang.Long via crafting.CraftingManager.nearTallGrass=2616288",
+      "jdk.internal.foreign.NativeMemorySegmentImpl via sun.font.StrikeCache.getGlyphRowBytes=2616256",
+      "java.lang.Long via crafting.CraftingManager.grassHarvested=2093024",
+      "java.util.ArrayList$ArrayListSpliterator via crafting.CraftingManager.blocksExcept=1569768"
+    ],
+    "gc_events": 3,
+    "end_used_heap_mib": 1360
+  },
+  "indexed_before_streaming_256": {
+    "timings_ms": {
+      "idle.update": {
+        "mean": 0.284,
+        "p95": 0.614,
+        "max": 0.702
+      },
+      "idle.render_including_ui": {
+        "mean": 8.383,
+        "p95": 9.773,
+        "max": 10.127
+      },
+      "idle.isolated_interaction": {
+        "mean": 0.024,
+        "p95": 0.074,
+        "max": 0.085
+      },
+      "forest_walk_axe.update": {
+        "mean": 0.355,
+        "p95": 0.443,
+        "max": 0.46
+      },
+      "forest_walk_axe.render_including_ui": {
+        "mean": 7.777,
+        "p95": 8.224,
+        "max": 8.71
+      },
+      "forest_walk_axe.isolated_interaction": {
+        "mean": 0.006,
+        "p95": 0.011,
+        "max": 0.013
+      },
+      "inventory.update": {
+        "mean": 0.326,
+        "p95": 0.482,
+        "max": 0.545
+      },
+      "inventory.render_including_ui": {
+        "mean": 9.39,
+        "p95": 10.0,
+        "max": 12.186
+      },
+      "inventory.isolated_interaction": {
+        "mean": 0.001,
+        "p95": 0.001,
+        "max": 0.001
+      }
+    },
+    "work_frames_per_second": {
+      "idle": 115.4,
+      "forest_walk_axe": 123.0,
+      "inventory": 102.9
+    },
+    "spawn_checks_ms": [
+      {
+        "ms": 5.153,
+        "result": "SUCCESS: 2"
+      }
+    ],
+    "sections_ms": {},
+    "jfr_cpu_samples": [
+      "java.awt.TexturePaintContext$Int.setRaster via world.Lighting.draw=7",
+      "main.Gamepanel.drawToTempscreen=4",
+      "sun.java2d.marlin.Renderer._endRendering=3",
+      "main.Gamepanel.update=3",
+      "main.Gamepanel.updateHighlights=2",
+      "sun.java2d.marlin.Renderer.copyAARow=1",
+      "ui.GameUI.update=1",
+      "ui.GameUI.drawHotbar=1",
+      "sun.java2d.marlin.MarlinCache.copyAARowNoRLE=1",
+      "world.generation.ElevationDebugOverlay.draw via world.generation.ElevationDebugOverlay.draw=1",
+      "sun.java2d.marlin.Renderer.addLine=1",
+      "world.WorldObject.update via world.WorldObject.update=1",
+      "world.WorldObject.addDrawLayers via world.WorldObject.addDrawLayers=1",
+      "java.lang.String.length=1",
+      "world.GrassLayer.update via world.GrassLayer.update=1",
+      "entity.Monster.hasBerserkerSunder=1",
+      "interaction.InteractionTargetResolver.selected via interaction.InteractionTargetResolver.selected=1",
+      "world.spatial.SpatialIndex.query via world.spatial.SpatialIndex.query=1"
+    ],
+    "jfr_allocation_weights": [
+      "[B via sun.awt.image.ByteInterleavedRaster.getByteData=7776696",
+      "[B via javax.imageio.ImageTypeSpecifier.createBufferedImage=7004504",
+      "[Ljava.lang.reflect.Type; via sun.reflect.generics.repository.ClassRepository.getSuperInterfaces=6279016",
+      "[Ljava.lang.reflect.Type; via sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl.getActualTypeArguments=5232576",
+      "[Ljava.lang.Object; via world.spatial.SpatialIndex.query=2615312",
+      "java.lang.Long via crafting.CraftingManager.grassHarvested=2093040",
+      "java.lang.Long via crafting.CraftingManager.nearTallGrass=2093024",
+      "jdk.internal.foreign.NativeMemorySegmentImpl via sun.font.StrikeCache.getGlyphWidth=2092984",
+      "java.lang.String via crafting.CraftingManager.nearHarvestable=1569760",
+      "main.DisplaySettings$Viewport via main.DisplaySettings.fit=1569736",
+      "[I via sun.java2d.pipe.AlphaPaintPipe.renderPathTile=1553344",
+      "java.lang.Long via world.spatial.SpatialIndex.query=1046528"
+    ],
+    "gc_events": 0,
+    "end_used_heap_mib": 1429
+  },
+  "control_256": {
+    "timings_ms": {
+      "idle.update": {
+        "mean": 21.205,
+        "p95": 22.846,
+        "max": 23.87
+      },
+      "idle.render_including_ui": {
+        "mean": 12.369,
+        "p95": 14.069,
+        "max": 14.727
+      },
+      "idle.isolated_interaction": {
+        "mean": 9.84,
+        "p95": 10.702,
+        "max": 11.828
+      },
+      "forest_walk_axe.update": {
+        "mean": 14.064,
+        "p95": 15.661,
+        "max": 16.917
+      },
+      "forest_walk_axe.render_including_ui": {
+        "mean": 8.585,
+        "p95": 9.672,
+        "max": 10.145
+      },
+      "forest_walk_axe.isolated_interaction": {
+        "mean": 7.212,
+        "p95": 8.045,
+        "max": 8.863
+      },
+      "inventory.update": {
+        "mean": 0.345,
+        "p95": 0.544,
+        "max": 0.557
+      },
+      "inventory.render_including_ui": {
+        "mean": 10.867,
+        "p95": 12.274,
+        "max": 12.69
+      },
+      "inventory.isolated_interaction": {
+        "mean": 0.0,
+        "p95": 0.001,
+        "max": 0.001
+      }
+    },
+    "work_frames_per_second": {
+      "idle": 29.8,
+      "forest_walk_axe": 44.2,
+      "inventory": 89.2
+    },
+    "spawn_checks_ms": [
+      {
+        "ms": 127.958,
+        "result": "SUCCESS: 2"
+      }
+    ],
+    "sections_ms": {},
+    "jfr_cpu_samples": [
+      "java.util.ArrayList.indexOfRange via crafting.CraftingManager.canHarvest=207",
+      "world.WorldObject.blocksArea via world.WorldObject.blocksArea=77",
+      "java.util.ArrayList.grow via crafting.CraftingManager.addDrawLayers=10",
+      "world.GrassLayer.isHarvestable via world.GrassLayer.isHarvestable=9",
+      "java.awt.TexturePaintContext$Int.setRaster via world.Lighting.draw=8",
+      "crafting.CraftingManager.blocks via crafting.CraftingManager.blocks=8",
+      "main.Gamepanel.drawToTempscreen=6",
+      "crafting.CraftingManager.addDrawLayers via crafting.CraftingManager.addDrawLayers=5",
+      "interaction.InteractionValidator.front via interaction.InteractionValidator.front=2",
+      "world.WorldObject.addDrawLayers via world.WorldObject.addDrawLayers=2",
+      "sun.java2d.marlin.Renderer._endRendering=2",
+      "java.util.HashMap.hash via world.building.BuildSystem.groundAt=2",
+      "sun.java2d.marlin.Renderer.copyAARow=1",
+      "java.lang.StringLatin1.toLowerCase via crafting.RecipeRegistry.item=1",
+      "main.CollisionChecker.checkScenery=1",
+      "monster.SlimeMotion.clear via world.SlimeSpawner.reachable=1",
+      "sun.java2d.marlin.MarlinCache.copyAARowNoRLE=1",
+      "interaction.InteractionValidator.frontBounds via interaction.InteractionValidator.frontBounds=1"
+    ],
+    "jfr_allocation_weights": [
+      "world.building.BuildSystem$Cell via world.building.BuildSystem.coversGround=324391392",
+      "crafting.CraftingManager$$Lambda.0x00001c0001184720 via crafting.CraftingManager.collectTargets=125991072",
+      "java.awt.Rectangle via crafting.CraftingManager$Node.footprint=100398304",
+      "java.awt.Rectangle via interaction.InteractionValidator.bounds=41860264",
+      "world.building.BuildSystem$Cell via world.building.BuildSystem.blocksAreaExcept=7848848",
+      "[B via sun.awt.image.ByteInterleavedRaster.getByteData=7842072",
+      "[B via javax.imageio.ImageTypeSpecifier.createBufferedImage=6488112",
+      "[Ljava.lang.reflect.Type; via sun.reflect.generics.repository.ClassRepository.getSuperInterfaces=2616240",
+      "jdk.internal.foreign.NativeMemorySegmentImpl via sun.font.StrikeCache.getGlyphRowBytes=2092976",
+      "[Ljava.lang.reflect.Type; via sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl.getActualTypeArguments=1569768",
+      "java.lang.Long via crafting.CraftingManager.nearTallGrass=1569760",
+      "jdk.internal.foreign.NativeMemorySegmentImpl via sun.font.StrikeCache.getGlyphTopLeftX=1569744"
+    ],
+    "gc_events": 13,
+    "end_used_heap_mib": 1208
+  },
+  "streaming_256": {
+    "timings_ms": {
+      "idle.update": {
+        "mean": 0.264,
+        "p95": 0.38,
+        "max": 0.44
+      },
+      "idle.render_including_ui": {
+        "mean": 9.324,
+        "p95": 10.893,
+        "max": 11.286
+      },
+      "idle.isolated_interaction": {
+        "mean": 0.027,
+        "p95": 0.087,
+        "max": 0.097
+      },
+      "forest_walk_axe.update": {
+        "mean": 0.167,
+        "p95": 0.26,
+        "max": 0.439
+      },
+      "forest_walk_axe.render_including_ui": {
+        "mean": 7.833,
+        "p95": 8.599,
+        "max": 9.168
+      },
+      "forest_walk_axe.isolated_interaction": {
+        "mean": 0.004,
+        "p95": 0.009,
+        "max": 0.013
+      },
+      "inventory.update": {
+        "mean": 0.098,
+        "p95": 0.129,
+        "max": 0.132
+      },
+      "inventory.render_including_ui": {
+        "mean": 9.186,
+        "p95": 9.961,
+        "max": 10.27
+      },
+      "inventory.isolated_interaction": {
+        "mean": 0.0,
+        "p95": 0.002,
+        "max": 0.003
+      }
+    },
+    "work_frames_per_second": {
+      "idle": 104.3,
+      "forest_walk_axe": 125.0,
+      "inventory": 107.7
+    },
+    "spawn_checks_ms": [
+      {
+        "ms": 10.372,
+        "result": "SUCCESS: 2"
+      }
+    ],
+    "sections_ms": {
+      "UPDATE": {
+        "mean": 0.264,
+        "max": 6.194
+      },
+      "WORLD": {
+        "mean": 0.011,
+        "max": 0.051
+      },
+      "ENTITY": {
+        "mean": 0.01,
+        "max": 0.129
+      },
+      "AI": {
+        "mean": 0.009,
+        "max": 0.123
+      },
+      "COLLISION": {
+        "mean": 0.002,
+        "max": 0.608
+      },
+      "INTERACTION": {
+        "mean": 0.022,
+        "max": 0.735
+      },
+      "ENCOUNTER": {
+        "mean": 9.421,
+        "max": 9.421
+      },
+      "TERRAIN_RENDER": {
+        "mean": 0.252,
+        "max": 0.888
+      },
+      "ENTITY_RENDER": {
+        "mean": 1.694,
+        "max": 6.549
+      },
+      "UI": {
+        "mean": 1.401,
+        "max": 21.75
+      },
+      "PARTICLES": {
+        "mean": 0.001,
+        "max": 0.054
+      },
+      "LIGHTING": {
+        "mean": 5.531,
+        "max": 20.746
+      },
+      "CHUNK": {
+        "mean": 20.486,
+        "max": 75.117
+      },
+      "STREAMING": {
+        "mean": 1.082,
+        "max": 172.928
+      },
+      "SAVE": {
+        "mean": 0.0,
+        "max": 0.0
+      },
+      "PRESENT": {
+        "mean": 0.0,
+        "max": 0.0
+      },
+      "PAINT": {
+        "mean": 0.0,
+        "max": 0.0
+      },
+      "RENDER": {
+        "mean": 9.272,
+        "max": 37.896
+      }
+    },
+    "jfr_cpu_samples": [
+      "java.awt.TexturePaintContext$Int.setRaster via world.Lighting.draw=11",
+      "main.Gamepanel.drawToTempscreen=2",
+      "sun.java2d.marlin.Renderer.copyAARow=1",
+      "java.util.concurrent.ArrayBlockingQueue$Itr.<init> via world.chunk.WorldChunks.update=1",
+      "java.util.concurrent.ArrayBlockingQueue$Itr.incCursor=1",
+      "monster.SlimeMotion.clear via world.SlimeSpawner.routeClear=1",
+      "java.util.IdentityHashMap.resize via world.spatial.SpatialIndex.query=1",
+      "world.DayCycle.sample via world.DayCycle.sample=1",
+      "world.WorldObject.update via world.WorldObject.update=1",
+      "java.util.HashMap$TreeNode.getTreeNode via crafting.CraftingManager.grassHarvested=1",
+      "sun.java2d.marlin.MarlinTileGenerator.getAlphaNoRLE=1",
+      "ui.GameUI.inventoryWindow=1",
+      "entity.Player.isMage=1",
+      "java.util.HashMap.hash via world.chunk.WorldChunks.update=1",
+      "entity.Player.usesMana=1",
+      "main.Gamepanel.processInput=1",
+      "java.util.HashMap$TreeNode.getTreeNode via world.spatial.SpatialIndex.query=1",
+      "interaction.InteractionValidator.valid via interaction.InteractionValidator.valid=1"
+    ],
+    "jfr_allocation_weights": [
+      "[I via tile.TileManager.bakeChunk=103809200",
+      "sun.awt.geom.Edge via sun.awt.geom.AreaOp.addEdges=15043504",
+      "sun.awt.geom.CurveLink via sun.awt.geom.AreaOp.pruneEdges=12012536",
+      "[Ljava.lang.reflect.Type; via sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl.getActualTypeArguments=11353272",
+      "[Ljava.lang.Object; via sun.awt.geom.AreaOp.pruneEdges=10186216",
+      "[Ljava.lang.Object; via world.spatial.SpatialIndex.query=9676592",
+      "[B via sun.awt.image.ByteInterleavedRaster.getByteData=7252232",
+      "[B via javax.imageio.ImageTypeSpecifier.createBufferedImage=6488112",
+      "java.util.Vector via sun.awt.geom.AreaOp.pruneEdges=6070280",
+      "[Ljava.lang.reflect.Type; via sun.reflect.generics.repository.ClassRepository.getSuperInterfaces=5894248",
+      "[D via world.generation.CliffTileResolver.drawWalls=4401584",
+      "sun.awt.geom.Order3 via sun.awt.geom.Order3.addInstance=4217240"
+    ],
+    "gc_events": 0,
+    "end_used_heap_mib": 679
+  },
+  "method": {
+    "date": "2026-11-17",
+    "java": "26.0.2",
+    "seed": 123456789,
+    "generator_version": 11,
+    "mode": "headless software rendering, not live display FPS",
+    "logical_viewport": [
+      1248,
+      720
+    ],
+    "warmup_frames_per_scenario": 12,
+    "measured_frames_256": 60,
+    "measured_frames_100": 90,
+    "jfr_sample_period_ms": 10,
+    "heap_256": "-Xmx2048m",
+    "primary_comparison": "control_256 vs streaming_256; consecutive isolated runs using preserved before classes and current classes",
+    "excluded_runs": "Concurrent benchmark/stress-test runs were discarded; their wall times were inflated by CPU contention."
+  },
+  "pipeline_scenarios": [
+    "SCENARIO open_idle_1280x720 mean=8.846 p95=9.442 max=11.659 work_frames/s=113.0",
+    "COMPONENT update=0.201 render=7.428 UI=0.660 AI=0.011 present=0.788 paint=0.423 streamingPeak=0.194 images=12 MiB=111",
+    "SCENARIO forest_walk mean=11.324 p95=19.291 max=27.090 work_frames/s=88.3",
+    "COMPONENT update=0.161 render=9.893 UI=0.670 AI=0.001 present=0.812 paint=0.446 streamingPeak=0.115 images=6 MiB=63",
+    "SCENARIO pond_shore mean=8.373 p95=8.557 max=8.955 work_frames/s=119.4",
+    "COMPONENT update=0.070 render=7.197 UI=0.571 AI=0.000 present=0.694 paint=0.408 streamingPeak=0.034 images=12 MiB=119",
+    "SCENARIO multi_level_cliffs mean=8.596 p95=8.745 max=8.841 work_frames/s=116.3",
+    "COMPONENT update=0.045 render=7.467 UI=0.554 AI=0.000 present=0.675 paint=0.407 streamingPeak=0.020 images=8 MiB=82",
+    "SCENARIO normal_4_pixels_camera_traverse mean=10.011 p95=11.335 max=18.115 ms",
+    "SCENARIO rapid_5_tiles_per_frame mean=11.229 p95=34.362 max=50.886 ms",
+    "COMBAT_SLIMES 6",
+    "SCENARIO six_slime_combat mean=8.869 p95=9.442 max=18.343 work_frames/s=112.8",
+    "COMPONENT update=0.199 render=7.531 UI=0.590 AI=0.030 present=0.717 paint=0.419 streamingPeak=8.988 images=12 MiB=111",
+    "SCENARIO inventory_open mean=10.501 p95=10.729 max=10.744 work_frames/s=95.2",
+    "COMPONENT update=0.097 render=7.250 UI=2.142 AI=0.023 present=2.261 paint=0.891 streamingPeak=0.029 images=12 MiB=111",
+    "SCENARIO inventory_1920x1080 mean=21.174 p95=21.949 max=22.070 work_frames/s=47.2",
+    "COMPONENT update=0.099 render=7.300 UI=4.023 AI=0.022 present=4.197 paint=9.576 streamingPeak=0.083 images=12 MiB=111",
+    "SCENARIO crowned_slime_phase_two mean=16.793 p95=17.288 max=17.432 work_frames/s=59.5",
+    "COMPONENT update=0.086 render=7.046 UI=1.035 AI=0.020 present=1.208 paint=8.452 streamingPeak=0.029 images=12 MiB=109",
+    "BOSS_SUMMONS 5"
+  ],
+  "streaming_acceptance": [
+    "CACHE_PLATEAU firstMiB=367 secondMiB=367",
+    "RETAINED_HEAP initialMiB=327 exploredMiB=347",
+    "CHUNK CHECKS PASS: 429460; maximum terrain cache MiB=59 loaded=25 scenery=5217"
+  ],
+  "verification": {
+    "java_source_compilation": "passed",
+    "phase3_gameplay_checks": 147,
+    "ui_crafting_checks": 76,
+    "chunk_assertions": 429460,
+    "cliff_checks": "passed",
+    "world_settings_checks": "passed",
+    "installation_procedural": "passed",
+    "installation_authored": "passed",
+    "git_diff_check": "passed",
+    "memory_comparison": "Both exploration passes were returned to the same camera position, dormant chunks expired, and image workers settled before explicit GC."
+  }
+}

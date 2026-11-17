@@ -24,7 +24,7 @@ public final class NPC_merchant extends Entity {
         Player camera=gp.localPlayer();if(camera==null)return;
         int x=worldX-camera.worldX+camera.screenX,y=worldY-camera.worldY+camera.screenY;
         if(x<0 || x>gp.screenWidth || y<0 || y>gp.screenHeight)return;
-        g.setFont(g.getFont().deriveFont(Font.BOLD,12f));String label=highlighted?"Merchant [E]":"Merchant";
+        g.setFont(g.getFont().deriveFont(Font.BOLD,12f));String label=highlighted?"Merchant [F]":"Merchant";
         g.setColor(Color.BLACK);g.fillRoundRect(x-20,y-29,90,20,7,7);g.setColor(Color.WHITE);g.drawString(label,x-15,y-15);
     }
 }

@@ -28,7 +28,7 @@
                 <configuration>
                     <includes>
                         <include>builder/**/*.java</include><include>building/**/*.java</include>
-                        <include>art/BuildGeometry.java</include><include>art/BuildTextures.java</include><include>main/MiniJson.java</include>
+                        <include>art/InteractionOutline.java</include><include>art/BuildGeometry.java</include><include>art/BuildTextures.java</include><include>main/MiniJson.java</include>
                     </includes>
                     <implicit>none</implicit>
                 </configuration>

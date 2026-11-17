@@ -32,8 +32,20 @@ public class WorldObject extends Entity {
     private final Rectangle reachRect;  // world-space interaction box
     private final ObjectArt.Sprite sprite, altSprite;
     private float alpha = 1f;
+    private int chopShakeTicks;
+    private double chopShakeSign=1;
+    /** Visual impulse only: the trunk anchor, terrain and collision never move. */
+    public void chopped(Player player){
+        if(!kind.swaysInWind())return;
+        chopShakeTicks=20;chopShakeSign=player.worldX<worldX?1:-1;
+        Particle.spray(this,Particle.Style.CHIP,art.Palette.FOLIAGE_LIGHT,3,6,34,1.4f,
+                Math.PI/2,Math.PI*.6f,-solidArea.x-solidArea.width*.5f,
+                -sprite.footY*.58f-solidArea.y-solidArea.height*.5f);
+    }
 
     public boolean resourceDepleted;
+    public static void preloadTrees(Gamepanel gp){for(WorldObjectType type:WorldObjectType.values())if(type.swaysInWind())SwayCache.warm(type.sprite(gp));}
+
     public WorldObject(Gamepanel gp, WorldObjectType kind, int col, int row, String text){
         this(gp, kind, col, row, text, kind == WorldObjectType.INN ? "inn" : null, Map.of());
     }
@@ -92,6 +104,16 @@ public class WorldObject extends Entity {
         return kind.behavior != WorldObjectType.Behavior.NONE;
     }
 
+    public Rectangle spatialBounds(){
+        Rectangle bounds=new Rectangle(worldX-sprite.footX-8,worldY-sprite.footY-8,
+                Math.max(sprite.image.getWidth(),altSprite.image.getWidth())+16,Math.max(sprite.image.getHeight(),altSprite.image.getHeight())+16);
+        bounds.add(blockRect);bounds.add(interactionFootprint());for(Rectangle r:extraFootprint)bounds.add(r);return bounds;
+    }
+    public Rectangle interactionFootprint(){
+        if(building!=null || kind==WorldObjectType.INN_EXIT)return new Rectangle(reachRect);
+        return blockRect.isEmpty()?new Rectangle(col*gp.tileSize,row*gp.tileSize,gp.tileSize,gp.tileSize):new Rectangle(blockRect);
+    }
+
     public Rectangle reachRect(){
         return reachRect;
     }
@@ -139,7 +161,7 @@ public class WorldObject extends Entity {
         if(cam == null) return false;
         BufferedImage img = current().image;
         int sx = worldX - sprite.footX - cam.worldX + cam.screenX;
-        int sy = worldY - sprite.footY - cam.worldY + cam.screenY;
+        int sy = worldY - sprite.footY - cam.worldY + cam.screenY-world.TerrainHeightResolver.lift(gp,this);
         return sx + img.getWidth() > -gp.tileSize && sx < gp.screenWidth + gp.tileSize
                 && sy + img.getHeight() > -gp.tileSize && sy < gp.screenHeight + gp.tileSize;
     }
@@ -155,7 +177,7 @@ public class WorldObject extends Entity {
 
         private BuildingLayer(BuildingCatalog.DepthStrip strip){
             super(WorldObject.this.gp);
-            this.strip = strip;
+            this.strip = strip;worldX=WorldObject.this.worldX;worldY=WorldObject.this.worldY;
         }
 
         @Override public int sortY(){
@@ -190,6 +212,7 @@ public class WorldObject extends Entity {
     // visual only: trees and roofs turn translucent while the local player stands behind them
     @Override
     public void update(){
+        if(chopShakeTicks>0)chopShakeTicks--;
         Player p = gp.localPlayer();
         if(emitterTimers != null && p != null) updateEmitters(p);
         if(p == null || (building == null
@@ -241,14 +264,24 @@ public class WorldObject extends Entity {
         int sx = worldX - sprite.footX - cam.worldX + cam.screenX;
         int sy = worldY - sprite.footY - cam.worldY + cam.screenY;
 
+        boolean actionable=gp.interactions.selected(this);
         boolean buildingDoor = isInteractive() && (building != null || kind == WorldObjectType.INN_EXIT);
-        if(highlighted && !buildingDoor){
-            drawOutline(g2, getFlashVersion(img), sx, sy);
-        }
+        if(actionable)art.InteractionOutline.draw(g2,img,sx,sy);
+        if(!kind.swaysInWind() && gp.crafting.nearHarvestable(this))art.InteractionOutline.draw(g2,img,sx,sy);
         changeAlpha(g2, alpha);
         if(kind.swaysInWind()){
+            AffineTransform beforeShake=g2.getTransform();
+            if(chopShakeTicks>0){
+                double age=20-chopShakeTicks,shake=Math.sin((age+1)*.88)*.045*Math.pow(chopShakeTicks/20.0,2)*chopShakeSign;
+                g2.translate(sx+sprite.footX,sy+sprite.footY);g2.shear(-shake,0);g2.translate(-sx-sprite.footX,-sy-sprite.footY);
+            }
             int step = SwayCache.stepFor(gp.ambient.treeSway(worldX, worldY));
-            g2.drawImage(SwayCache.frame(sprite, step), sx - SwayCache.pad(sprite), sy, null);
+            BufferedImage swaying=SwayCache.frame(sprite,step);
+            if(gp.crafting.nearHarvestable(this)){
+                changeAlpha(g2,1f);art.InteractionOutline.draw(g2,swaying,sx-SwayCache.pad(sprite),sy);changeAlpha(g2,alpha);
+            }
+            g2.drawImage(swaying,sx-SwayCache.pad(sprite),sy,null);
+            g2.setTransform(beforeShake);
         } else {
             g2.drawImage(img, sx, sy, null);
         }
@@ -261,7 +294,7 @@ public class WorldObject extends Entity {
         }
         changeAlpha(g2, 1f);
 
-        if(highlighted && isInteractive()){
+        if(actionable && isInteractive()){
             int doorOffset = building == null ? gp.tileSize : building.cueOffset();
             int bx = buildingDoor ? sx + sprite.footX + doorOffset : sx + img.getWidth() / 2;
             int by = buildingDoor ? sy + sprite.footY - 10 : sy - 4;
@@ -269,7 +302,7 @@ public class WorldObject extends Entity {
             g2.setColor(new Color(0, 0, 0, 170));
             g2.fillRoundRect(bx - 11, by - 20, 22, 22, 8, 8);
             g2.setColor(Color.white);
-            g2.drawString("E", bx - 5, by - 4);
+            g2.drawString("F", bx - 5, by - 4);
         }
 
         if(gp.keyH.showDebug){
@@ -279,6 +312,7 @@ public class WorldObject extends Entity {
 
     // Host only. Remote players' interactions arrive here too, because the host simulates their input.
     public void interact(Player p){
+        if(!gp.interactions.isTarget(p,this))return;
         String shown = (text != null && !text.isEmpty()) ? text : kind.defaultText;
 
         switch(kind.behavior){

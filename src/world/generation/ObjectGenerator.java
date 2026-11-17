@@ -20,6 +20,12 @@ final class ObjectGenerator {
         for(int r=0;r<config.height();r++) for(int c=0;c<config.width();c++){
             if(world.reserved(c,r) || world.terrain(c,r)!=Terrain.GRASS) continue;
             double vegetation=noise.sample(c*config.vegetationScale(),r*config.vegetationScale(),30);
+            var nest=world.slimeNest();
+            if(nest!=null){
+                int dx=Math.max(nest.col()-c,Math.max(0,c-(nest.col()+nest.size()-1)));
+                int dy=Math.max(nest.row()-r,Math.max(0,r-(nest.row()+nest.size()-1)));
+                if(Math.max(dx,dy)<=3)vegetation=Math.max(vegetation,.58+noise.sample(c*.18,r*.18,904)*.24);
+            }
             double flowers=noise.sample(c*.23,r*.23,40);
             WorldObjectType type=null;
             double pick=noise.random(c,r,50);

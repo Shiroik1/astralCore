@@ -1,128 +1,150 @@
 package monster;
 
-import entity.Monster;
-import entity.Player;
-import entity.SpriteAnimation;
+import entity.*;
 import main.Gamepanel;
-import object.OBJ_bronzecoin;
-import object.OBJ_crystal;
-import object.OBJ_heart;
-import object.OBJ_rock;
 import art.SlimeArt;
-
+import net.MonsterState;
 import java.awt.image.BufferedImage;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
-public class MON_GreenSlime extends Monster {
-
-    public MON_GreenSlime(Gamepanel gp) {
-        super(gp);
-
-        monsterAttackFrameDelay = 6;
-        attackDamageStartFrame = 6;   // frame the hit window opens (out of 10 total frames)
-        attackDamageEndFrame = 8;     // frame the hit window closes
-        monsterAttackCooldown = 40;
-        name = "Green Slime";
-        speed = 2;
-        maxHP = 10;
-        HP = maxHP;
-        attack = 5;
-        defense = 0;
-        exp = 3;
-        projectile = new OBJ_rock(gp);
-        aggroRange = 5; // tiles — tunable
-
-        solidArea.x = 3;
-        solidArea.y = 18;
-        solidArea.width = 48;
-        solidArea.height = 30;
-        solidAreaDefaultX = solidArea.x;
-        solidAreaDefaultY = solidArea.y;
-
-        getImage();
+/** Hops and attacks have separate clocks. Only the committed leap can hurt a player. */
+public class MON_GreenSlime extends Monster implements SlimeActor {
+    public enum State { IDLE,WANDER,CHASE,WINDUP,LEAP_ATTACK,RECOVERY,RETURN,INVESTIGATE }
+    public static final int WINDUP_TICKS=30,LEAP_TICKS=15,RECOVERY_TICKS=30,COOLDOWN_TICKS=120;
+    public static final int DETECTION_TILES=6,LEASH_TILES=10,MAX_NEARBY_ATTACKERS=2;
+    public static final double ATTACK_TILES=1.5;
+    public State state=State.IDLE;
+    public String nestId="";
+    private int timer,cooldown,homeX,homeY,startX,startY,goalX,goalY,hitMask,wait=45;
+    private boolean homeSet,returningHop;
+    private int arrivalGrace;
+    private int investigationX,investigationY,investigationTicks,stalledTicks;
+    public boolean investigationFailed,directorSpawn;
+    public boolean investigating(){return investigationTicks>0 && !dying;}
+    /** Captured once by the director; this is never retargeted to a moving player. */
+    public void investigate(int x,int y,int ticks){
+        investigationX=x;investigationY=y;investigationTicks=Math.max(1,ticks);stalledTicks=0;investigationFailed=false;directorSpawn=true;enter(State.INVESTIGATE);
     }
+    private void endInvestigation(boolean failed){investigationTicks=0;stalledTicks=0;investigationFailed=failed;setHome();}
 
-    public void getImage() {
-        int size = SlimeArt.CANVAS_SIZE;
-        SlimeArt.buildAnimations(sprites, size, 1.10f);
-        down1 = sprites.get("idle_down").frames[0];
+    public void delayAttacks(int ticks){arrivalGrace=Math.max(arrivalGrace,ticks);cooldown=Math.max(cooldown,ticks);}
+    private final ai.Pathfinder route;
+    public MON_GreenSlime(Gamepanel gp){
+        super(gp);route=new ai.Pathfinder(gp);name="Green Slime";maxHP=30;HP=maxHP;attack=8;exp=3;aggroRange=DETECTION_TILES;
+        incomingHitImmunity=36;incomingHitKnockback=gp.tileSize/2;
+        solidArea.setBounds(3,18,48,30);solidAreaDefaultX=3;solidAreaDefaultY=18;
+        SlimeArt.buildAnimations(sprites,SlimeArt.CANVAS_SIZE,1.10f);down1=sprites.get("idle_down").frames[0];
     }
-
-    @Override
-    protected SpriteAnimation getCurrentAnimation(){
-        if(flashing && !dying && !attackState)return sprites.get("hurt_"+direction);
-        return super.getCurrentAnimation();
-    }
-
-    @Override
-    protected BufferedImage getCurrentFrame(){
-        if(flashing && !dying && !attackState){
-            SpriteAnimation hurt=getCurrentAnimation();
-            BufferedImage frame=hurt.frames[Math.min(hurt.frames.length-1,flashCounter*hurt.frames.length/Math.max(1,flashDuration))];
-            if(flashCounter<2)return getFlashVersion(frame);
-            java.awt.Color tint=getActiveTintColor();
-            return tint!=null?getTintVersion(frame,tint):frame;
+    public void setHome(){homeX=worldX;homeY=worldY;homeSet=true;wait=30+ThreadLocalRandom.current().nextInt(90);}
+    @Override public boolean canDealContactDamage(){return false;}
+    public boolean committed(){return state==State.WINDUP || state==State.LEAP_ATTACK;}
+    @Override protected boolean resistsBasicImpact(){return committed();}
+    @Override public boolean canBeKnockedBack(){return super.canBeKnockedBack()&&!committed();}
+    private void enter(State next){state=next;timer=0;spriteNum=1;spriteCounter=0;}
+    @Override protected void onStagger(int ticks){enter(State.RECOVERY);cooldown=Math.max(cooldown,ticks);}
+    @Override public void damageReaction(){if(!committed())enter(State.RECOVERY);}
+    @Override public void update(){
+        if(dying){super.update();return;}if(!homeSet)setHome();
+        speed=0;moving=false;attackState=false;attacking=false;
+        if(arrivalGrace>0){arrivalGrace--;moving=false;animState="idle";tickCombatEffects();return;}
+        if(cooldown>0)cooldown--;
+        if(knockbackActive){updateKnockback();enter(State.RECOVERY);tickCombatEffects();return;}
+        if(investigating() && --investigationTicks==0){endInvestigation(true);if(state==State.INVESTIGATE)enter(State.IDLE);}
+        Player target=findNearestPlayer();int ts=gp.tileSize;
+        boolean visible=SlimeMotion.activePlayer(gp,target) && SlimeMotion.distance(this,target)<=aggroRange*ts && SlimeMotion.sight(gp,this,target);
+        if(visible)investigationFailed=false;
+        boolean outside=!investigating() && Math.hypot(worldX-homeX,worldY-homeY)>LEASH_TILES*ts;
+        if(visible && state==State.INVESTIGATE){endInvestigation(false);enter(State.CHASE);}
+        int previousX=worldX,previousY=worldY;
+        if(!committed() && state!=State.RECOVERY && state!=State.WANDER){
+            if(outside || !visible && (state==State.CHASE || state==State.RETURN))state=State.RETURN;
+            else if(visible && state==State.IDLE)enter(State.CHASE);
         }
+        switch(state){
+            case INVESTIGATE -> {
+                if(Math.hypot(worldX-investigationX,worldY-investigationY)<ts*.75){endInvestigation(false);enter(State.IDLE);}
+                else if(++timer>=18){speed=2;route.toward(this,investigationX,investigationY);hopInDirection(State.WANDER);}
+            }
+            case IDLE -> {if(++timer>=wait){returningHop=false;startHop(homeX+ThreadLocalRandom.current().nextInt(-2,3)*ts,homeY+ThreadLocalRandom.current().nextInt(-2,3)*ts,State.WANDER);}}
+            case CHASE -> {
+                if(!visible || outside){enter(State.RETURN);break;}
+                if(cooldown==0 && SlimeMotion.distance(this,target)<=ts*ATTACK_TILES && attackSlot()){
+                    goalX=target.worldX+target.solidArea.x+target.solidArea.width/2-solidArea.x-solidArea.width/2;
+                    goalY=target.worldY+target.solidArea.y+target.solidArea.height/2-solidArea.y-solidArea.height/2;
+                    direction=SlimeMotion.facing(goalX-worldX,goalY-worldY);enter(State.WINDUP);
+                }else if(++timer>=18){speed=2;route.chase(this,target);hopInDirection(State.WANDER);}
+            }
+            case RETURN -> {
+                if(Math.hypot(worldX-homeX,worldY-homeY)<ts/2.0){enter(State.IDLE);wait=60;}
+                else if(++timer>=22){speed=2;route.toward(this,homeX,homeY);hopInDirection(State.RETURN);}
+            }
+            case WANDER -> {hop(false);if(timer>=LEAP_TICKS){
+                if(visible && investigating())endInvestigation(false);
+                enter(returningHop || outside?State.RETURN:visible?State.CHASE:investigating()?State.INVESTIGATE:State.IDLE);wait=45+ThreadLocalRandom.current().nextInt(100);
+            }}
+            case WINDUP -> {if(++timer>=WINDUP_TICKS){startX=worldX;startY=worldY;hitMask=0;enter(State.LEAP_ATTACK);}}
+            case LEAP_ATTACK -> {hop(true);if(timer>=LEAP_TICKS){cooldown=COOLDOWN_TICKS+ThreadLocalRandom.current().nextInt(24);enter(State.RECOVERY);}}
+            case RECOVERY -> {if(++timer>=RECOVERY_TICKS){if(visible && investigating())endInvestigation(false);enter(visible&&!outside?State.CHASE:investigating()?State.INVESTIGATE:State.RETURN);}}
+        }
+        if(investigating()){
+            stalledTicks=worldX==previousX && worldY==previousY?stalledTicks+1:0;
+            if(stalledTicks>12*60){endInvestigation(true);enter(State.IDLE);}
+        }
+        animState=state==State.WINDUP || state==State.LEAP_ATTACK?"attack":moving?"walk":"idle";
+        speed=0;tickCombatEffects();
+    }
+    private boolean attackSlot(){
+        int n=0;for(Monster m:gp.monster)if(m instanceof MON_GreenSlime s && s!=this && s.committed() && SlimeMotion.distance(this,s)<gp.tileSize*5)n++;
+        if(n>=MAX_NEARBY_ATTACKERS){cooldown=15+ThreadLocalRandom.current().nextInt(20);return false;}return true;
+    }
+    private void hopInDirection(State next){
+        if(speed==0){timer=0;return;}
+        returningHop=next==State.RETURN;
+        var point=route.waypoint();
+        boolean horizontal=direction.equals("right") || direction.equals("left");
+        int distance=Math.min(gp.tileSize*3/4,Math.abs(horizontal?point.x-worldX:point.y-worldY));
+        int x=worldX+(direction.equals("right")?distance:direction.equals("left")?-distance:0);
+        int y=worldY+(direction.equals("down")?distance:direction.equals("up")?-distance:0);
+        // Returning hops still use WANDER's movement, and reevaluate home/aggro when landing.
+        startHop(x,y,State.WANDER);
+    }
+    private void startHop(int x,int y,State next){
+        startX=worldX;startY=worldY;double dx=x-worldX,dy=y-worldY,len=Math.max(1,Math.hypot(dx,dy));
+        double max=gp.tileSize*.8;goalX=worldX+(int)(dx*Math.min(1,max/len));goalY=worldY+(int)(dy*Math.min(1,max/len));
+        direction=SlimeMotion.facing(dx,dy);enter(next);
+    }
+    private void hop(boolean attackingHop){
+        timer++;float progress=Math.min(1,timer/(float)LEAP_TICKS);
+        int slow=Math.max(getStatusEffectValue("rangerSlow"),getStatusEffectValue(MageEffect.FROST_SLOW));
+        int tx=startX+Math.round((goalX-startX)*progress),ty=startY+Math.round((goalY-startY)*progress);
+        if(slow>0){tx=worldX+Math.round((tx-worldX)*(100-slow)/100f);ty=worldY+Math.round((ty-worldY)*(100-slow)/100f);}
+        moving=SlimeMotion.move(gp,this,tx,ty,true);
+        if(attackingHop)for(int i=0;i<gp.players.length;i++){
+            Player p=gp.players[i];if((hitMask&(1<<i))!=0 || !SlimeMotion.activePlayer(gp,p))continue;
+            if(SlimeMotion.body(this,worldX,worldY).intersects(SlimeMotion.body(p,p.worldX,p.worldY))){hitMask|=1<<i;SlimeMotion.hit(gp,this,p,attack);}
+        }
+    }
+    @Override protected float spriteLiftPixels(){return state==State.WANDER || state==State.LEAP_ATTACK?(float)Math.sin(Math.PI*Math.min(1,timer/(float)LEAP_TICKS))*14:0;}
+    @Override protected SpriteAnimation getCurrentAnimation(){return sprites.get((flashing&&!dying?"hurt":animState)+"_"+direction);}
+    @Override protected BufferedImage getCurrentFrame(){
+        if(!dying && state==State.WINDUP){var a=sprites.get("attack_"+direction);return getPose(a.frames[Math.min(4,2+timer*3/WINDUP_TICKS)]);}
+        if(!dying && state==State.LEAP_ATTACK){var a=sprites.get("attack_"+direction);return getPose(a.frames[Math.min(a.frames.length-1,5+timer*4/LEAP_TICKS)]);}
         return super.getCurrentFrame();
     }
-
-    public void setAction(){
-
-        if(isPlayerInAggroRange()){
-            speed=2;chasePlayer();
-            actionLockCounter = 0; // so it doesn't immediately resume wandering the instant it loses aggro
-        }
-        else{
-            actionLockCounter++;
-            if(actionLockCounter == 120){
-                Random random = new Random();
-                int i = random.nextInt(100) + 1;
-
-                if(i <= 25){
-                    direction = "up";
-                }
-                if(i > 25 && i <= 50){
-                    direction = "down";
-                }
-                if(i > 50 && i <= 75){
-                    direction = "left";
-                }
-                if(i > 75 && i <= 100){
-                    direction = "right";
-                }
-
-                actionLockCounter = 0;
-            }
-        }
-
-//        int i = new Random().nextInt(100)+1;
-//
-//        if(i > 99 && !projectile.alive && shotAvailableCounter == 30){
-//            projectile.set(worldX, worldY, direction, true, this);
-//            gp.projectileList.add(projectile);
-//            shotAvailableCounter = 0;
-//        }
+    private BufferedImage getPose(BufferedImage f){if(flashing && flashCounter<2)return getFlashVersion(f);var c=getActiveTintColor();return c==null?f:getTintVersion(f,c);}
+    @Override public void checkDrop(){
+        gp.quests.dropLoot(object.ItemRegistry.create(object.ItemType.SLIME_GEL,gp),worldX,worldY);
+        int roll=ThreadLocalRandom.current().nextInt(100);
+        gp.quests.dropLoot(roll<50?new object.OBJ_bronzecoin(gp):roll<75?new object.OBJ_heart(gp):new object.OBJ_crystal(gp),worldX,worldY);
     }
-
-    public void damageReaction(){
-        actionLockCounter = 0;
-        Player nearest = findNearestPlayer();
-        if(nearest != null){
-            direction = nearest.direction;
-        }
-    }
-
-    public void checkDrop(){
-        int i = new Random().nextInt(100)+1;
-
-        if(i < 50){
-            dropItem(new OBJ_bronzecoin(gp));
-        }
-        if(i >= 50 && i < 75){
-            dropItem(new OBJ_heart(gp));
-        }
-        if(i >= 75 && i < 100){
-            dropItem(new OBJ_crystal(gp));
-        }
+    @Override public void captureSlime(MonsterState s){s.slimeDirectorSpawn=directorSpawn;s.slimeInvestigationFailed=investigationFailed;s.slimeInvestigationX=investigationX;s.slimeInvestigationY=investigationY;s.slimeInvestigationTicks=investigationTicks;s.slimeStalledTicks=stalledTicks;s.slimeState=state.name();s.slimeTimer=timer;s.slimeCooldown=cooldown;s.slimeArrivalGrace=arrivalGrace;s.homeX=homeSet?homeX:worldX;s.homeY=homeSet?homeY:worldY;s.slimeStartX=startX;s.slimeStartY=startY;s.slimeGoalX=goalX;s.slimeGoalY=goalY;s.slimeHitMask=hitMask;s.slimeReturning=returningHop;s.nestId=nestId;}
+    @Override public void restoreSlime(MonsterState s,boolean disk){
+        directorSpawn=s.slimeDirectorSpawn;investigationFailed=s.slimeInvestigationFailed;
+        investigationX=s.slimeInvestigationX;investigationY=s.slimeInvestigationY;investigationTicks=Math.max(0,Math.min(world.EncounterSpawnConfig.INVESTIGATE_SECONDS*60,s.slimeInvestigationTicks));stalledTicks=Math.max(0,s.slimeStalledTicks);
+        if(s.slimeState==null){setHome();return;}
+        state=State.valueOf(s.slimeState);timer=s.slimeTimer;cooldown=s.slimeCooldown;arrivalGrace=s.slimeArrivalGrace;homeX=s.homeX;homeY=s.homeY;homeSet=true;
+        startX=s.slimeStartX;startY=s.slimeStartY;goalX=s.slimeGoalX;goalY=s.slimeGoalY;hitMask=s.slimeHitMask;returningHop=s.slimeReturning;nestId=s.nestId==null?"":s.nestId;
+        if(disk && (committed() || state==State.WANDER)){enter(investigating()?State.INVESTIGATE:State.RECOVERY);cooldown=Math.max(cooldown,60);}
+        animState=dying?"death":committed()?"attack":state==State.WANDER?"walk":"idle";
     }
 }

@@ -2,6 +2,7 @@ package world;
 
 import art.ArtKit;
 import art.GrassArt;
+import art.InteractionOutline;
 import art.Terrain;
 import entity.Entity;
 import entity.Player;
@@ -34,6 +35,7 @@ public class GrassLayer {
     private short[] tuftX, tuftY;  // tuft positions inside their tile, in pixels
     private int[] tuftHash;
     private Entity[] depthTufts;
+    private final java.util.Set<Integer> stirred=new java.util.HashSet<>();
     private long time = 0;
 
     // creatures pushing the grass this tick
@@ -60,7 +62,7 @@ public class GrassLayer {
 
         time = 0;
         burstCount = pushers = 0;
-        lastPos.clear();
+        lastPos.clear();stirred.clear();
         if(gp.generatedWorld != null){
             for(int c = 0; c < cols; c++) for(int r = 0; r < rows; r++)
                 cells[c][r] = gp.generatedWorld.meadow(c,r);
@@ -92,6 +94,11 @@ public class GrassLayer {
         refreshDepthCell(col,row);
     }
 
+    /** Existing green, dark and golden field grass supplies Fiber; flowers remain decorative. */
+    public boolean isHarvestable(int col,int row){
+        return cells!=null && col>=0 && row>=0 && col<cols && row<rows && cells[col][row]>12
+                && !gp.buildings.coversGround(col,row);
+    }
     public boolean save(){
         if(gp.worldConfig.procedural()) return false;
         StringBuilder sb = new StringBuilder();
@@ -129,14 +136,7 @@ public class GrassLayer {
         time++;
         collectPushers();
 
-        for(int c = 0; c < cols; c++){
-            for(int r = 0; r < rows; r++){
-                if(energy[c][r] > 0){
-                    energy[c][r] *= 0.93f;
-                    if(energy[c][r] < 0.01f) energy[c][r] = 0;
-                }
-            }
-        }
+        var iterator=stirred.iterator();while(iterator.hasNext()){int key=iterator.next(),c=key%cols,r=key/cols;energy[c][r]*=.93f;if(energy[c][r]<.01f){energy[c][r]=0;iterator.remove();}}
 
         for(int i = burstCount - 1; i >= 0; i--){
             bursts[i][4]--;
@@ -190,7 +190,7 @@ public class GrassLayer {
         int r1 = Math.min(rows - 1, Math.floorDiv((int) (y + radius), ts));
         for(int c = c0; c <= c1; c++){
             for(int r = r0; r <= r1; r++){
-                energy[c][r] = Math.max(energy[c][r], amount);
+                energy[c][r] = Math.max(energy[c][r], amount);stirred.add(r*cols+c);
             }
         }
     }
@@ -259,6 +259,7 @@ public class GrassLayer {
     }
 
     private void drawTuft(Graphics2D g2, Player cam, int c, int r, int i, int type, int level){
+        if(type>=3 && gp.crafting.grassHarvested(c,r))return;
         int idx = (r * cols + c) * MAX_PER_TILE + i;
         int ts = gp.tileSize;
         float wx = c * ts + tuftX[idx];
@@ -266,15 +267,20 @@ public class GrassLayer {
         int hash = tuftHash[idx];
         int bend = bendIndex(c, r, wx, wy, hash);
         BufferedImage img = art.frame(type, level, (hash >>> 3) % GrassArt.VARIANTS[type], bend);
-        g2.drawImage(img, (int) wx - art.footX(type) - cam.worldX + cam.screenX,
-                (int) wy - art.footY(type) - cam.worldY + cam.screenY, null);
+        int sx=(int)wx-art.footX(type)-cam.worldX+cam.screenX,sy=(int)wy-art.footY(type)-cam.worldY+cam.screenY;
+        if(type>=3 && gp.crafting.nearTallGrass(c,r))InteractionOutline.draw(g2,img,sx,sy);
+        g2.drawImage(img,sx,sy,null);
     }
 
     private void rebuildDepthTufts(){
         depthTufts=new Entity[cols*rows*MAX_PER_TILE];
-        for(int r=0;r<rows;r++) for(int c=0;c<cols;c++) refreshDepthCell(c,r);
+        // Tuft entities are materialized only for visible cells.
     }
 
+    public void releaseChunk(int x,int y){
+        if(depthTufts==null)return;int size=world.chunk.ChunkConfig.SIZE;
+        for(int r=y*size;r<Math.min(rows,(y+1)*size);r++)for(int c=x*size;c<Math.min(cols,(x+1)*size);c++)java.util.Arrays.fill(depthTufts,(r*cols+c)*MAX_PER_TILE,(r*cols+c+1)*MAX_PER_TILE,null);
+    }
     private void refreshDepthCell(int c,int r){
         if(depthTufts==null || cells[c][r]<=12) return;
         int base=(r*cols+c)*MAX_PER_TILE;
@@ -282,6 +288,13 @@ public class GrassLayer {
             if(depthTufts[base+i]==null) depthTufts[base+i]=new FieldTuft(c,r,i);
     }
 
+    /** Allocate newly visible depth actors at the game-thread update boundary, not during rendering. */
+    public void prepareView(){
+        Player camera=gp.localPlayer();if(camera==null || depthTufts==null)return;int ts=gp.tileSize,left=camera.worldX-camera.screenX,top=camera.worldY-camera.screenY;
+        int c0=Math.max(0,Math.floorDiv(left,ts)-2),c1=Math.min(cols-1,Math.floorDiv(left+gp.screenWidth,ts)+2);
+        int r0=Math.max(0,Math.floorDiv(top,ts)-1),r1=Math.min(rows-1,Math.floorDiv(top+gp.screenHeight,ts)+3);
+        for(int r=r0;r<=r1;r++)for(int c=c0;c<=c1;c++)if(cells[c][r]>12 && !gp.buildings.coversGround(c,r) && !gp.crafting.grassHarvested(c,r))refreshDepthCell(c,r);
+    }
     /** Existing shared entity depth sort puts tall grass in front of bodies, behind nearer feet. */
     public void addDrawLayers(java.util.List<Entity> layers){
         Player camera=gp.localPlayer();
@@ -291,9 +304,9 @@ public class GrassLayer {
         int r0=Math.max(0,Math.floorDiv(top,ts)-1),r1=Math.min(rows-1,Math.floorDiv(top+gp.screenHeight,ts)+3);
         for(int r=r0;r<=r1;r++) for(int c=c0;c<=c1;c++){
             if(gp.buildings.coversGround(c,r))continue;
-            int value=cells[c][r];if(value<=12)continue;
+            int value=cells[c][r];if(value<=12 || gp.crafting.grassHarvested(c,r))continue;
             int base=(r*cols+c)*MAX_PER_TILE,count=COUNT[(value-1)%4+1];
-            for(int i=0;i<count;i++)layers.add(depthTufts[base+i]);
+            for(int i=0;i<count;i++)if(depthTufts[base+i]!=null)layers.add(depthTufts[base+i]);
         }
     }
 
@@ -301,6 +314,7 @@ public class GrassLayer {
         private final int col,row,index,base;
         FieldTuft(int col,int row,int index){
             super(GrassLayer.this.gp);this.col=col;this.row=row;this.index=index;
+            worldX=col*gp.tileSize;worldY=row*gp.tileSize;type=type_none;
             base=(row*cols+col)*MAX_PER_TILE+index;
         }
         @Override public int sortY(){return row*gp.tileSize+tuftY[base];}

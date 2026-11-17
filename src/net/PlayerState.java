@@ -3,6 +3,8 @@ package net;
 import object.ItemType;
 
 public class PlayerState {
+    public object.ItemType[] hotbarTypes=new object.ItemType[10];
+    public int selectedHotbar;
     public int craftingLevel=1,craftingXP,meleeMasteryXP,magicMasteryXP,bowMasteryXP;
     public String[] craftingBonuses=new String[0];
     public boolean merchantOpen;

@@ -26,7 +26,7 @@ final class PondGenerator {
             for(Candidate center:centers)if(Math.hypot(x-center.col,y-center.row)<15)fits=false;
             // Protect the entire pond bounding box and a two-tile shore margin.
             for(int r=y-6;r<=y+6 && fits;r++) for(int c=x-7;c<=x+7;c++)
-                if(world.reserved(c,r)){fits=false;break;}
+                if(world.reserved(c,r) || world.heights()!=null && !world.heights().playable(c,r)){fits=false;break;}
             if(!fits)continue;
             for(int r=y-4;r<=y+4;r++) for(int c=x-5;c<=x+5;c++){
                 double dx=(c-x)/rx,dy=(r-y)/ry;

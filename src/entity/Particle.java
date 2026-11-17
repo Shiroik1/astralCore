@@ -38,12 +38,15 @@ public final class Particle extends Entity {
     private static final Shape CHIP_FACE = polygon(-0.68f, -0.24f, 0.2f, -0.7f, 0.42f, 0.04f, -0.52f, 0.35f);
 
     private final Style style;
-    private final Color color, light;
+    private final Color color, light, edge;
     private final float size;
     private final float angle;
     private final int lifetime, depth;
     private float x, y, vx, vy;
     private int age;
+    private boolean placement;
+    public static final int MAX_PLACEMENT_PARTICLES=96;
+    public static final int MIN_PLACEMENT_LIFETIME_TICKS=15,MAX_PLACEMENT_LIFETIME_TICKS=27;
 
     private Particle(Entity source, Style style, Color color, float size, int lifetime,
                     float vx, float vy, float offsetX, float offsetY){
@@ -51,6 +54,7 @@ public final class Particle extends Entity {
                 source.worldX + source.solidArea.x + source.solidArea.width * 0.5f + offsetX,
                 source.worldY + source.solidArea.y + source.solidArea.height * (style == Style.DUST ? 1f : 0.5f) + offsetY,
                 source.sortY() + 1);
+        if(world.TerrainHeightResolver.active(gp))groundElevation=world.TerrainHeightResolver.lift(gp,source)/(gp.tileSize/2);
     }
 
     private Particle(Gamepanel gp, Style style, Color color, float size, int lifetime,
@@ -58,6 +62,7 @@ public final class Particle extends Entity {
         super(gp);
         this.style = style;
         this.color = color;
+        this.edge=ArtKit.mix(color,art.Palette.IRON,.55f);
         this.light = switch(style){
             case CHIP -> ArtKit.mix(color, IVORY, 0.5f);
             case SMOKE -> ArtKit.mix(color, SMOKE_SHADE, 0.55f);
@@ -73,9 +78,24 @@ public final class Particle extends Entity {
         worldX = Math.round(x);
         worldY = Math.round(y);
         this.depth = depth;
+        if(world.TerrainHeightResolver.active(gp))groundElevation=gp.generatedWorld.heights().at(Math.floorDiv(worldX,gp.tileSize),Math.floorDiv(worldY,gp.tileSize));
         groundEffect = style == Style.DUST;
     }
 
+    public static void clearPlacementSmoke(Gamepanel gp){gp.particleList.removeIf(e->e instanceof Particle p && p.placement);}
+    /** Reuses the existing SMOKE silhouette, colors, fade and shared particle update/depth list. */
+    public static void placementSmoke(Gamepanel gp,float x,float y,float width,float height,boolean floor,int count){
+        int active=0;for(Entity e:gp.particleList)if(e instanceof Particle p && p.placement && p.alive)active++;
+        int available=Math.min(count,Math.min(MAX_PLACEMENT_PARTICLES-active,MAX_ACTIVE-gp.particleList.size()));
+        var random=ThreadLocalRandom.current();
+        for(int i=0;i<available;i++){
+            double angle=2*Math.PI*i/Math.max(1,count);float spread=floor?(float)Math.cos(angle)*width*.44f:random.nextFloat(-.45f,.45f)*width;
+            float py=y+(floor?(float)Math.sin(angle)*height*.44f:random.nextFloat(-2,2));
+            Particle p=new Particle(gp,Style.SMOKE,art.Palette.PLASTER,random.nextFloat(9,14),random.nextInt(MIN_PLACEMENT_LIFETIME_TICKS,MAX_PLACEMENT_LIFETIME_TICKS+1),
+                    (spread<0?-1:1)*random.nextFloat(.32f,.60f),random.nextFloat(-.42f,-.22f),x+spread,py,Math.round(y+(floor?height*.5f:0))+2);
+            p.placement=true;gp.particleList.add(p);
+        }
+    }
     public static void emitAmbient(Gamepanel gp, Style style, Color color, float size, int lifetime,
                                    float vx, float vy, float worldX, float worldY, int depth){
         if(gp.ambientParticles.size() < AMBIENT_LIMIT){
@@ -206,6 +226,7 @@ public final class Particle extends Entity {
         } else if(style == Style.CHIP){
             g.setColor(light);
             g.fill(CHIP_FACE);
+            Stroke previous=g.getStroke();g.setColor(edge);g.setStroke(new BasicStroke(.18f,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));g.draw(style.shape);g.setStroke(previous);
         }
         g.setTransform(transform);
         g.setComposite(composite);

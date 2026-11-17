@@ -23,6 +23,7 @@ public final class RangerEffect extends Entity {
     private static final int RAIN_ARROWS=6;
     private static final AtomicInteger NEXT_ID=new AtomicInteger();
     private static final int FIRST_WAVE=24,WAVE_GAP=13,RAIN_END=62;
+    private final CombatHit arrowHit=new CombatHit("arrow");
     private final Kind kind;
     private final Player owner;
     private final Set<Monster> hit=new HashSet<>();
@@ -33,7 +34,7 @@ public final class RangerEffect extends Entity {
     private int age,contacts,id,lastTrailAge=-1,lastRainWave=-1;
 
     private RangerEffect(Gamepanel gp,Player owner,Kind kind,float x,float y,double heading,float distance,int damage,int focus){
-        super(gp);this.owner=owner;this.kind=kind;this.x=x;this.y=y;this.heading=heading;
+        super(gp);this.owner=owner;this.kind=kind;arrowHit.mastery(kind==Kind.KNIFE?type_sword:type_bow);this.x=x;this.y=y;this.heading=heading;
         this.remaining=distance;this.damage=damage;this.focus=focus;
         if(owner!=null)id=NEXT_ID.incrementAndGet();
         worldX=Math.round(x);worldY=Math.round(y);solidArea.setBounds(0,0,0,0);
@@ -145,7 +146,7 @@ public final class RangerEffect extends Entity {
             int bonus=kind==Kind.CLEAN?owner.ranger.markBonus(m):0;
             int base=kind==Kind.DEADEYE && contacts>1?Math.max(1,Math.round(damage*0.35f)):damage;
             boolean precise=kind==Kind.CLEAN || kind==Kind.DEADEYE && contacts==1;
-            if(owner.rangerDamage(i,base+bonus,direction(heading),precise,false)){
+            if(owner.rangerArrowDamage(i,base+bonus,direction(heading),precise,arrowHit)){
                 if(focus>0)owner.gainRangerFocus(focus);
                 if(bonus>0)owner.ranger.consumeMark(m);
                 if(kind==Kind.PIN && !m.isBoss())RangerCombat.pin(m);
@@ -155,6 +156,7 @@ public final class RangerEffect extends Entity {
     }
 
     private void rainHit(){
+        CombatHit wave=new CombatHit("arrow-rain-wave-"+((age-FIRST_WAVE)/WAVE_GAP)).mastery(type_bow);
         float radius=gp.tileSize*1.2f;
         for(int i=0;i<gp.monster.length;i++){
             Monster m=gp.monster[i];
@@ -162,7 +164,7 @@ public final class RangerEffect extends Entity {
             int mx=m.worldX+(int)m.solidArea.getCenterX(),my=m.worldY+(int)m.solidArea.getCenterY();
             if(Math.hypot(mx-x,my-y)>radius || !clearLine(gp,worldX,worldY,mx,my))continue;
             double angle=Math.atan2(my-y,mx-x);
-            if(owner.rangerDamage(i,damage,direction(angle),false,hit.contains(m)))hit.add(m);
+            if(owner.rangerWaveDamage(i,damage,direction(angle),hit.contains(m),wave))hit.add(m);
         }
     }
 

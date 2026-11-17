@@ -22,12 +22,13 @@ public final class MageEffect extends Entity {
     private static final Kind[] KINDS=Kind.values();
     private static final AtomicInteger IDS=new AtomicInteger();
     private static final float BOLT_SPEED=18;
-    static final String FROST_SLOW="mageFrost";
+    public static final String FROST_SLOW="mageFrost";
     static final Color LILAC=new Color(0xD5B3F0), FROST=new Color(0xB5E4EF), EMBER=new Color(0xFFAB87);
     private static final Color GOLD=new Color(0xFFE0A2), INK=new Color(49,39,60,225);
     private static final Stroke DASH=new BasicStroke(3,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND,1,new float[]{10,7},0);
     private static final Stroke DASH_BACK=new BasicStroke(6,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND,1,new float[]{10,7},0);
 
+    private final CombatHit boltHit=new CombatHit("arcane-bolt"),areaHit=new CombatHit("spell-impact");
     private final Kind kind;
     private final Player owner;
     private final int damage,runes;
@@ -39,7 +40,7 @@ public final class MageEffect extends Entity {
     private MageEffect(Gamepanel gp,Player owner,Kind kind,float x,float y,double heading,int damage,int runes){
         super(gp);
         this.kind=kind;this.owner=owner;this.x=x;this.y=y;this.heading=heading;
-        this.damage=damage;this.runes=runes;
+        this.damage=damage;this.runes=runes;boltHit.mastery(type_staff);areaHit.mastery(type_staff);
         if(owner!=null)id=IDS.incrementAndGet();
         worldX=Math.round(x);worldY=Math.round(y);solidArea.setBounds(0,0,0,0);
     }
@@ -144,7 +145,7 @@ public final class MageEffect extends Entity {
         for(int i=0;i<gp.monster.length;i++){
             Monster m=gp.monster[i];
             if(m==null || !m.alive || m.dying || !m.solidArea.intersects(x-m.worldX-3,y-m.worldY-3,6,6))continue;
-            if(owner.mageDamage(i,damage,RangerEffect.direction(heading),false,false)){
+            if(owner.mageBoltDamage(i,damage,RangerEffect.direction(heading),boltHit)){
                 if(kind==Kind.RADIANT)owner.priest.onBoltHit();
                 else owner.mage.gainRune();
                 Particle.spray(m,Particle.Style.SQUARE,tint(),5,5.5f,17,4.5f,heading,0.55,0,-8);
@@ -167,7 +168,7 @@ public final class MageEffect extends Entity {
             if(!inArea(m))continue;
             double angle=Math.atan2(m.worldY+m.solidArea.getCenterY()-y,m.worldX+m.solidArea.getCenterX()-x);
             String direction=RangerEffect.direction(angle);
-            if(owner.mageDamage(i,damage,direction,true,strong) && kind==Kind.DETONATION && !m.isBoss() && !m.dying){
+            if(owner.mageAreaDamage(i,damage,direction,true,strong,areaHit) && kind==Kind.DETONATION && !m.isBoss() && !m.dying){
                 m.startKnockback(direction,gp.tileSize/3);
             }
         }

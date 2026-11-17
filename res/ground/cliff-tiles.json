@@ -1,0 +1,4 @@
+{"tileSize":48,"heightStep":24,"maskBits":{"N":1,"E":2,"S":4,"W":8,"NE":16,"SE":32,"SW":64,"NW":128},
+ "caps":{"pattern":"cliff-top-{tone}.png","tones":4,"columns":16,"rows":16,"index":"mask"},
+ "faces":{"middle":"cliff-middle.png","left":"cliff-side-left.png","right":"cliff-side-right.png","lip":"cliff-lip.png","foot":"cliff-foot.png"},
+ "faceRules":"Repeat native middle pixels; lip only along highest exposed cap; foot only at the lower union boundary. No intermediate caps."}

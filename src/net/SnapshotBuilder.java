@@ -18,9 +18,10 @@ public class SnapshotBuilder {
 
     public static WorldSnapshot build(Gamepanel gp){
         WorldSnapshot snapshot = new WorldSnapshot();
+        snapshot.generationSettings=gp.generationSettingsJson();
         snapshot.tick = gp.currentTick;
         snapshot.quest = gp.quests.snapshot();
-        snapshot.dayTime = gp.lighting.cycle.time();
+        snapshot.dayTime = gp.lighting.cycle.time();snapshot.worldDay=gp.lighting.cycle.day();snapshot.moonWarningDay=gp.lighting.cycle.warnedMoonNight();
         snapshot.players = buildPlayers(gp);
         fillArea(snapshot,gp);
         if(gp.quests.hasOtherScene()){
@@ -79,6 +80,8 @@ public class SnapshotBuilder {
             ps.attacking = p.attacking;
             ps.ackTick = p.lastProcessedInputTick;
             ps.isDead = p.isDead;
+            p.hotbar.normalize(p);
+            ps.hotbarTypes=p.hotbar.snapshot();ps.selectedHotbar=p.hotbar.selected;
             ps.craftingLevel=p.craftingProgress.level;ps.craftingXP=p.craftingProgress.xp;
             ps.craftingBonuses=p.craftingProgress.claimed.stream().sorted().toArray(String[]::new);
             ps.meleeMasteryXP=p.meleeMasteryXP;ps.magicMasteryXP=p.magicMasteryXP;ps.bowMasteryXP=p.bowMasteryXP;
@@ -191,6 +194,8 @@ public class SnapshotBuilder {
                 ms.bossStateTimer = boss.bossStateTimer;
                 ms.lastAttackWasSlam = boss.lastAttackWasSlam;
             }
+            if(m instanceof monster.SlimeActor slime)slime.captureSlime(ms);
+            if(m instanceof monster.MON_Skeleton skeleton)skeleton.capture(ms);
             states[i] = ms;
         }
         return states;
@@ -202,12 +207,7 @@ public class SnapshotBuilder {
             Entity o = gp.obj[i];
             if(o == null) continue;
 
-            ObjectState os = new ObjectState();
-            os.type = ItemRegistry.typeFor(o);
-            os.worldX = o.worldX;
-            os.worldY = o.worldY;
-            os.stackCount = o.stackCount;
-            states[i] = os;
+            states[i] = save.CharacterState.item(o);
         }
         return states;
     }

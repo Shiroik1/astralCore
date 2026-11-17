@@ -59,8 +59,8 @@ public class Player extends Entity{
     public int previousEventX = -9999, previousEventY = -9999;
     public boolean canTouchEvent = true;
 
-    public final int screenX;
-    public final int screenY;
+    public int screenX;
+    public int screenY;
 
     public boolean attackCanceled = false;
     private final int attackWindupFrameDelay = 2;   // slower hold on anticipation frames — gives the hit time to be read/reacted to
@@ -71,7 +71,9 @@ public class Player extends Entity{
 
     private int attackFrameHoldCounter = 0;
     private boolean attackBuffered = false;
+    private int attackBufferTicks;
     private enum DaggerCut { FIRST, SECOND }
+    private CombatHit swingHit,firstCutHit,secondCutHit;
     private final ArrayList<Entity> firstDaggerTargets = new ArrayList<>();
 
     public Entity leftHandItem;
@@ -80,8 +82,8 @@ public class Player extends Entity{
     private int bounceCounter = 0;
     private static final int TRAIL_START_DELAY = 8;
     private int trailCounter = TRAIL_START_DELAY;
-    private final int hitStopOnHitMonster = 6; // ticks frozen when the player lands a hit — tune to taste
-    private final int hitStopOnTakingDamage = 8; // slightly longer than dealing a hit — getting hit should read heavier
+    private final int hitStopOnHitMonster = 3;
+    private final int hitStopOnTakingDamage = 5;
     private int bodySize; // canvas size shared by every player body animation (idle/run/attack)
     public Entity hoveredTarget = null;
     private boolean mageProjectileFired = false;
@@ -90,6 +92,7 @@ public class Player extends Entity{
     public int arcaneCharge = 0;
     public final int maxArcaneCharge = 4;
 
+    public final inventory.Hotbar hotbar=new inventory.Hotbar();
     public final crafting.CraftingProgression craftingProgress=new crafting.CraftingProgression();
     public int meleeMasteryXP,magicMasteryXP,bowMasteryXP;
     public Entity[] inventorySlots = new Entity[20];
@@ -118,7 +121,7 @@ public class Player extends Entity{
     public Map<String, BufferedImage> statusEffectIcons = new HashMap<>();
 
     public Player(Gamepanel gp, KeyHandler keyH){
-        super(gp);
+        super(gp);invincibilityDuration=60;
         this.keyH = keyH;
         currentInput = new InputState();
 
@@ -147,6 +150,7 @@ public class Player extends Entity{
     }
 
     public void setDefaultValues(){
+        weaponSkills.clear();
         type = type_player;
         setDefaultPosition();
         speed = 4;
@@ -448,12 +452,17 @@ public class Player extends Entity{
         refreshWeaponAnimation();
     }
 
+    private final java.util.Map<String,Skill[]> weaponSkills=new java.util.HashMap<>();
+
     public void applySyncedClass(String classId){
         String id=CharacterClass.fromId(classId).id;
         if(playerClass.equals(id))return;
+        weaponSkills.put(playerClass,skills);
         playerClass=id;
-        ranger.reset();assassin.reset();mage.cancel();berserker.cancel();paladin.reset();priest.reset();
-        setupSkills();
+        ranger.cancelCast();assassin.cancel();mage.cancel();berserker.cancel();paladin.cancel();
+        Skill[] cached=weaponSkills.get(id);
+        skills=new Skill[5];setupSkills();
+        if(cached!=null)for(int i=0;i<skills.length;i++)if(skills[i]!=null && cached[i]!=null)skills[i].cooldownRemaining=cached[i].cooldownRemaining;
     }
 
     /** Starter wardrobe for the chosen class and preset. */
@@ -580,6 +589,8 @@ public class Player extends Entity{
         builtBodyKey=key;
     }
 
+    public BufferedImage portraitFrame(){return getCurrentFrame();}
+
     public Entity equippedItem(int slot){
         if(slot==EQUIP_WEAPON) return currentWeapon;
         if(slot==EQUIP_SHIELD) return currentShield;
@@ -590,50 +601,47 @@ public class Player extends Entity{
         if(item==null)return false;
         if(item instanceof OBJ_crafted crafted)return slot==EQUIP_WEAPON && crafted.definition.equipment();
         if(item instanceof OBJ_paladinGear gear)
-            return isPaladin() && level>=gear.gear.level && (slot==EQUIP_WEAPON && gear.type==type_sword || slot==EQUIP_SHIELD && gear.type==type_shield);
-        if(isPaladin() && (slot==EQUIP_WEAPON || slot==EQUIP_SHIELD))return false;
+            return level>=gear.gear.level && (slot==EQUIP_WEAPON && gear.type==type_sword || slot==EQUIP_SHIELD && gear.type==type_shield);
         if(slot==EQUIP_WEAPON){
-            if(item instanceof OBJ_greatsword sword)return isBerserker() && level>=sword.gear.level;
-            if(isBerserker())return false;
-            if(item instanceof OBJ_rangerbow bow)return isRanger() && level>=bow.gear.level;
-            if(item instanceof OBJ_dualdaggers daggers && (isAssassin() || daggers.gear!=art.AssassinGear.ALLEY)){
-                return isAssassin() && level>=daggers.gear.level;
-            }
-            if(isAssassin())return item instanceof OBJ_rewardweapon reward && reward.kind.isDaggers();
-            if(item instanceof OBJ_prieststaff staff)return isPriest() && level>=staff.gear.level;
-            if(isPriest())return false;
-            if(isMage())return item.type==type_staff && (!(item instanceof OBJ_staff staff) || level>=staff.gear.level);
-            if(item instanceof OBJ_staff staff && staff.gear!=art.MageGear.HEARTH)return false;
-            return !isRanger() && (item.type==type_sword || item.type==type_axe || item.type==type_staff);
+            if(item instanceof OBJ_greatsword sword)return level>=sword.gear.level;
+            if(item instanceof OBJ_rangerbow bow)return level>=bow.gear.level;
+            if(item instanceof OBJ_dualdaggers daggers)return level>=daggers.gear.level;
+            if(item instanceof OBJ_prieststaff staff)return level>=staff.gear.level;
+            if(item instanceof OBJ_staff staff)return level>=staff.gear.level;
+            return inventory.Hotbar.isWeapon(item);
         }
-        if(slot==EQUIP_SHIELD)return !usesFocus() && !usesMana() && !isBerserker() && item.type==type_shield;
-        var gear=rangerOutfit(item);
-        if(gear!=null && (!isRanger() || level<gear.level))return false;
-        var leathers=assassinOutfit(item);
-        if(leathers!=null && (!isAssassin() || level<leathers.level))return false;
-        var robe=mageOutfit(item);
-        if(robe!=null && (!isMage() || level<robe.level))return false;
-        var plate=paladinOutfit(item);
-        if(plate!=null && (!isPaladin() || level<plate.level))return false;
-        var armor=berserkerOutfit(item);
-        if(armor!=null && (!isBerserker() || level<armor.level))return false;
-        var vestment=priestOutfit(item);
-        if(vestment!=null && (!isPriest() || level<vestment.level))return false;
+        if(slot==EQUIP_SHIELD)return item.type==type_shield;
+        var gear=rangerOutfit(item);if(gear!=null && level<gear.level)return false;
+        var leathers=assassinOutfit(item);if(leathers!=null && level<leathers.level)return false;
+        var robe=mageOutfit(item);if(robe!=null && level<robe.level)return false;
+        var plate=paladinOutfit(item);if(plate!=null && level<plate.level)return false;
+        var armor=berserkerOutfit(item);if(armor!=null && level<armor.level)return false;
+        var vestment=priestOutfit(item);if(vestment!=null && level<vestment.level)return false;
         return item instanceof OBJ_apparel clothing && slot==EQUIP_HAIR+clothing.slot.ordinal();
     }
 
+    /** Legacy class IDs now select existing weapon combat kits, never character eligibility or stats. */
+    public void syncWeaponProfile(){
+        String profile=currentWeapon instanceof OBJ_prieststaff?"priest":
+            currentWeapon instanceof OBJ_paladinGear?"paladin":
+            currentWeapon instanceof OBJ_greatsword?"berserker":
+            currentWeapon instanceof OBJ_dualdaggers || currentWeapon instanceof OBJ_rewardweapon r && r.kind.isDaggers()?"hunter":
+            currentWeapon!=null && currentWeapon.type==type_bow?"ranger":
+            currentWeapon!=null && currentWeapon.type==type_staff?"mage":"warrior";
+        applySyncedClass(profile);
+        if(!usesMana() && !isPaladin() && maxRage==0)maxRage=100; // Existing non-mana kit capacity, including legacy caster saves.
+    }
+
     private void setEquipment(int slot, Entity item){
-        if(slot==EQUIP_WEAPON){currentWeapon=item!=null?item:new OBJ_fists(gp);attack=getAttack();firstDaggerTargets.clear();ranger.cancelCast();assassin.cancel();mage.cancel();berserker.cancel();paladin.cancel();}
+        if(slot==EQUIP_WEAPON){currentWeapon=item!=null?item:new OBJ_fists(gp);syncWeaponProfile();attack=getAttack();defense=getDefense();firstDaggerTargets.clear();ranger.cancelCast();assassin.cancel();mage.cancel();berserker.cancel();paladin.cancel();}
         else if(slot==EQUIP_SHIELD){currentShield=item!=null?item:new OBJ_no_shield(gp);defense=getDefense();paladin.cancel();}
         else if(slot>=EQUIP_HAIR && slot<=EQUIP_HEADPIECE){
-            if((usesFocus() || usesMana() || isBerserker() || isPaladin()) && slot==EQUIP_TORSO){
+            if(slot==EQUIP_TORSO){
                 Entity previous=equippedItem(slot);
                 maxHP+=outfitHealth(item)-outfitHealth(previous);
                 HP=Math.min(HP,maxHP);
-                if(usesMana()){
-                    maxMP+=outfitMana(item)-outfitMana(previous);
-                    MP=Math.min(MP,maxMP);
-                }
+                maxMP+=outfitMana(item)-outfitMana(previous);
+                MP=Math.min(MP,maxMP);
             }
             apparelSlots[slot-EQUIP_HAIR]=item;
             if(usesFocus() || usesMana() || isBerserker() || isPaladin())defense=getDefense();
@@ -771,6 +779,9 @@ public class Player extends Entity{
     }
 
     public void update(){
+        if(currentInput!=null && (currentInput.gameplaySuppressed || isDead || merchantOpen || inDialogue || gp.quests.isBossIntro())){
+            attackBuffered=false;attackBufferTicks=0;
+        }else if(attackBuffered && gp.hitStopCounter<=0 && --attackBufferTicks<=0)attackBuffered=false;
         if(!isLocal && !gp.isHost){
             updateAura(); // effects come from the snapshot
             if(isRanger())ranger.advanceVisual();
@@ -847,7 +858,7 @@ public class Player extends Entity{
             vertDir = "down";
         }
 
-        if((!isBerserker() && !isPaladin()) || !attacking && !berserker.active() && !paladin.active()){
+        if(!attacking && !berserker.active() && !paladin.active()){
             direction = (vertDir != null) ? vertDir : direction;
             direction = (horizDir != null) ? horizDir : direction;
         }
@@ -862,6 +873,7 @@ public class Player extends Entity{
         if(isPaladin())paladin.setGuard(currentInput.rightHeld && !currentInput.gameplaySuppressed);
 
         if(!isPredictedClient()){
+            for(var entry:weaponSkills.entrySet())if(!entry.getKey().equals(playerClass))for(Skill skill:entry.getValue())if(skill!=null)skill.update();
             for(int i = 0; i < skills.length; i++){
                 if(skills[i] != null){
                     skills[i].update();
@@ -935,6 +947,7 @@ public class Player extends Entity{
         else if(attacking){
             if(currentInput.leftClicked){
                 attackBuffered = true;
+                attackBufferTicks = 15; // A quarter-second window for the next deliberate swing.
                 if(isLocal){
                     gp.mouseH.leftClicked = false;
                 }
@@ -942,19 +955,18 @@ public class Player extends Entity{
             }
             attacking();
         }
-        else if(moving || currentInput.ePressed || currentInput.leftClicked || (isBerserker() || isPaladin()) && attackBuffered){
+        else if(moving || currentInput.ePressed || currentInput.leftClicked || attackBuffered){
 
                 //CHECK TILE COLLISION
                 collisionOn = false;
                 gp.collisionChecker.checkTile(this);
 
                 //CHECK OBJECT COLLISION
-                int objIndex = gp.collisionChecker.checkObject(this, true);
-                pickUpObject(objIndex);
+                gp.collisionChecker.checkObject(this, true); // Physical collision only; pickup uses the directional resolver.
 
                 //CHECK NPC COLLISION
                 int npcIndex = gp.collisionChecker.checkEntity(this, gp.npc);
-                interactNPC(npcIndex);
+                if(inDialogue)interactNPC(npcIndex);
                 int sceneVersion=gp.quests.areaVersion();
                 int beforeInteractX=worldX, beforeInteractY=worldY;
                 interactScenery();
@@ -974,7 +986,7 @@ public class Player extends Entity{
                 //IF COLLISION IS FALSE, PLAYER CAN MOVE
                 if(!currentInput.ePressed && !currentInput.movementLocked){
                     currentInput.chorusSpeed=hasStatusEffect(PriestCombat.CHORUS);
-                    moveForInput(horizDir,vertDir,currentInput.chorusSpeed,currentInput.heavyMovement);
+                    moveForInput(horizDir,vertDir,currentInput.chorusSpeed,currentInput.heavyMovement,currentInput.tick);
                 }
 
                 if((!isRanger() || currentWeapon instanceof OBJ_crafted) && !currentInput.movementLocked && (currentInput.ePressed && !usesMana() || currentInput.leftClicked || attackBuffered) && !attackCanceled
@@ -984,6 +996,7 @@ public class Player extends Entity{
                     animState = "attack";
                     spriteNum = 1;
                     attackFrameHoldCounter = 0;
+                    swingHit=new CombatHit("melee-swing");firstCutHit=new CombatHit("dagger-first");secondCutHit=new CombatHit("dagger-second");
                     firstDaggerTargets.clear();
                     mageAimX = currentInput.aimWorldX;
                     mageAimY = currentInput.aimWorldY;
@@ -1011,7 +1024,7 @@ public class Player extends Entity{
 
         if(invincible){
             invincibleCounter++;
-            if(invincibleCounter > 60){
+            if(invincibleCounter > invincibilityDuration){
                 invincible = false;
                 invincibleCounter = 0;
             }
@@ -1082,7 +1095,10 @@ public class Player extends Entity{
     public void attacking() {
         if(gp.hitStopCounter > 0) return;
 
-        if(usesMana() && !(currentWeapon instanceof OBJ_crafted c && c.type!=type_staff)){
+        if(currentWeapon instanceof OBJ_crafted c && (c.type==type_staff || c.type==type_bow)){
+            attacking=false;animState="idle";return;
+        }
+        if(usesMana() && !(currentWeapon instanceof OBJ_crafted)){
             mageAttacking();
             return;
         }
@@ -1101,7 +1117,8 @@ public class Player extends Entity{
         }
 
         if(!canResolveWorldActions()) return;
-        if(currentWeapon instanceof OBJ_crafted){
+        if(currentWeapon instanceof OBJ_crafted crafted){
+            if(crafted.type==type_staff || crafted.type==type_bow)return;
             if(spriteNum>=attackHitStartFrame && spriteNum<=attackHitEndFrame)resolveMeleeStrike(null);
         }else if(isBerserker()){
             if(hasGreatsword() && spriteNum!=previousFrame && spriteNum==attackHitStartFrame)berserker.basicSweep();
@@ -1125,7 +1142,9 @@ public class Player extends Entity{
         int bonusDamage = powerStrikePending ? powerStrikeBonus : 0;
         powerStrikePending = false;
         for(int monsterIndex : hitMonsters){
-            boolean landed = damageMonster(monsterIndex, getEffectiveAttack(), false, null, cut, bonusDamage, false);
+            if(swingHit==null){swingHit=new CombatHit("melee-swing");firstCutHit=new CombatHit("dagger-first");secondCutHit=new CombatHit("dagger-second");}
+            CombatHit event=cut==DaggerCut.FIRST?firstCutHit:cut==DaggerCut.SECOND?secondCutHit:swingHit;
+            boolean landed = damageMonster(monsterIndex, getEffectiveAttack(), false, null, cut, bonusDamage, false,false,event,Double.NaN);
             if(!landed) continue;
             Entity target = gp.monster[monsterIndex];
             if(cut == DaggerCut.FIRST) firstDaggerTargets.add(target);
@@ -1155,6 +1174,11 @@ public class Player extends Entity{
         return damageMonster(index, attack, forcedBigHit, knockbackDir, null, 0, false,false);
     }
 
+    /** Projectile callers retain their event across all swept collision samples. */
+    public boolean damageMonsterOnce(int index,int power,boolean strong,String direction,CombatHit event,double knockbackTiles){
+        return damageMonster(index,power,strong,direction,null,0,false,false,event,knockbackTiles);
+    }
+
     void gainBerserkerRage(int amount){
         rage=Math.min(maxRage,rage+amount);
         ticksSinceRageGain=0;
@@ -1180,6 +1204,20 @@ public class Player extends Entity{
 
     boolean mageDamage(int index,int power,String direction,boolean area,boolean strong){
         return damageMonster(index,power,strong,direction,null,0,area,false);
+    }
+
+    boolean mageBoltDamage(int index,int power,String direction,CombatHit event){
+        return damageMonster(index,power,false,direction,null,0,false,false,event,CombatTuning.BOLT);
+    }
+    boolean rangerArrowDamage(int index,int power,String direction,boolean precise,CombatHit event){
+        return damageMonster(index,power,precise,direction,null,0,false,false,event,CombatTuning.ARROW);
+    }
+
+    boolean mageAreaDamage(int index,int power,String direction,boolean area,boolean strong,CombatHit event){
+        return damageMonster(index,power,strong,direction,null,0,area,false,event,Double.NaN);
+    }
+    boolean rangerWaveDamage(int index,int power,String direction,boolean followUp,CombatHit event){
+        return damageMonster(index,power,false,direction,null,0,followUp,false,event,Double.NaN);
     }
 
     void interruptForMageSpell(){
@@ -1213,6 +1251,8 @@ public class Player extends Entity{
     private void finishMonster(Monster target){
         if(target.HP>0 || target.dying)return;
         target.dying=true;
+        gp.slimeSpawner.onMonsterDefeated(target);
+        if(target instanceof monster.MON_CrownedSlime)gp.slimeSpawner.onEncounterEnded();
         if(playerId>=0 && playerId<gp.players.length && gp.players[playerId]==this){
             grantExperience(target.exp);
             gp.broadcastPlayerEvent(playerId,GameEventType.KILL,
@@ -1222,10 +1262,15 @@ public class Player extends Entity{
 
     private boolean damageMonster(int index, int attack, boolean forcedBigHit, String knockbackDir,
                                   DaggerCut cut, int bonusDamage, boolean followUp,boolean assassinSkill) {
+        return damageMonster(index,attack,forcedBigHit,knockbackDir,cut,bonusDamage,followUp,assassinSkill,new CombatHit("skill-hit"),Double.NaN);
+    }
+    private boolean damageMonster(int index,int attack,boolean forcedBigHit,String knockbackDir,
+                                  DaggerCut cut,int bonusDamage,boolean followUp,boolean assassinSkill,CombatHit event,double knockbackTiles){
         if(!canResolveWorldActions() || attack+bonusDamage<=0 || index<0 || index>=gp.monster.length)return false;
         if(gp.monster[index]==null || !gp.monster[index].alive || gp.monster[index].dying || gp.monster[index].HP<=0)return false;
         if(index != 999){
             Monster target = gp.monster[index];
+            if(event.contains(target)){event.log(this,target,0,"rejected-duplicate");return false;}
             // Only a target this combo already hit can take the second cut through hit immunity.
             boolean completedPair = cut == DaggerCut.SECOND && firstDaggerTargets.contains(target);
             if(!target.invincible || completedPair || followUp){
@@ -1252,10 +1297,11 @@ public class Player extends Entity{
 
                 if(armorBreakPending){target.addStatusEffect(new StatusEffect("armorBreak",180,2,0));armorBreakPending=false;}
                 damage+=PriestCombat.consumeChorus(this,damage);
+                event.record(target);
+                event.log(this,target,damage,"accepted");
                 target.HP -= damage;
-                if(currentWeapon!=null && !currentWeapon.isPlaceholder){
-                    if(currentWeapon.type==type_staff)magicMasteryXP++;else if(currentWeapon.type==type_bow)bowMasteryXP++;else meleeMasteryXP++;
-                }
+                int mastery=event.masteryType>=0?event.masteryType:currentWeapon!=null && !currentWeapon.isPlaceholder?currentWeapon.type:-1;
+                if(mastery>=0){if(mastery==type_staff)magicMasteryXP++;else if(mastery==type_bow)bowMasteryXP++;else meleeMasteryXP++;}
                 target.invincibilityDuration=usesFocus() || usesMana() || isBerserker() || isPaladin()?12:22;target.invincibleCounter=0;
                 target.invincible = true;
                 target.flashing = true;
@@ -1263,15 +1309,19 @@ public class Player extends Entity{
                 target.hpBarOn = true;
                 target.hpBarCounter = 0;
 
-                int knockbackDist = isBigHit ? target.knockbackDistance * 2 : target.knockbackDistance;
                 String hitDirection = knockbackDir != null ? knockbackDir : direction;
-                if(cut != DaggerCut.FIRST && !isRanger() && !usesMana() && !assassinSkill) target.startKnockback(hitDirection, knockbackDist);
+                double impactTiles=0;
+                if(!Double.isNaN(knockbackTiles))impactTiles=knockbackTiles;
+                else if(cut != DaggerCut.FIRST && !isRanger() && !usesMana() && !assassinSkill)
+                    impactTiles=isBigHit?CombatTuning.HEAVY:CombatTuning.SWORD;
+                target.reactToHit(hitDirection,impactTiles);
 
-                int hitStop = isRanger() || usesMana()?1:cut == DaggerCut.FIRST ? 1 : cut == DaggerCut.SECOND ? 3 : hitStopOnHitMonster;
-                if(isBigHit) hitStop *= 2;
-                gp.startScreenShake(isBigHit ? Math.max(10, hitStop) : hitStop, isBigHit ? 12 : 4);
-                target.damageReaction();
-                gp.startHitStop(hitStop);
+                if(event.claimImpactFeedback()){
+                    int hitStop = isRanger() || usesMana()?1:cut == DaggerCut.FIRST ? 1 : cut == DaggerCut.SECOND ? 2 : hitStopOnHitMonster;
+                    if(isBigHit) hitStop *= 2;
+                    gp.startScreenShake(isBigHit ? 8 : 4, isBigHit ? 6 : 2);
+                    gp.startHitStop(hitStop);
+                }
 
                 Color criticalColor = null;
                 if(isBigHit){
@@ -1293,7 +1343,7 @@ public class Player extends Entity{
 
                 finishMonster(target);
                 return true;
-            }
+            }else event.log(this,target,0,"rejected-immunity");
         }
         return false;
     }
@@ -1383,6 +1433,7 @@ public class Player extends Entity{
         int guarded=isPaladin()?paladin.guard(source,armored):armored;
         int damage=PriestCombat.protect(this,guarded);
         invincible=true;
+        invincibilityDuration=source.incomingHitImmunity;
         invincibleCounter=0;
         if(damage==0)return;
         if(contact && playerClass.equals("warrior")){
@@ -1392,7 +1443,7 @@ public class Player extends Entity{
         HP-=damage;
         flashing=true;
         flashCounter=0;
-        if(guarded==armored && !braced)startKnockback(source.direction,knockbackDistance);
+        if(guarded==armored && !braced)startKnockback(source.direction,source.incomingHitKnockback<0?knockbackDistance:source.incomingHitKnockback);
         int stop=guarded<armored || braced?3:hitStopOnTakingDamage;
         gp.startScreenShake(stop,stop==3?3:6);
         spawnHitParticles(source.direction);
@@ -1402,11 +1453,19 @@ public class Player extends Entity{
     }
 
     public void pickUpObject(int index){
+        collectGroundItem(index,false);
+    }
+    public void pickUpFlyingLoot(int index){
+        collectGroundItem(index,true);
+    }
+    private void collectGroundItem(int index,boolean automatic){
         if(index != 999){
             if(!canResolveWorldActions()) return; // host-only — only the authoritative simulation removes items from the shared world
 
+            if(index<0 || index>=gp.obj.length)return;
             Entity picked = gp.obj[index];
-            if(picked.pickupBlocked) return;
+            if(picked==null || picked.pickupBlocked) return;
+            if(automatic ? !world.GroundLoot.canCollect(gp,this,picked) : !gp.interactions.isTarget(this,picked))return;
 
             if(picked.type == type_pickuponly){
                 picked.use(this);
@@ -1415,7 +1474,10 @@ public class Player extends Entity{
             }
 
             String ambient;
+            int amount=picked.stackCount;
             if(addToInventory(picked)){
+                picked.groundLoot=false;picked.lootLift=0;picked.lootVX=picked.lootVY=0;
+                if(automatic)gp.spawnFloatingText(worldX+gp.tileSize/2,worldY,"+"+amount+" "+picked.name,new Color(220,231,185));
                 gp.playSE(1);
                 ambient = "Player " + (playerId + 1) + " picked up a " + picked.name + "!";
                 gp.obj[index] = null;
@@ -1571,6 +1633,10 @@ public class Player extends Entity{
         }
     }
 
+    public void interactNPCDirectional(int index){
+        boolean pressed=currentInput.ePressed;currentInput.ePressed=true;interactNPC(index);currentInput.ePressed=pressed;
+    }
+
     public void interactNPC(int index){
         if(inDialogue){
             if(currentInput.escapePressed){
@@ -1595,6 +1661,7 @@ public class Player extends Entity{
 
         if((currentInput.ePressed || currentInput.leftClicked) && index != 999){
             Entity npc = gp.npc[index];
+            if(npc==null || !gp.interactions.isTarget(this,npc))return;
             attackCanceled = true;
             if("merchant".equals(npc.npcId)){gp.merchant.open(this);return;}
             startDialogueSession(index);
@@ -2118,20 +2185,23 @@ public class Player extends Entity{
         String horizDir = input.left ? "left" : (input.right ? "right" : null);
         String vertDir = input.up ? "up" : (input.down ? "down" : null);
 
-        moveForInput(horizDir,vertDir,input.chorusSpeed,input.heavyMovement);
+        moveForInput(horizDir,vertDir,input.chorusSpeed,input.heavyMovement,input.tick);
     }
 
-    private void moveForInput(String horizDir,String vertDir,boolean chorusSpeed,boolean heavyMovement){
+    private void moveForInput(String horizDir,String vertDir,boolean chorusSpeed,boolean heavyMovement,long inputTick){
         int boostedSpeed=speed+(chorusSpeed?1:0);
         if(heavyMovement)boostedSpeed=Math.max(1,boostedSpeed/2);
         boolean diagonal = (horizDir != null && vertDir != null);
-        int moveSpeed = diagonal ? (int) Math.round(boostedSpeed * 0.7071) : boostedSpeed;
-        if(diagonal && moveSpeed < 1) moveSpeed = 1;
+        // Normalize before rounding, retaining the recent 12.5% running-speed reduction.
+        // Fixed-point steps need no extra mutable state during client prediction/replay.
+        int units=(int)Math.round(boostedSpeed*.875*(diagonal?Math.sqrt(.5):1)*1024);
+        int phase=(int)Math.floorMod(inputTick,1024);
+        int moveSpeed=((phase+1)*units)/1024-(phase*units)/1024;
 
         if(horizDir != null){
             direction = horizDir;
             collisionOn = false;
-            gp.collisionChecker.checkTile(this,heavyMovement?moveSpeed:Math.max(speed,moveSpeed));
+            gp.collisionChecker.checkTile(this,moveSpeed);
             if(!collisionOn){
                 worldX += horizDir.equals("left") ? -moveSpeed : moveSpeed;
             }
@@ -2140,7 +2210,7 @@ public class Player extends Entity{
         if(vertDir != null){
             direction = vertDir;
             collisionOn = false;
-            gp.collisionChecker.checkTile(this,heavyMovement?moveSpeed:Math.max(speed,moveSpeed));
+            gp.collisionChecker.checkTile(this,moveSpeed);
             if(!collisionOn){
                 worldY += vertDir.equals("up") ? -moveSpeed : moveSpeed;
             }
@@ -2252,16 +2322,9 @@ public class Player extends Entity{
     private void interactScenery(){
         if(!currentInput.ePressed || attackCanceled) return;
 
-        if(gp.buildings.interact(this,canResolveWorldActions())){
-            attackCanceled=true;
-            return;
-        }
-        WorldObject target = gp.collisionChecker.findInteractable(this);
-        if(target == null) return;
-
-        attackCanceled = true; // E opens things instead of swinging the weapon
-        if(canResolveWorldActions()){
-            target.interact(this);
-        }
+        var target=gp.interactions.resolve(this);
+        if(target==null)return;
+        attackCanceled=true;
+        if(canResolveWorldActions())gp.interactions.interact(this);
     }
 }

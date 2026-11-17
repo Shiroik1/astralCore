@@ -147,6 +147,13 @@ public final class BuildingRenderer {
             drawExteriorOutline(g,cell,structureCoverage.get(cell),tile);
         }
     }
+    /** The cached assembled coverage includes door extensions and wall frame trimming. */
+    public void drawStructureOutline(Graphics2D original,Cell cell){
+        Area coverage=structureCoverage.get(cell);if(coverage==null)return;
+        Graphics2D g=(Graphics2D)original.create();g.translate(-cell.col()*ts,-cell.row()*ts);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(new Color(0xF5F4EC));g.setStroke(new BasicStroke(art.InteractionOutline.THICKNESS*2f,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));g.draw(coverage);g.dispose();
+    }
     /** Caller translates to the cell origin; neighbor walls yield their borrowed frame strips. */
     public static void drawStructure(Graphics2D original,Cell cell,Tile tile,
             java.util.function.Function<Cell,Tile> structure,int tileSize,BuildTextures textures){

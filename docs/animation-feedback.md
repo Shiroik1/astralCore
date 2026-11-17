@@ -1,0 +1,12 @@
+# Skeleton motion and gathering feedback
+
+- Skeleton walking uses 20 cached directional frames with a planted stance, lifted return step, bent knees, counter-swinging arms and small torso/head offsets. Gait remains driven by actual distance traveled, with individual stride lengths and pace variations. The side-view shoulder stays at the center of the torso.
+- Attacks map their actual wind-up to frames 0–4, active damage to 5–8, and recovery to 9–11. Double rake has a second wind-up and opposing front-facing sweep. Basic melee reach is now two thirds of a tile beyond the body instead of a full tile; lunge reach and movement remain unchanged. A short ivory claw trail appears only during active melee frames. Damage values and cooldowns are unchanged.
+- Skeleton snapshots now carry pose, gait, attack timing and recovery pose to guests. Loading a saved game still cancels committed attacks rather than replaying damage. Multiplayer peers must use the same updated build.
+- `art.ItemOutline` draws a two-pixel muted brown-gray silhouette behind world item sprites and item icons in the bag, hotbar, equipment and crafting UI. Masks are cached by source image and display size, with at most six sizes per source and weak source keys. New ground loot warms its world-size outline when launched. Existing white interaction highlights remain separate.
+- Successful tree chops trigger a 20-tick damped shear around the trunk anchor and a few falling foliage chips. Collision and world position do not change. The tree's white highlight uses the same transform.
+- Tool harvesting emits 6 larger chips per hit and 12 on depletion, with longer lifetime and a subtle dark chip edge. The existing 180-particle limit remains in place.
+
+Primary files: `src/art/SkeletonArt.java`, `src/monster/MON_Skeleton.java`, `src/art/ItemOutline.java`, `src/world/WorldObject.java`, `src/crafting/CraftingManager.java`, `src/entity/Particle.java`, `src/entity/Entity.java`, `src/world/GroundLoot.java`, `src/ui/UITheme.java`, `src/ui/GameUI.java`, `src/net/MonsterState.java`, `src/net/GameClient.java`.
+
+Validation status: source review only. No compilation, automated tests, visual previews or gameplay checks were run; `AGENTS.md` requires owner approval first. Pending approved checks include walk cycles in all directions, normal/moon attack timing and recovery, guest animation sync, icon contrast on grass/stone, and tree shaking with its interaction outline.

@@ -13,7 +13,11 @@ final class TerrainGenerator {
             Terrain type=!world.reserved(c,r) && dirt>config.dirtThreshold()?Terrain.PATH:Terrain.GRASS;
             world.ground(c,r,type,level);
             double vegetation=noise.sample(c*config.vegetationScale(),r*config.vegetationScale(),30);
-            int detail=world.reserved(c,r) || config.vegetationDensity()==0 || noise.random(c,r,718)>config.vegetationDensity()?0:
+            if(world.regions()!=null){
+                var region=world.regions();
+                vegetation=Math.max(0,Math.min(1,vegetation*.65+region.moisture(c,r)*.25+region.forest(c,r)*.25-region.flowers(c,r)*.15));
+            }
+            int detail=world.decorationReserved(c,r) || config.vegetationDensity()==0 || noise.random(c,r,718)>config.vegetationDensity()?0:
                     1+Math.min(GroundTiles.GRASS_VARIANTS-2,(int)(vegetation*(GroundTiles.GRASS_VARIANTS-1)));
             world.groundDetail(c,r,detail);
         }

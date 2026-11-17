@@ -62,10 +62,13 @@ public class Gamepanel extends JPanel implements Runnable{
 
     //WORLD SETTINGS
     public world.generation.WorldConfig worldConfig = world.generation.WorldConfig.developmentDefaults();
-    private final world.generation.WorldPalette worldPalette = worldConfig.procedural()
+    private final world.generation.WorldConfig newWorldDefaults = worldConfig;
+    private final world.generation.GenerationConfig newRegionDefaults = world.generation.GenerationConfig.developmentDefaults();
+    private String generationSettingsJson;
+    private world.generation.WorldPalette worldPalette = worldConfig.procedural()
             ? new world.generation.WorldPalette(this) : null;
     public world.generation.GeneratedWorld generatedWorld = worldConfig.procedural()
-            ? new world.generation.WorldGenerator().generate(worldConfig, worldPalette, tileSize) : null;
+            ? new world.generation.WorldGenerator().generate(worldConfig, worldPalette, tileSize,world.generation.WorldConfig.GENERATOR_VERSION,newRegionDefaults) : null;
     public int maxWorldCol;
     public int maxWorldRow;
 
@@ -82,6 +85,8 @@ public class Gamepanel extends JPanel implements Runnable{
     public Lighting lighting = new Lighting(this);
     public GrassLayer grass = new GrassLayer(this);
     public GrassEditor grassEditor = new GrassEditor(this);
+    public final visual.PlacementEffectManager placementEffects=new visual.PlacementEffectManager(this);
+    public final interaction.InteractionTargetResolver interactions=new interaction.InteractionTargetResolver(this);
     public final crafting.CraftingManager crafting=new crafting.CraftingManager(this);
     public final world.building.BuildSystem buildings = new world.building.BuildSystem(this);
     Config config = new Config(this);
@@ -89,12 +94,14 @@ public class Gamepanel extends JPanel implements Runnable{
     public int hitStopCounter = 0;
     public int screenShakeCounter = 0;
     public int screenShakeIntensity = 0;
+    private int screenShakeDuration = 1;
     private final java.util.Random shakeRandom = new java.util.Random();
     private int shakeOffsetX = 0;
     private int shakeOffsetY = 0;
     public final java.util.concurrent.ConcurrentLinkedQueue<RawInput> inputQueue = new java.util.concurrent.ConcurrentLinkedQueue<>();
     public CommandProcessor commands = new CommandProcessor(this);
     public final quest.QuestManager quests = new quest.QuestManager(this);
+    public final world.SlimeNestEncounter slimeNest = new world.SlimeNestEncounter(this);
     public final world.SlimeSpawner slimeSpawner = new world.SlimeSpawner(this);
 
     public final Merchant merchant=new Merchant(this);
@@ -116,10 +123,13 @@ public class Gamepanel extends JPanel implements Runnable{
     }
     public Entity obj[] = new Entity[50];
     public Entity npc[] = new Entity[10];
-    public Monster monster[] = new Monster[20];
+    public static final int ORDINARY_MONSTER_CAP=20,ENCOUNTER_MONSTER_SLOTS=8;
+    public Monster monster[] = new Monster[ORDINARY_MONSTER_CAP+ENCOUNTER_MONSTER_SLOTS];
     public InteractiveTile interactable[] = new InteractiveTile[50];
     public ArrayList<Entity> entityList = new ArrayList<>();
-    public java.util.List<WorldObject> worldObjects = new ArrayList<>();
+    public final PerformanceMetrics performance=new PerformanceMetrics();
+    public final world.chunk.WorldChunks chunks=new world.chunk.WorldChunks(this);
+    public final world.IndexedScenery worldObjects = new world.IndexedScenery(tileSize);
     public ArrayList<Entity> projectileList = new ArrayList<>();
     public ArrayList<Entity> particleList = new ArrayList<>();
     public final ArrayList<Particle> ambientParticles = new ArrayList<>();
@@ -167,6 +177,8 @@ public class Gamepanel extends JPanel implements Runnable{
         assetSetter.setNPC();
         assetSetter.setInteractiveTile();
         buildings.load();
+        chunks.update();
+        if(!isNetworked)crafting.ensureWorld();
         assetSetter.setMonster();
         soundEffect.preloadFrom(1);
         gameState = titleState;
@@ -180,6 +192,28 @@ public class Gamepanel extends JPanel implements Runnable{
 
     }
 
+    public world.generation.WorldConfig newWorldDefaults(){return newWorldDefaults;}
+    public String generationSettingsJson(){
+        if(generationSettingsJson==null)generationSettingsJson=world.generation.WorldSettings.capture(this).encode();
+        return generationSettingsJson;
+    }
+    /** Save/network loading only: choose a pinned generator before restoring any persistent changes. */
+    public void installGeneration(world.generation.WorldSettings settings){
+        var next=settings.config();var regionConfig=settings.generation();
+        if(next.procedural() && worldPalette==null)worldPalette=new world.generation.WorldPalette(this);
+        boolean same=settings.encode().equals(generationSettingsJson());
+        var plan=next.procedural()?(same?generatedWorld:new world.generation.WorldGenerator().generate(next,worldPalette,tileSize,settings.generatorVersion,regionConfig,settings.nest(),settings.elevation(),settings.cliffs())):null;
+        quests.reset();crafting.reset();
+        worldConfig=next;generatedWorld=plan;generationSettingsJson=settings.encode();
+        if(plan!=null){if(!same)tileM.applyGenerated(plan);}else tileM.reloadAuthored();
+        SceneryLoader.load(this);grass.load();grassEditor.stop();buildings.load();assetSetter.setNPC();
+    }
+    public void prepareNewWorld(){
+        lighting.cycle.restore(1,world.DayCycle.START_HOUR/24,0);
+        installGeneration(world.generation.WorldSettings.of(newWorldDefaults,world.generation.WorldConfig.GENERATOR_VERSION,newRegionDefaults));
+        slimeNest.reset();
+    }
+
     /** Development entry point, invoked by the command queue on the game thread, never during drawing. */
     public void regenerateWorld(long seed){
         if(!Boolean.getBoolean("astral.dev")) throw new IllegalStateException("Enable -Dastral.dev=true first");
@@ -188,7 +222,9 @@ public class Gamepanel extends JPanel implements Runnable{
         if(!worldConfig.procedural() || isNetworked || quests.inDungeon())
             throw new IllegalStateException("Regeneration requires an offline procedural overworld");
         world.generation.WorldConfig next = worldConfig.withSeed(seed);
-        world.generation.GeneratedWorld result = new world.generation.WorldGenerator().generate(next, worldPalette, tileSize);
+        world.generation.GeneratedWorld result = new world.generation.WorldGenerator().generate(next, worldPalette, tileSize,generatedWorld.generatorVersion,generatedWorld.generation,generatedWorld.nestConfig,generatedWorld.elevationConfig,generatedWorld.cliffConfig);
+        slimeNest.reset();crafting.reset();
+        generationSettingsJson=null;
         worldConfig = next;
         generatedWorld = result;
         tileM.applyGenerated(result);
@@ -215,11 +251,12 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void preloadGameplayAssets(){
         MonsterType.preload(this);
+        WorldObject.preloadTrees(this);
         quests.prepare();
         merchant.prepare();
         new object.OBJ_slimebolt(this,true);
         for(object.ItemType type:object.ItemType.values())
-            if(type.name().startsWith("ROYAL_") || type.name().startsWith("HELL_") || type==object.ItemType.SLIME_ESSENCE)
+            if(type.name().startsWith("ROYAL_") || type.name().startsWith("HELL_") || type==object.ItemType.SLIME_ESSENCE || type==object.ItemType.SLIME_GEL)
                 object.ItemRegistry.create(type,this);
         new object.OBJ_slimebolt(this); // first boss spray already has its jelly frames
         for(object.ItemType type:new object.ItemType[]{object.ItemType.BRONZE_COIN,object.ItemType.HEART,
@@ -284,7 +321,7 @@ public class Gamepanel extends JPanel implements Runnable{
         }
     }
 
-    public void update(){
+    public void update(){long performanceStart=this.performance.start();try{
 
         if(closeRequested){
             closeRequested=false;
@@ -299,6 +336,7 @@ public class Gamepanel extends JPanel implements Runnable{
         }
 
         currentTick++;
+        world.TerrainHeightResolver.updateCameras(this);
 
         processInput();
 
@@ -307,6 +345,7 @@ public class Gamepanel extends JPanel implements Runnable{
         }
 
         ui.update(mouseH.getScaledX(),mouseH.getScaledY(),mouseH.leftClicked);
+        if(gameState==playState){chunks.update();if(!isNetworked)crafting.ensureWorld();}
 
         if(gameState == playState && isWorldFrozen()){
             Player local=localPlayer();
@@ -314,6 +353,7 @@ public class Gamepanel extends JPanel implements Runnable{
         }
 
         if(gameState == playState && !isWorldFrozen()){
+            placementEffects.update(1.0/60.0);
 
             // 1. Reconcile FIRST, using only inputs already buffered from previous ticks
             if(isNetworked && !isHost){
@@ -343,14 +383,12 @@ public class Gamepanel extends JPanel implements Runnable{
                 localInput.aimWorldX = mouseH.getScaledX() - local.screenX + local.worldX;
                 localInput.aimWorldY = mouseH.getScaledY() - local.screenY + local.worldY;
                 java.util.Arrays.fill(keyH.skillKeyPressed, false); // skill presses are one-shot: consumed at capture
-                if(local.merchantOpen || inventoryOpen || optionsOpen || paused || keyH.enteringChat){
+                if(local.merchantOpen || inventoryOpen || ui.game.blocksWorld() || ui.game.pointerOverHotbar() || optionsOpen || paused || keyH.enteringChat){
                     localInput.suppressGameplay();
                     mouseH.leftClicked = false;
                 }
-                if(buildings.active && localInput.ePressed){
-                    buildings.interact(local,true);
-                    localInput.ePressed=false;
-                }
+                if(localInput.ePressed || localInput.leftClicked)interactions.refresh();
+                if(!isNetworked && localInput.ePressed && interactions.interact())localInput.ePressed=false;
                 if(grassEditor.active || buildings.active){
                     localInput.leftHeld = false;
                     localInput.rightHeld = false;
@@ -360,6 +398,7 @@ public class Gamepanel extends JPanel implements Runnable{
                     mouseH.leftClicked = false;
                     localInput.targetedMonsterIndex = -1;
                 }
+                if(!localInput.gameplaySuppressed && !buildings.active && !crafting.placingObject())local.hotbar.useSelected(local,localInput);
                 crafting.handleInput(local,localInput);
                 local.applyInput(localInput);
             }
@@ -385,15 +424,16 @@ public class Gamepanel extends JPanel implements Runnable{
             }
 
             quests.activateArea(quests.hasDungeonPlayers());
-            updateHighlights();
 
             boolean simulateWorld = !isNetworked || isHost;
             if(simulateWorld)slimeSpawner.update();
+            if(simulateWorld)world.GroundLoot.update(this);
 
+            long entityStart=performance.start();
             //NPC
             for(int i = 0; i < npc.length; i++){
                 if(npc[i] != null){
-                    if(simulateWorld){
+                    if(simulateWorld && (quests.inDungeon() || chunks.activeAt(npc[i].worldX,npc[i].worldY))){
                         npc[i].update();
                     } else {
                         npc[i].updateAnimation();
@@ -401,13 +441,14 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            long aiStart=performance.start();
             //MONSTER
             for(int i = 0; i< monster.length; i++){
                 if(monster[i] != null){
                     if(quests.isBossIntro()){
                         monster[i].updateAnimation();
                     }else if(simulateWorld){
-                        if(monster[i].alive){
+                        if(monster[i].alive && slimeSpawner.shouldSimulate(monster[i])){
                             monster[i].update();
                         }
                         if(!monster[i].alive){
@@ -419,6 +460,7 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            performance.end(PerformanceMetrics.Section.AI,aiStart);
             if(simulateWorld)quests.update();
 
             //PROJECTILE
@@ -433,12 +475,16 @@ public class Gamepanel extends JPanel implements Runnable{
                 }
             }
 
+            performance.end(PerformanceMetrics.Section.ENTITY,entityStart);
+            long particleStart=performance.start();
             //PARTICLES
             for(Entity particle : particleList){
-                if(particle != null && particle.alive) particle.update();
+                if(particle != null && particle.alive){if(quests.inDungeon() || chunks.activeAt(particle.worldX,particle.worldY))particle.update();else particle.alive=false;}
             }
             particleList.removeIf(particle -> particle == null || !particle.alive);
 
+            performance.end(PerformanceMetrics.Section.PARTICLES,particleStart);
+            long worldStart=performance.start();
             //INTERACTABLE TILES
             if(simulateWorld){
                 for(int i = 0; i < interactable.length; i++){
@@ -457,6 +503,7 @@ public class Gamepanel extends JPanel implements Runnable{
             }
             crafting.update();
             buildings.update();
+            performance.end(PerformanceMetrics.Section.WORLD,worldStart);
 
             //FLOATING TEXT
             for(int i = floatingTextList.size() - 1; i >= 0; i--){
@@ -475,15 +522,20 @@ public class Gamepanel extends JPanel implements Runnable{
                 ambientInWell = localPlayer().inWell;
                 ambientParticles.clear();
             }
-            for(Particle particle : ambientParticles) particle.update();
+            for(Particle particle : ambientParticles){if(quests.inDungeon() || chunks.activeAt(particle.worldX,particle.worldY))particle.update();else particle.alive=false;}
             ambientParticles.removeIf(particle -> !particle.alive);
-            for(WorldObject o : worldObjects) o.update();
+            for(WorldObject o : worldObjects.query(chunks.camera(12))) o.update();
+            updateHighlights();
         }
+        if(gameState==playState){world.TerrainHeightResolver.updateCameras(this);tileM.prepareView();grass.prepareView();}
+        chunks.indexEntities();
+        buildings.prepareVisibleCaches();
         updateScreenShake();
         saves.tick();
         // Keep the local scene active between updates, including when a frame is skipped.
         quests.activateArea(localPlayer().inWell);
-    }
+    }finally{this.performance.end(main.PerformanceMetrics.Section.UPDATE,performanceStart);}
+}
 
     public void requestClose(){closeRequested=true;}
 
@@ -531,10 +583,13 @@ public class Gamepanel extends JPanel implements Runnable{
         lighting.setDivisor(on ? entity.CharacterSprites.PIXEL_SCALE : 2);
     }
 
-    public void drawToTempscreen() throws IOException {
+    private boolean visibleEntity(Entity e){return chunks.camera(6).contains(e.worldX,e.worldY);}
+
+    public void drawToTempscreen() throws IOException {long performanceStart=this.performance.start();try{
         Prof.begin();
         g2.setColor(Color.black);
         g2.fillRect(0, 0, screenWidth, screenHeight);
+        world.TerrainHeightResolver.updateCameras(this);
 
         if(gameState == playState){
 
@@ -546,13 +601,16 @@ public class Gamepanel extends JPanel implements Runnable{
             g2.translate(shakeOffsetX, shakeOffsetY);
 
             //TILE
+            long terrainStart=performance.start();
             tileM.draw(g2);
+            tileM.addCliffLayers(entityList);
             buildings.drawFloors(g2);
             buildings.addDrawLayers(entityList);
             crafting.addDrawLayers(entityList);
+            performance.end(PerformanceMetrics.Section.TERRAIN_RENDER,terrainStart);
             Prof.lap(0);
 
-            for(WorldObject o : worldObjects){
+            for(WorldObject o : worldObjects.query(chunks.camera(8))){
                 if(o.onScreen()){
                     o.addDrawLayers(entityList);
                 }
@@ -561,7 +619,8 @@ public class Gamepanel extends JPanel implements Runnable{
             //GROUND-LEVEL PARTICLE EFFECTS - always drawn beneath every entity
             for(int i = 0; i < particleList.size(); i++){
                 if(particleList.get(i) != null && particleList.get(i).groundEffect){
-                    particleList.get(i).draw(g2);
+                    Entity effect=particleList.get(i);int lift=world.TerrainHeightResolver.lift(this,effect);
+                    g2.translate(0,-lift);effect.draw(g2);g2.translate(0,lift);
                 }
             }
 
@@ -584,32 +643,32 @@ public class Gamepanel extends JPanel implements Runnable{
             }
 
             for(int i = 0; i < npc.length; i++){
-                if(npc[i] != null){
+                if(npc[i] != null && visibleEntity(npc[i])){
                     entityList.add(npc[i]);
                 }
             }
 
             for(int i = 0; i < obj.length; i++){
-                if(obj[i] != null){
+                if(obj[i] != null && visibleEntity(obj[i])){
                     entityList.add(obj[i]);
                 }
             }
 
             for(int i = 0; i < monster.length; i++){
-                if(monster[i] != null){
+                if(monster[i] != null && visibleEntity(monster[i])){
                     entityList.add(monster[i]);
                 }
             }
 
             for(int i = 0; i < particleList.size(); i++){
-                if(particleList.get(i) != null && !particleList.get(i).groundEffect){
+                if(particleList.get(i) != null && visibleEntity(particleList.get(i)) && !particleList.get(i).groundEffect){
                     entityList.add(particleList.get(i));
                 }
             }
             entityList.addAll(ambientParticles);
 
             for(int i = 0; i < projectileList.size(); i++){
-                if(projectileList.get(i) != null){
+                if(projectileList.get(i) != null && visibleEntity(projectileList.get(i))){
                     entityList.add(projectileList.get(i));
                 }
             }
@@ -618,12 +677,20 @@ public class Gamepanel extends JPanel implements Runnable{
             entityList.sort(Comparator.comparingInt(Entity::sortY));
             Prof.lap(3);
 
+            performance.visibleEntities=entityList.size();
+            long entityRenderStart=performance.start();
             //DRAW ENTITIES
             for(int i = 0; i < entityList.size(); i++){
-                entityList.get(i).draw(g2);
+                Entity rendered=entityList.get(i);
+                int lift=world.TerrainHeightResolver.lift(this,rendered);
+                g2.translate(0,-lift);rendered.draw(g2);g2.translate(0,lift);
                 if(outdoors)grass.drawFront(g2, entityList.get(i));
             }
 
+            performance.end(PerformanceMetrics.Section.ENTITY_RENDER,entityRenderStart);
+            world.generation.ElevationDebugOverlay.draw(this,g2);
+            slimeSpawner.drawMarkers(g2);
+            chunks.drawGrid(g2);
             for(Player p:players){
                 if(p!=null && p.inWell==quests.inDungeon() && p.isBerserker())p.berserker.drawImpact(g2);
             }
@@ -643,12 +710,14 @@ public class Gamepanel extends JPanel implements Runnable{
 
             g2.translate(-shakeOffsetX, -shakeOffsetY);
 
+            long lightStart=performance.start();
             if(pixelBuffer){
                 lighting.draw(g2, shakeOffsetX, shakeOffsetY);   // lit inside the small buffer
                 endPixelBuffer();
             } else {
                 lighting.draw(g2, shakeOffsetX, shakeOffsetY);
             }
+            performance.end(PerformanceMetrics.Section.LIGHTING,lightStart);
             Prof.lap(5);
 
         }
@@ -657,13 +726,15 @@ public class Gamepanel extends JPanel implements Runnable{
             Graphics2D overlay=(Graphics2D)g2.create();
             try{ui.draw(overlay);}finally{overlay.dispose();}
         }
-    }
+    }finally{this.performance.end(main.PerformanceMetrics.Section.RENDER,performanceStart);}
+}
 
-    private void presentGameFrame() throws IOException{
+    private void presentGameFrame() throws IOException{long performanceStart=this.performance.start();try{
         if(tempScreen==null)return;
         DisplaySettings.Resolution resolution=display.frameResolution();
         if(frames.publish(tempScreen,resolution.width(),resolution.height(),display.interfaceResolution(),ui::draw))repaint();
-    }
+    }finally{this.performance.end(main.PerformanceMetrics.Section.PRESENT,performanceStart);}
+}
 
     public void drawToScreen(){
         if(tempScreen==null)return;
@@ -672,7 +743,7 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     @Override
-    protected void paintComponent(Graphics graphics){
+    protected void paintComponent(Graphics graphics){long performanceStart=this.performance.start();try{
         try(FrameBuffer.Frame frame=frames.acquire()){
             if(frame==null){super.paintComponent(graphics);return;}
             // An opaque completed frame plus its letterbox margins paints every pixel.
@@ -682,7 +753,8 @@ public class Gamepanel extends JPanel implements Runnable{
                 lastPaintedSequence=frame.sequence();paintedFrames.incrementAndGet();
             }
         }
-    }
+    }finally{this.performance.end(main.PerformanceMetrics.Section.PAINT,performanceStart);}
+}
 
     public synchronized void playMusic(int i){
         music.setFile(i);
@@ -702,6 +774,7 @@ public class Gamepanel extends JPanel implements Runnable{
 
     public void startScreenShake(int duration, int intensity){
         screenShakeCounter = Math.max(screenShakeCounter, duration);
+        screenShakeDuration = Math.max(1,screenShakeCounter);
         screenShakeIntensity = Math.max(screenShakeIntensity, intensity);
     }
 
@@ -747,7 +820,7 @@ public class Gamepanel extends JPanel implements Runnable{
     }
 
     public void resetAfterNetworkSession(){
-        buildings.stop();
+        buildings.stop();placementEffects.clear();interactions.clear();
         Player local = localPlayer();
 
         for(WorldObject o : worldObjects){
@@ -763,11 +836,13 @@ public class Gamepanel extends JPanel implements Runnable{
         local.isDead = false;
         local.resetForSceneTransition();
         inventoryOpen = false;
+        ui.game.reset();
         optionsOpen = false;
         paused = false;
         players[0] = local;
 
         quests.reset();
+        slimeNest.reset();
         java.util.Arrays.fill(monster, null);
         java.util.Arrays.fill(obj, null);
         java.util.Arrays.fill(npc, null);
@@ -890,6 +965,10 @@ public class Gamepanel extends JPanel implements Runnable{
         boolean previousArea=quests.inDungeon();quests.activateArea(target.inWell);
         try{
         switch(action.actionType){
+            case HOTBAR_ASSIGN -> target.hotbar.assign(target,action.targetIndex,action.hotbarType);
+            case HOTBAR_SELECT -> target.hotbar.select(target,action.sourceIndex,action.slotType!=1);
+            case HOTBAR_SWAP -> target.hotbar.swap(action.sourceIndex,action.targetIndex);
+            case HOTBAR_CLEAR -> target.hotbar.clear(action.sourceIndex);
             case EQUIP -> target.tryEquipFromBag(action.sourceIndex, action.slotType);
             case SWAP -> target.swapOrMergeBagSlots(action.sourceIndex, action.targetIndex);
             case UNEQUIP_TO_BAG -> target.unequipToBagIndex(action.slotType, action.targetIndex);
@@ -906,6 +985,7 @@ public class Gamepanel extends JPanel implements Runnable{
         floatingTextList.add(new entity.FloatingText(this, worldX, worldY, text, color));
     }
 
+    private WorldObject previousHighlighted;
     public void updateHighlights(){
         Player local = localPlayer();
         if(local == null) return;
@@ -913,21 +993,15 @@ public class Gamepanel extends JPanel implements Runnable{
         int mouseWorldX = mouseH.getScaledX() - local.screenX + local.worldX;
         int mouseWorldY = mouseH.getScaledY() - local.screenY + local.worldY;
 
-        applyHoverHighlight(obj, mouseWorldX, mouseWorldY);
-        applyHoverHighlight(npc, mouseWorldX, mouseWorldY);
-        applyHoverHighlight(monster, mouseWorldX, mouseWorldY);
-        applyHoverHighlight(interactable, mouseWorldX, mouseWorldY);
-
-        for(Entity n : npc){
-            if(n != null && collisionChecker.isInInteractRange(local, n)){
-                n.highlighted = true;
-            }
-        }
-
-        WorldObject near = collisionChecker.findInteractable(local);
-        for(WorldObject o : worldObjects){
-            o.highlighted = (o == near);
-        }
+        interactions.refresh();
+        for(Entity item:obj)if(item!=null)item.highlighted=interactions.selected(item);
+        for(Entity n:npc)if(n!=null)n.highlighted=interactions.selected(n);
+        for(Entity tile:interactable)if(tile!=null)tile.highlighted=false;
+        if(interactions.token()==null)applyHoverHighlight(monster,mouseWorldX,mouseWorldY);
+        else for(Entity m:monster)if(m!=null)m.highlighted=false;
+        if(previousHighlighted!=null)previousHighlighted.highlighted=false;
+        previousHighlighted=interactions.token() instanceof WorldObject object?object:null;
+        if(previousHighlighted!=null)previousHighlighted.highlighted=true;
     }
 
     private void applyHoverHighlight(Entity[] arr, int mouseWorldX, int mouseWorldY){
@@ -945,7 +1019,8 @@ public class Gamepanel extends JPanel implements Runnable{
     private void removeDefeatedMonster(int index){
         Monster defeated=monster[index];
         if(defeated==null || defeated.alive)return;
-        defeated.checkDrop();monster[index]=null;
+        slimeSpawner.onMonsterDefeated(defeated);
+        if(!(defeated instanceof monster.MON_Skeleton skeleton && skeleton.departing))defeated.checkDrop();monster[index]=null;
         quests.onMonsterDefeated(defeated);
     }
 
@@ -993,8 +1068,10 @@ public class Gamepanel extends JPanel implements Runnable{
 
     private void updateScreenShake(){
         if(screenShakeCounter > 0){
-            shakeOffsetX = shakeRandom.nextInt(screenShakeIntensity * 2 + 1) - screenShakeIntensity;
-            shakeOffsetY = shakeRandom.nextInt(screenShakeIntensity * 2 + 1) - screenShakeIntensity;
+            double fade=screenShakeCounter/(double)screenShakeDuration;
+            int amplitude=(int)Math.round(screenShakeIntensity*fade*fade);
+            shakeOffsetX = shakeRandom.nextInt(amplitude * 2 + 1) - amplitude;
+            shakeOffsetY = shakeRandom.nextInt(amplitude * 2 + 1) - amplitude;
             screenShakeCounter--;
             if(screenShakeCounter <= 0){
                 screenShakeIntensity = 0;

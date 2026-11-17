@@ -1,6 +1,7 @@
 package net;
 
 public class WorldSnapshot {
+    public String generationSettings;
     public long tick;
     public boolean inWellArea;
     public WorldSnapshot otherArea;
@@ -14,4 +15,5 @@ public class WorldSnapshot {
     public NpcState[] npcs;
     public byte[] sceneryState;
     public float dayTime;
+    public int worldDay,moonWarningDay;
 }

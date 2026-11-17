@@ -52,7 +52,7 @@ public final class QuestManager {
         return switch(stage){
             case NOT_STARTED -> introduction;
             case SLAY -> List.of("Your entrance exam is waiting below the village well.",
-                    "Defeat ten slimes down there. You've cleared "+kills+" of ten.\nWalk to the well and press E to descend.");
+                    "Defeat ten slimes down there. You've cleared "+kills+" of ten.\nWalk to the well and press F to descend.");
             case BOSS_INTRO,KING -> List.of("A Slime King?! Under MY well?!\nDeal with it before it decides to come upstairs!");
             case RETURN -> List.of("You cleared the well... and defeated a Slime King?\nPerhaps I underestimated your entrance exam.",
                     "Well done, adventurer! Here are "+definition.rewardCoins()+" coins\nand "+definition.rewardExperience()+" experience, plus a powerful weapon for your class.");
@@ -205,7 +205,7 @@ public final class QuestManager {
     }
     /** Preserve important loot even if every ground-item slot is occupied. */
     public void dropLoot(Entity item,int x,int y){
-        item.worldX=x;item.worldY=y;pendingLoot.add(item);flushLoot();
+        item.worldX=x;item.worldY=y;world.GroundLoot.launch(item);pendingLoot.add(item);flushLoot();
     }
     private void flushLoot(){
         for(int i=0;i<gp.obj.length && !pendingLoot.isEmpty();i++)if(gp.obj[i]==null)gp.obj[i]=pendingLoot.removeFirst();
@@ -238,11 +238,11 @@ public final class QuestManager {
         if(local!=null && pendingRewards[local.playerId]!=null)return "Free a bag slot for your reward weapon.";
         return switch(stage){
             case NOT_STARTED -> "Speak to the old man.";
-            case SLAY -> inWell?"Slay well slimes: "+kills+" / "+definition.requiredKills():"Enter the village well [E].";
+            case SLAY -> inWell?"Slay well slimes: "+kills+" / "+definition.requiredKills():"Enter the village well [F].";
             case BOSS_INTRO -> "Something is rising from the depths...";
             case KING -> "Defeat the Slime King.";
             case RETURN -> "Report back to the old man.";
-            case COMPLETE -> inWell?"Offer essence at the altar [E].":"Bring Slime Essence to the well.";
+            case COMPLETE -> inWell?"Offer essence at the altar [F].":"Bring Slime Essence to the well.";
             case HELL_INTRO -> "The essence awakens Hell Slime...";
             case HELL -> "Defeat Hell Slime.";
         };
@@ -269,7 +269,7 @@ public final class QuestManager {
     }
     public void respawnAtPlaza(Player p){
         activateArea(p.inWell);resetBossIfWiped();p.resetForSceneTransition();p.inWell=false;introPlayers&=~(1<<p.playerId);
-        p.setDefaultPosition();p.resetHPandMP();p.isDead=false;p.rage=0;p.arcaneCharge=0;p.resolve=0;
+        p.setDefaultPosition();p.resetHPandMP();p.isDead=false;gp.slimeSpawner.onRespawn(p);p.rage=0;p.arcaneCharge=0;p.resolve=0;
         p.statusEffects.clear();p.auraActive=false;areaVersion++;activateArea(false);
     }
     private void resetBossIfWiped(){

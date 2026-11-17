@@ -131,6 +131,8 @@ public class GameClient {
     }
 
     private void applySnapshot(WorldSnapshot snapshot){
+        if(snapshot.generationSettings!=null && !snapshot.generationSettings.equals(gp.generationSettingsJson()))
+            gp.installGeneration(world.generation.WorldSettings.decode(snapshot.generationSettings));
         gp.lighting.cycle.syncFromHost(snapshot.dayTime);
         gp.quests.applySnapshot(snapshot.quest);
         for(PlayerState ps : snapshot.players){
@@ -221,6 +223,7 @@ public class GameClient {
                     }
                 }
                 p.applySyncedEffects(ps.effectTypes, ps.effectDurations, ps.effectValues, ps.auraRgb);
+                p.hotbar.restore(p,ps.hotbarTypes,ps.selectedHotbar);
             } else {
                 int previousHP = p.HP;
                 p.playerName = ps.playerName;
@@ -324,6 +327,8 @@ public class GameClient {
                 boss.bossStateTimer = ms.bossStateTimer;
                 boss.lastAttackWasSlam = ms.lastAttackWasSlam;
             }
+            if(m instanceof monster.SlimeActor slime)slime.restoreSlime(ms,false);
+            if(m instanceof monster.MON_Skeleton skeleton)skeleton.syncVisual(ms);
         }
 
         applySlimeProjectiles(snapshot.slimeProjectiles);
@@ -343,6 +348,7 @@ public class GameClient {
                 gp.obj[i].worldX = os.worldX;
                 gp.obj[i].worldY = os.worldY;
                 gp.obj[i].stackCount = os.stackCount;
+                world.GroundLoot.restore(gp.obj[i],os);
             }
         }
 

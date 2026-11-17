@@ -13,7 +13,7 @@ public final class OBJ_crafted extends Entity {
         this.type=switch(definition.kind()){case "axe"->type_axe;case "sword"->type_sword;case "staff"->type_staff;case "bow"->type_bow;default->type_none;};
         attackValue=definition.power();attackArea.setBounds(0,0,36,40);
         stackable=!definition.equipment();maxStackSize=stackable?99:1;
-        down1=CraftingArt.icon(definition);description="("+name+")\n"+(definition.equipment()?"Equip in weapon slot.":definition.place().isEmpty()?"Crafting material.":"Place via crafting menu.");
+        down1=CraftingArt.inventoryIcon(definition,gp.tileSize);description="("+name+")\n"+(definition.equipment()?"Equip in weapon slot.":definition.place().isEmpty()?"Crafting material.":"Place via crafting menu.");
     }
     @Override public boolean canStackWith(Entity other){return other instanceof OBJ_crafted c && c.itemType==itemType && stackable;}
 }

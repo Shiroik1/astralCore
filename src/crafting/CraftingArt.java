@@ -10,7 +10,17 @@ import java.util.*;
 /** Approved atlas icons where available; explicit simple placeholders for missing artwork. */
 public final class CraftingArt {
     private static final Map<String,BufferedImage> CACHE=new HashMap<>();
+    private static final Map<String,BufferedImage> INVENTORY=new HashMap<>();
     private CraftingArt(){}
+    public static BufferedImage inventoryIcon(RecipeRegistry.Item item,int size){
+        return INVENTORY.computeIfAbsent(item.id()+":"+size,key->{
+            BufferedImage source=icon(item),out=new BufferedImage(size,size,BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g=out.createGraphics();g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            double scale=Math.min((size-6.0)/source.getWidth(),(size-6.0)/source.getHeight());
+            int w=Math.max(1,(int)Math.round(source.getWidth()*scale)),h=Math.max(1,(int)Math.round(source.getHeight()*scale));
+            g.drawImage(source,(size-w)/2,(size-h)/2,w,h,null);g.dispose();return out;
+        });
+    }
     public static BufferedImage icon(RecipeRegistry.Item item){return CACHE.computeIfAbsent(item.id(),k->load(item));}
     private static BufferedImage load(RecipeRegistry.Item item){
         if(!item.image().isEmpty())try(InputStream in=CraftingArt.class.getResourceAsStream(item.image())){

@@ -76,3 +76,8 @@ Building preset authoring lives in `maps/blueprints/`, separate from per-world p
 ### Crafting prototype
 
 `assets/reference/crafting/crafting-source.png` retains the approved nine-sprite atlas. `src/art/GenerateCraftingTextures.java` slices complete silhouettes and exports the four wooden weapons, three resources, Workbench and Forge into `res/crafting/`. Recipe and item metadata lives in `res/crafting/recipes.json`. Missing dedicated art uses explicit palette-based geometric placeholders in `CraftingArt`; see [the crafting guide](crafting-system.md) for the list.
+
+
+## Modular cliff family
+
+Generator-ten cliffs use the nine native 48px RGBA sheets `res/ground/cliff-top-0.png` through `cliff-top-3.png`, `cliff-middle.png`, `cliff-side-left.png`, `cliff-side-right.png`, `cliff-lip.png` and `cliff-foot.png`. `cliff-tiles.json` documents the exact mask/variant mapping. `GenerateCliffTextures` samples existing ground/ledge/path/cobble PNGs and exports this family with 4× supersampling; `GenerateGroundTextures --cliffs` is the narrow export entry point. Existing grass, ledge, stair and reference/seasonal artwork is retained. The actual game ground/tone blend is composed through exported cap alpha during cache baking. See [cliff redesign](cliff-redesign.md) for connections, continuous height stacking and verification status.

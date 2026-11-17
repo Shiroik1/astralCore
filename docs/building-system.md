@@ -1,10 +1,10 @@
 # Tile building (first version)
 
-Build in the single-player overworld with `/build floor`, `/build wall`, or `/build door`. Chat accepts `/` commands. Placement is free; inventory costs, ownership, roofs, and multiplayer construction are not part of this version. Built elements are hidden and have no collision during network sessions.
+Build in the single-player overworld with `/build floor`, `/build wall`, or `/build door`. Chat accepts `/` commands. Crafted components consume and refund items through the existing inventory transactions; ownership, roofs and multiplayer construction are not part of this version. Built elements are hidden and have no collision during network sessions.
 
 | Input | Action |
 | --- | --- |
-| 1 / 2 / 3 | Select floor / wall / door while building |
+| 1–9 / 0 | Select assigned item shortcuts; `/build floor`, `/build wall`, `/build door` select authoring elements |
 | Hold left mouse | Place on the pointed grid cell |
 | Hold right mouse | Remove from the selected layer |
 | R | Toggle vertical preference; rotate an isolated wall or a doorway |

@@ -87,7 +87,9 @@ public enum ItemType {
     WOODEN_STAFF("wooden_staff"), CRUDE_PICKAXE("crude_pickaxe"), IMPROVED_WOODEN_AXE("improved_wooden_axe"), IRON_SWORD("iron_sword"),
     IRON_AXE("iron_axe"), IRON_PICKAXE("iron_pickaxe"), WORKBENCH("workbench"), CAMPFIRE("campfire"),
     BASIC_FORGE("basic_forge"), WOODEN_CHEST("wooden_chest"), SIMPLE_BED("simple_bed"), WOODEN_FLOOR("wooden_floor"),
-    WOODEN_WALL("wooden_wall"), WOODEN_DOOR("wooden_door");
+    WOODEN_WALL("wooden_wall"), WOODEN_DOOR("wooden_door"),
+    SLIME_GEL(OBJ_slimegel.class,OBJ_slimegel::new),
+    ROYAL_SLIME_CORE(OBJ_royalslimecore.class,OBJ_royalslimecore::new);
 
     final Class<? extends Entity> itemClass;
     final Function<Gamepanel, Entity> factory;

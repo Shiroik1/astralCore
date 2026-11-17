@@ -18,6 +18,7 @@ public final class GenerateGroundTextures {
     private GenerateGroundTextures() {}
 
     public static void main(String[] args) throws IOException {
+        if(args.length>0 && args[0].equals("--cliffs")){GenerateCliffTextures.main(new String[0]);return;}
         if(args.length>0 && args[0].equals("--cobble")){
             Path directory=Path.of("res/ground");Files.createDirectories(directory);
             mossPaths(directory);return;

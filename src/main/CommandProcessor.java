@@ -62,6 +62,22 @@ public class CommandProcessor {
             case "pixel" -> pixel(args);
             case "time" -> time(args);
             case "regenworld" -> regenerateWorld(args);
+            case "elevation" -> {
+                if(!Boolean.getBoolean("astral.dev")){reply("Enable -Dastral.dev=true",ERROR);break;}
+                try{
+                    if(args.length>1){world.generation.ElevationDebugOverlay.mode(args[1]);reply("Elevation overlay: "+args[1],INFO);}
+                    else {boolean shown=world.generation.ElevationDebugOverlay.toggle();reply("Elevation overlay "+(shown?"on":"off"),INFO);}
+                    if(gp.generatedWorld!=null && gp.generatedWorld.heights()!=null)for(String line:gp.generatedWorld.heights().debugLines())reply(line,INFO);
+                }catch(IllegalArgumentException e){reply(e.getMessage(),ERROR);}
+            }
+            case "performance", "chunks" -> reply(gp.performance.command(args.length>1?args[1]:"toggle"),INFO);
+            case "skeletons" -> {
+                if(args.length==3 && args[1].equals("day") && Boolean.getBoolean("astral.dev")){
+                    try{int day=Integer.parseInt(args[2]);if(day<1 || day>1000000)throw new IllegalArgumentException();gp.lighting.cycle.restore(day,gp.lighting.cycle.time(),0);reply("World day: "+day,INFO);}catch(IllegalArgumentException invalid){reply("Use /skeletons day <1-1000000>",ERROR);}
+                }else reply(gp.slimeSpawner.skeletonCommand(args.length>1?args[1]:"on"),INFO);
+            }
+            case "encounters" -> reply(gp.slimeSpawner.debugCommand(args.length>1?args[1]:"toggle"),INFO);
+            case "nest" -> {if(Boolean.getBoolean("astral.dev"))reply(gp.slimeNest.diagnostic(),INFO);else reply("Enable -Dastral.dev=true to inspect the nest",ERROR);}
             default -> reply("Unknown command: /" + cmd + "  (try /help)", ERROR);
         }
     }
@@ -78,7 +94,7 @@ public class CommandProcessor {
         reply("/build <element-id|off>  /savebuild", INFO);
         reply("/blueprint <id> <anchor-col> <anchor-row>", INFO);
         reply("/time [hour]", INFO);
-        if(Boolean.getBoolean("astral.dev")) reply("/regenworld <long seed> (offline procedural world)", INFO);
+        if(Boolean.getBoolean("astral.dev")) reply("/regenworld <long seed> (offline procedural world), /nest (planned encounter coordinates), /elevation [height|formations|edges|boundary|access], /encounters [on|off|fast|normal|now], /performance [on|off|reset|grid], /skeletons [on|off|now|day <n>]", INFO);
     }
 
     private void regenerateWorld(String[] args){

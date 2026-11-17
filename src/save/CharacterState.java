@@ -32,6 +32,7 @@ public final class CharacterState {
             throw new IllegalArgumentException("Invalid direction");
         for(int i=0;i<20;i++)if(s.inventoryTypes[i]!=null && (s.inventoryStackCounts[i]<1 || s.inventoryStackCounts[i]>1000000))
             throw new IllegalArgumentException("Invalid inventory stack");
+        if(s.hotbarTypes!=null && s.hotbarTypes.length!=10 || s.selectedHotbar<0 || s.selectedHotbar>=10)throw new IllegalArgumentException("Invalid hotbar");
         new crafting.CraftingProgression().restore(s.craftingLevel,s.craftingXP,s.craftingBonuses);
         int effects=s.effectTypes==null?0:s.effectTypes.length;
         if(effects>100 || effects>0 && (s.effectDurations==null || s.effectDurations.length!=effects
@@ -52,10 +53,11 @@ public final class CharacterState {
             p.inventorySlots[i]=ItemRegistry.create(s.inventoryTypes[i],g);
             if(p.inventorySlots[i]!=null)p.inventorySlots[i].stackCount=s.inventoryStackCounts[i];
         }
+        p.hotbar.restore(p,s.hotbarTypes,s.selectedHotbar);
         p.craftingProgress.restore(s.craftingLevel,s.craftingXP,s.craftingBonuses);
         p.meleeMasteryXP=s.meleeMasteryXP;p.magicMasteryXP=s.magicMasteryXP;p.bowMasteryXP=s.bowMasteryXP;
         p.level=s.level;p.exp=s.exp;p.nextLevelExp=s.nextLevelExp;p.coin=s.coin;
-        p.strength=s.strength;p.dexterity=s.dexterity;p.intelligence=s.intelligence;
+        p.strength=s.strength;p.dexterity=s.dexterity;p.intelligence=s.intelligence;p.vitality=s.vitality;
         p.maxHP=s.maxHP;p.HP=s.HP;p.maxMP=s.maxMP;p.MP=s.MP;
         p.maxRage=s.maxRage;p.rage=s.rage;p.arcaneCharge=s.arcaneCharge;p.resolve=s.resolve;
         p.worldX=s.worldX;p.worldY=s.worldY;p.direction=s.direction;p.inWell=s.inWell;p.isDead=s.isDead;
@@ -69,7 +71,7 @@ public final class CharacterState {
             p.intelligence=2+(p.level-1)/2;
             p.nextLevelExp=p.level*(30+2*(p.level-1));
         }
-        p.attack=p.getAttack();p.defense=p.getDefense();p.refreshWeaponAnimation();
+        p.syncWeaponProfile();p.attack=p.getAttack();p.defense=p.getDefense();p.refreshWeaponAnimation();
         for(int i=0;i<p.skills.length;i++)if(!legacyHunter && !legacyMage && p.skills[i]!=null && s.skillCooldowns!=null && i<s.skillCooldowns.length)
             p.skills[i].cooldownRemaining=Math.max(0,s.skillCooldowns[i]);
         p.applySyncedEffects(s.effectTypes,s.effectDurations,s.effectValues,s.auraRgb);
@@ -81,12 +83,14 @@ public final class CharacterState {
         p.currentInput=new InputState();p.lastProcessedInputTick=0;p.shopChangedInputTick=0;
     }
     public static ObjectState item(Entity e){
-        ObjectState s=new ObjectState();s.type=ItemRegistry.typeFor(e);s.stackCount=e.stackCount;s.worldX=e.worldX;s.worldY=e.worldY;return s;
+        ObjectState s=new ObjectState();s.type=ItemRegistry.typeFor(e);s.stackCount=e.stackCount;s.worldX=e.worldX;s.worldY=e.worldY;
+        s.groundLoot=e.groundLoot;s.lootAge=e.lootAge;s.lootVX=e.lootVX;s.lootVY=e.lootVY;s.lootLift=e.lootLift;return s;
     }
     public static Entity item(Gamepanel g,ObjectState s){
         Entity e=ItemRegistry.create(s.type,g);
         if(e==null)throw new IllegalArgumentException("Unknown saved item");
-        e.stackCount=s.stackCount;e.worldX=s.worldX;e.worldY=s.worldY;return e;
+        e.stackCount=s.stackCount;e.worldX=s.worldX;e.worldY=s.worldY;
+        world.GroundLoot.restore(e,s);return e;
     }
     public static void restoreArea(Gamepanel g,WorldSnapshot a){
         g.quests.activateArea(a.inWellArea);
@@ -102,6 +106,8 @@ public final class CharacterState {
             if(a.inWellArea)m.questId=g.quests.definition().id();
             if(m instanceof MON_SlimeBoss boss){boss.syncCharge(s.chargeX,s.chargeY);boss.bossState=s.bossState;
                 boss.bossStateTimer=s.bossStateTimer;boss.lastAttackWasSlam=s.lastAttackWasSlam;}
+            if(m instanceof monster.SlimeActor slime)slime.restoreSlime(s,true);
+            if(m instanceof monster.MON_Skeleton skeleton)skeleton.restore(s);
             g.monster[i]=m;
         }
         for(int i=0;i<a.objects.length;i++)if(a.objects[i]!=null)g.obj[i]=item(g,a.objects[i]);

@@ -8,7 +8,7 @@ import java.awt.image.BufferedImage;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Mouse-first appearance step; all hairstyles are usable with every class/preset. */
+/** Mouse-first appearance step; all hairstyles are usable with every appearance. */
 public final class CharacterCustomization {
     private final Gamepanel g;
     public int style,color=1;
@@ -22,7 +22,7 @@ public final class CharacterCustomization {
     public void open(){
         if(!initialized){
             style=g.keyH.selectedGenderIndex==1?20:0;
-            color=switch(CharacterClass.at(g.keyH.selectedClassIndex)){case MAGE->11;case WARRIOR,BERSERKER->5;default->1;};
+            color=5;
             initialized=true;
         }
         page=style/20;g.keyH.characterCreationStep=2;g.keyH.enteringCharacterName=false;
@@ -33,13 +33,16 @@ public final class CharacterCustomization {
     public Rectangle rotate(int i){return new Rectangle(39+i*105,455,96,34);}
     public Rectangle create(){return new Rectangle(g.screenWidth-260,650,220,44);}
     public Rectangle back(){return new Rectangle(36,650,160,44);}
+    private void backToName(){g.keyH.characterCreationStep=0;g.keyH.enteringCharacterName=true;}
+    private Rectangle gender(int i){return new Rectangle(40+i*150,606,140,30);}
     public void update(int x,int y,boolean clicked){
         if(!clicked)return;
+        for(int i=0;i<2;i++)if(gender(i).contains(x,y)){g.keyH.selectedGenderIndex=i;return;}
         for(int i=0;i<2;i++)if(tab(i).contains(x,y)){page=i;return;}
         for(int i=0;i<20;i++)if(tile(i).contains(x,y)){style=page*20+i;return;}
         for(int i=0;i<Hairstyles.COLORS.length;i++)if(swatch(i).contains(x,y)){color=i;return;}
         for(int i=0;i<3;i++)if(rotate(i).contains(x,y)){view=i;return;}
-        if(back().contains(x,y)){g.keyH.characterCreationStep=1;return;}
+        if(back().contains(x,y)){backToName();return;}
         if(create().contains(x,y))g.ui.confirmCharacterCreation(g.keyH.selectedClassIndex,g.keyH.selectedGenderIndex);
     }
     public void key(int key){
@@ -50,36 +53,19 @@ public final class CharacterCustomization {
         if(key==KeyEvent.VK_Q)view=Math.floorMod(view-1,3);
         if(key==KeyEvent.VK_E)view=(view+1)%3;
         if(key==KeyEvent.VK_TAB)page=1-page;
-        if(key==KeyEvent.VK_ESCAPE)g.keyH.characterCreationStep=1;
+        if(key==KeyEvent.VK_ESCAPE)backToName();
         if(key==KeyEvent.VK_ENTER)g.ui.confirmCharacterCreation(g.keyH.selectedClassIndex,g.keyH.selectedGenderIndex);
     }
     private BufferedImage portrait(int id,int direction,int size,boolean thumbnail){
         String key=id+"/"+color+"/"+direction+"/"+size+"/"+thumbnail+"/"+g.keyH.selectedClassIndex+"/"+g.keyH.selectedGenderIndex;
         return images.computeIfAbsent(key,k->{
             CharacterArt.Look look=new CharacterArt.Look();look.shadow=false;
-            CharacterOutfit outfit=CharacterClass.at(g.keyH.selectedClassIndex).outfit(g.keyH.selectedGenderIndex==1);
+            CharacterOutfit outfit=CharacterClass.WARRIOR.outfit(g.keyH.selectedGenderIndex==1);
             // Let the player inspect hair unobstructed; equippable hats remain separate.
             outfit=new CharacterOutfit(outfit.hair(),outfit.torso(),outfit.pants(),outfit.boots(),outfit.gloves(),outfit.cloak(),outfit.details(),null);
             look.outfit=Hairstyles.outfit(outfit,id,color);
             if(thumbnail)return HairArt.thumbnail(look.outfit);
-            if(CharacterClass.at(g.keyH.selectedClassIndex)==CharacterClass.RANGER){
-                look.rangerBow=look.rangerOutfit=art.RangerGear.TRAIL;
-            }
-            if(CharacterClass.at(g.keyH.selectedClassIndex)==CharacterClass.HUNTER){
-                look.weapon=art.WeaponArt.Kind.DAGGERS;look.assassinOutfit=art.AssassinGear.ALLEY;
-            }
-            if(CharacterClass.at(g.keyH.selectedClassIndex)==CharacterClass.MAGE){
-                look.weapon=art.WeaponArt.Kind.STAFF;look.mageOutfit=art.MageGear.HEARTH;
-            }
-            if(CharacterClass.at(g.keyH.selectedClassIndex)==CharacterClass.PRIEST){
-                look.weapon=art.WeaponArt.Kind.WAYLIGHT_STAFF;look.priestOutfit=art.PriestGear.WAY;
-            }
-            if(CharacterClass.at(g.keyH.selectedClassIndex)==CharacterClass.BERSERKER){
-                look.weapon=art.WeaponArt.Kind.FIELDBREAKER;look.berserkerOutfit=art.BerserkerGear.ROAD;
-            }
-            if(CharacterClass.at(g.keyH.selectedClassIndex)==CharacterClass.PALADIN){
-                look.weapon=WeaponArt.Kind.GATEKEEPER;look.paladinOutfit=look.paladinShield=PaladinGear.GATE;
-            }
+            look.weapon=WeaponArt.Kind.NONE;
             return CharacterArt.render(direction==0?CharacterArt.Dir.DOWN:direction==1?CharacterArt.Dir.RIGHT:CharacterArt.Dir.UP,new CharacterArt.Pose(),look,size);
         });
     }
@@ -105,7 +91,7 @@ public final class CharacterCustomization {
         d.setColor(new Color(0xB4BDCA));d.setFont(font.deriveFont(10f));
         d.drawString("Hair preview shown without headwear.",46,590);
         for(int i=0;i<2;i++)button(d,font,tab(i),i==0?"Male reference 01–20":"Female reference 01–20",page==i);
-        d.setFont(font.deriveFont(10f));d.setColor(new Color(0xB4BDCA));d.drawString("Both collections work with every preset.",846,107);
+        d.setFont(font.deriveFont(10f));d.setColor(new Color(0xB4BDCA));d.drawString("Both collections work with any appearance.",846,107);
         for(int i=0;i<20;i++){
             int id=page*20+i;Rectangle r=tile(i);
             d.setColor(id==style?new Color(0xCFC4B0):new Color(0xE7E0D3));d.fillRoundRect(r.x,r.y,r.width,r.height,9,9);
@@ -120,7 +106,8 @@ public final class CharacterCustomization {
             Rectangle r=swatch(i);d.setColor(Hairstyles.COLORS[i]);d.fillRoundRect(r.x,r.y,r.width,r.height,7,7);
             if(i==color){d.setColor(Color.WHITE);d.setStroke(new BasicStroke(2));d.drawRoundRect(r.x-3,r.y-3,r.width+6,r.height+6,9,9);}
         }
-        button(d,font,back(),"Back to class",false);button(d,font,create(),"Create character",false);
+        for(int i=0;i<2;i++)button(d,font,gender(i),i==0?"Male":"Female",g.keyH.selectedGenderIndex==i);
+        button(d,font,back(),"Back to name",false);button(d,font,create(),"Create character",false);
         d.setFont(font.deriveFont(10f));d.setColor(new Color(0xB4BDCA));d.drawString("A/D: hair   W/S: color   Q/E: rotate   Enter: create",230,677);
     }
 }

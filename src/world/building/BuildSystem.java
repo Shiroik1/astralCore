@@ -35,9 +35,13 @@ public final class BuildSystem {
     private final Map<Cell,String> floorElements=new HashMap<>();
     private final Set<Cell> groundCells=new HashSet<>();
     private final Set<Cell> clearedCells=new HashSet<>();
-    private BuildingRenderer surface;
+    private final Map<Long,BuildingRenderer> surfaces=new LinkedHashMap<>(8,.75f,true);
+    private Map<Cell,BuildingLayout.Tile> renderState=new HashMap<>();
+    private Map<Cell,String> renderFloors=new HashMap<>();
     private final List<Decoration> decorations=new ArrayList<>();
-    private final List<Furnishing> furniture=new ArrayList<>();
+    private final Map<String,Furnishing> furniture=new HashMap<>();
+    private final Map<String,Decoration> indexedDecorations=new HashMap<>();
+    private final world.spatial.SpatialIndex<Decoration> propIndex;
     private boolean propHeld,propRightHeld;
     private final Map<Cell,Piece> structures=new HashMap<>();
     private BuildTextures textures;
@@ -52,7 +56,7 @@ public final class BuildSystem {
 
     private static final int[] DC={0,1,0,-1},DR={-1,0,1,0};
 
-    public BuildSystem(Gamepanel gp){this.gp=gp;}
+    public BuildSystem(Gamepanel gp){this.gp=gp;propIndex=new world.spatial.SpatialIndex<>(gp.tileSize*4);}
     public void prepare(){if(textures==null)textures=new BuildTextures(gp.tileSize);}
     private boolean overworld(){return !gp.isNetworked && gp.quests!=null && !gp.quests.inDungeon();}
     public boolean available(){
@@ -68,6 +72,7 @@ public final class BuildSystem {
     public void start(String element){
         if(PropCatalog.has(element)){
             if(!editable())throw new IllegalStateException("Furnishing placement requires a single-player overworld.");
+            prepare();textures.prop(element,false,0);
             gp.grassEditor.stop();selected=Kind.PROP;selectedElement=element;active=true;propHeld=propRightHeld=false;return;
         }
         BuildElements.Element definition=BuildElements.get(element);
@@ -92,7 +97,7 @@ public final class BuildSystem {
         if(!active)return;
         if(!editable()){stop();return;}
         if(!canUseMouse()){propHeld=gp.mouseH.leftPressed;propRightHeld=gp.mouseH.rightPressed;return;}
-        if(selected==Kind.PROP){updateProps();return;}
+        if(selected==Kind.PROP){updateProps();textures.prop(selectedElement,preferredVertical,propRotation);return;}
         propHeld=propRightHeld=false;
         Cell c=cursor();if(c==null)return;
         if(gp.mouseH.rightPressed){erase(c);return;}
@@ -110,6 +115,7 @@ public final class BuildSystem {
         if(!gp.crafting.buildingTransaction(costs,refunds))return;
         boolean modified=false;
         if(ground(selected)){
+            if(!floors.contains(c) || !selectedElement.equals(floorElements.getOrDefault(c,"floor")))gp.placementEffects.tile(c.col,c.row,true);
             modified=floors.add(c);
             modified|=!selectedElement.equals(floorElements.put(c,selectedElement));
             if(modified || !clearedCells.contains(c)){clearVegetation(c);modified=true;}
@@ -117,6 +123,7 @@ public final class BuildSystem {
             for(var entry:placementPlan(c,selected).entrySet()){
                 Cell at=entry.getKey();Placement next=entry.getValue();Piece old=structures.get(at);
                 if(old==null || old.vertical!=next.vertical || !old.element.equals(next.element)){
+                    if(old==null || !old.element.equals(next.element))gp.placementEffects.tile(at.col,at.row,false);
                     structures.put(at,new Piece(at,next.kind,next.open,next.vertical,next.element));modified=true;
                 }
                 if(!clearedCells.contains(at)){clearVegetation(at);modified=true;}
@@ -137,7 +144,7 @@ public final class BuildSystem {
 
     private boolean canUseMouse(){
         Player p=gp.localPlayer();
-        return p!=null && !p.isDead && !p.merchantOpen && !gp.inventoryOpen && !gp.optionsOpen && !gp.paused && !gp.keyH.enteringChat && !p.inDialogue && !gp.quests.isBossIntro();
+        return p!=null && !p.isDead && !p.merchantOpen && !gp.inventoryOpen && !gp.ui.game.blocksWorld() && !gp.ui.game.pointerOverHotbar() && !gp.optionsOpen && !gp.paused && !gp.keyH.enteringChat && !p.inDialogue && !gp.quests.isBossIntro();
     }
     private Cell cursor(){
         int x=gp.mouseH.getScaledX(),y=gp.mouseH.getScaledY();if(x<0 || y<0)return null;
@@ -159,6 +166,7 @@ public final class BuildSystem {
     }
     private String terrainError(Cell c){
         if(!inside(c))return "Outside the world";
+        if(world.TerrainHeightResolver.active(gp) && !gp.generatedWorld.lowland(c.col,c.row))return "Build on connected lowland; plateaus need a future traversal route";
         if(!gp.worldConfig.procedural() && InnInterior.isTile(c.col,c.row))return "Use clear overworld ground";
         if(gp.tileM.isSolid(c.col,c.row))return "Needs walkable ground";
         if(gp.tileM.terrain(c.col,c.row)==art.Terrain.STEPS)return "Cannot build on stairs";
@@ -183,18 +191,55 @@ public final class BuildSystem {
         boolean removed=ground(selected)?floors.remove(c):structures.remove(c)!=null;
         if(removed){if(ground(selected))floorElements.remove(c);changed();}
     }
-    private void changed(){dirty=true;refreshGround();}
+    private void changed(){dirty=true;gp.interactions.clear();refreshGround();}
     private void refreshGround(){
-        BuildingLayout layout=new BuildingLayout();
-        for(Cell c:floors)layout.put(shared(c),new BuildingLayout.Tile(floorElements.getOrDefault(c,"floor"),false,false));
-        structures.forEach((c,p)->layout.put(shared(c),new BuildingLayout.Tile(p.element,p.vertical,p.open)));
-        for(Decoration d:decorations)layout.addDecoration(d);
-        furniture.clear();for(Decoration d:decorations)if(!PropCatalog.get(d.element()).ground())furniture.add(new Furnishing(d));
-        surface=new BuildingRenderer(layout,gp.tileSize,textures);
-        groundCells.clear();for(BuildingLayout.Cell c:surface.groundCells())groundCells.add(new Cell(c.col(),c.row()));
+        Map<Cell,BuildingLayout.Tile> next=new HashMap<>();
+        for(Cell c:floors)next.put(c,new BuildingLayout.Tile(floorElements.getOrDefault(c,"floor"),false,false));
+        structures.forEach((c,p)->next.put(c,new BuildingLayout.Tile(p.element,p.vertical,p.open)));
+        Set<Cell> changed=new HashSet<>(renderState.keySet());changed.addAll(next.keySet());changed.removeIf(c->Objects.equals(renderState.get(c),next.get(c)));
+        Set<Cell> floorChanges=new HashSet<>(renderFloors.keySet());floorChanges.addAll(floorElements.keySet());floorChanges.removeIf(c->Objects.equals(renderFloors.get(c),floorElements.get(c)));changed.addAll(floorChanges);renderFloors=new HashMap<>(floorElements);
+        for(Cell cell:changed)for(int dr=-3;dr<=3;dr++)for(int dc=-3;dc<=3;dc++)surfaces.remove(surfaceKey(cell.col+dc,cell.row+dr));
+        renderState=next;
+        groundCells.clear();groundCells.addAll(floors);
+        for(Cell c:structures.keySet())if(!groundCells.contains(c)){
+            search:for(int dr=-1;dr<=1;dr++)for(int dc=-1;dc<=1;dc++)if(floors.contains(new Cell(c.col+dc,c.row+dr))){groundCells.add(c);break search;}
+        }
+        refreshDecorations();
+        prepareVisibleCaches();
+    }
+    private void refreshDecorations(){
+        Map<String,Decoration> next=new HashMap<>();for(Decoration d:decorations)next.put(d.id(),d);
+        var iterator=indexedDecorations.entrySet().iterator();while(iterator.hasNext()){var e=iterator.next();if(!Objects.equals(next.get(e.getKey()),e.getValue())){propIndex.remove(e.getValue());furniture.remove(e.getKey());iterator.remove();}}
+        for(Decoration d:decorations)if(!indexedDecorations.containsKey(d.id())){
+            var visual=PropCatalog.get(d.element()).visualBounds(d.x(),d.y(),d.flipped(),d.rotation());double scale=gp.tileSize/48.0;
+            Rectangle box=new java.awt.geom.Rectangle2D.Double(visual.getX()*scale,visual.getY()*scale,visual.getWidth()*scale,visual.getHeight()*scale).getBounds();box.add(propBounds(d));
+            textures.prop(d.element(),d.flipped(),d.rotation());
+            propIndex.add(d,box);indexedDecorations.put(d.id(),d);if(!PropCatalog.get(d.element()).ground())furniture.put(d.id(),new Furnishing(d));
+        }
+    }
+    private long surfaceKey(int col,int row){return world.spatial.SpatialIndex.key(Math.floorDiv(col,world.chunk.ChunkConfig.BUILD_CACHE_SIZE),Math.floorDiv(row,world.chunk.ChunkConfig.BUILD_CACHE_SIZE));}
+    private BuildingRenderer surfaceFor(Cell c){return surfaces.get(surfaceKey(c.col,c.row));}
+    /** Geometry and shadow images are prepared at update boundaries, never in the render loop. */
+    public void prepareVisibleCaches(){
+        if(gp.localPlayer()==null || textures==null || (floors.isEmpty() && structures.isEmpty()))return;
+        int size=world.chunk.ChunkConfig.BUILD_CACHE_SIZE,ts=gp.tileSize;Rectangle view=gp.chunks.camera(4);Set<Long> visible=new HashSet<>();
+        for(int y=Math.floorDiv(view.y,ts*size);y<=Math.floorDiv(view.y+view.height,ts*size);y++)for(int x=Math.floorDiv(view.x,ts*size);x<=Math.floorDiv(view.x+view.width,ts*size);x++){
+            long key=world.spatial.SpatialIndex.key(x,y);visible.add(key);if(surfaces.containsKey(key))continue;
+            BuildingLayout layout=new BuildingLayout();
+            // The three-cell halo includes foundation, neighbor connections, tall wall overhangs and shadows.
+            for(int row=y*size-3;row<(y+1)*size+3;row++)for(int col=x*size-3;col<(x+1)*size+3;col++){
+                Cell c=new Cell(col,row);if(floors.contains(c))layout.put(shared(c),new BuildingLayout.Tile(floorElements.getOrDefault(c,"floor"),false,false));
+                Piece piece=structures.get(c);if(piece!=null)layout.put(shared(c),new BuildingLayout.Tile(piece.element,piece.vertical,piece.open));
+            }
+            surfaces.put(key,new BuildingRenderer(layout,ts,textures));
+        }
+        int limit=Math.max(8,visible.size());while(surfaces.size()>limit){Long oldest=null;for(long key:surfaces.keySet())if(!visible.contains(key)){oldest=key;break;}if(oldest==null)break;surfaces.remove(oldest);}
     }
     private static boolean clearableTile(Entity e){
         return e instanceof tiles_interactive.IT_drytree || e instanceof tiles_interactive.IT_trunk;
+    }
+    public boolean sceneryCleared(world.WorldObject object){
+        for(Cell cell:clearedCells)if(object.clearedByBuildingAt(cell.col,cell.row))return true;return false;
     }
     private void clearVegetation(Cell c){
         clearedCells.add(c);
@@ -208,7 +253,7 @@ public final class BuildSystem {
         }
     }
     private boolean groundAt(Cell c){return groundCells.contains(c);}
-    public boolean coversGround(int col,int row){return overworld() && (groundAt(new Cell(col,row)) || structures.containsKey(new Cell(col,row)));}
+    public boolean coversGround(int col,int row){return overworld() && (!groundCells.isEmpty() || !structures.isEmpty()) && (groundAt(new Cell(col,row)) || structures.containsKey(new Cell(col,row)));}
     private BuildingLayout.Tile sharedStructure(BuildingLayout.Cell cell){
         Piece p=structures.get(new Cell(cell.col(),cell.row()));
         return p==null?null:new BuildingLayout.Tile(p.element,p.vertical,p.open);
@@ -267,54 +312,67 @@ public final class BuildSystem {
         return floor?groundAt(n):structures.containsKey(n);
     }
     private int mask(Cell c,boolean floor){int m=0;for(int i=0;i<4;i++)if(neighbor(c,i,floor))m|=1<<i;return m;}
-    public boolean blocksArea(int x,int y,int width,int height){
-        if(!overworld() || width<=0 || height<=0)return false;
+    public boolean blocksArea(int x,int y,int width,int height){return blocksAreaExcept(x,y,width,height,null);}
+    public boolean blocksAreaExcept(int x,int y,int width,int height,Object ignored){
+        if(!overworld() || width<=0 || height<=0 || structures.isEmpty() && decorations.isEmpty())return false;
         int ts=gp.tileSize;
         for(int row=Math.floorDiv(y,ts)-1;row<=Math.floorDiv(y+height-1,ts)+1;row++)
             for(int col=Math.floorDiv(x,ts)-1;col<=Math.floorDiv(x+width-1,ts)+1;col++){
                 Cell c=new Cell(col,row);Piece p=structures.get(c);
-                if(p!=null)for(Rectangle r:footprint(c,p.kind,p.vertical,p.open))
+                if(p!=null && p!=ignored)for(Rectangle r:footprint(c,p.kind,p.vertical,p.open))
                     if(r.intersects(x,y,width,height))return true;
             }
-        for(Decoration d:decorations){var p=PropCatalog.get(d.element());if(p.collisionWidth()>0 && propBounds(d).intersects(x,y,width,height))return true;}
+        for(Decoration d:propIndex.query(new Rectangle(x,y,width,height))){var p=PropCatalog.get(d.element());if(p.collisionWidth()>0 && propBounds(d).intersects(x,y,width,height))return true;}
         return false;
     }
     /** Returns true even for a blocked close, so E is consumed instead of attacking. */
     public boolean interact(Player player,boolean apply){
         if(!overworld() || player.inWell || player.isDead || player.inDialogue || player.merchantOpen
                 || gp.quests.isBossIntro() || InnInterior.contains(gp,player))return false;
-        Rectangle body=bounds(player),reach=new Rectangle(body);reach.grow(gp.tileSize/2,gp.tileSize/2);
-        Piece nearest=null;double best=Double.MAX_VALUE;
-        for(Piece piece:structures.values())if(piece.kind==Kind.DOOR){
-            Rectangle f=shape(piece.cell,piece.kind,piece.vertical,false).getBounds();
-            if(!f.intersects(reach))continue;
-            double d=Point.distanceSq(body.getCenterX(),body.getCenterY(),f.getCenterX(),f.getCenterY());
-            if(d<best){best=d;nearest=piece;}
-        }
-        if(nearest==null)return false;
-        boolean clear=safeStructureChange(nearest.cell,nearest.kind,nearest.vertical,false);
-        if(apply && (!nearest.open || clear)){nearest.open=!nearest.open;changed();}
+        var target=gp.interactions.resolve(player);
+        return target!=null && target.token() instanceof Piece piece && piece.kind==Kind.DOOR && toggleDoor(piece,apply);
+    }
+    private boolean toggleDoor(Piece piece,boolean apply){
+        boolean clear=safeStructureChange(piece.cell,piece.kind,piece.vertical,false);
+        if(apply && (!piece.open || clear)){piece.open=!piece.open;changed();}
         return true;
+    }
+    public void collectTargets(interaction.InteractionTargetResolver resolver){
+        if(!available())return;
+        Rectangle front=resolver.validator.frontBounds(resolver.player());
+        Piece piece=structures.get(new Cell(Math.floorDiv(front.x,gp.tileSize),Math.floorDiv(front.y,gp.tileSize)));
+        if(piece!=null && piece.kind==Kind.DOOR){
+            Rectangle footprint=new Rectangle(piece.cell.col*gp.tileSize,piece.cell.row*gp.tileSize,gp.tileSize,gp.tileSize);
+            resolver.offer(piece,"door:"+piece.cell.col+":"+piece.cell.row,footprint,3,()->toggleDoor(piece,true));
+        }
     }
     private boolean visible(Cell c){
         Player p=gp.localPlayer();int x=c.col*gp.tileSize-p.worldX+p.screenX,y=c.row*gp.tileSize-p.worldY+p.screenY;
         return x>-gp.tileSize && x<gp.screenWidth && y>-gp.tileSize && y<gp.screenHeight+BuildGeometry.IMAGE_HEIGHT*gp.tileSize/48;
     }
     public void drawFloors(Graphics2D g){
-        if(!overworld() || surface==null)return;
-        for(Cell c:groundCells)if(visible(c)){
+        if(!overworld())return;
+        Rectangle view=gp.chunks.camera(3);int ts=gp.tileSize;
+        for(int row=Math.floorDiv(view.y,ts);row<=Math.floorDiv(view.y+view.height,ts);row++)for(int col=Math.floorDiv(view.x,ts);col<=Math.floorDiv(view.x+view.width,ts);col++){
+            Cell c=new Cell(col,row);if(!groundCells.contains(c) || !visible(c))continue;BuildingRenderer surface=surfaceFor(c);if(surface==null)continue;
             Player p=gp.localPlayer();Graphics2D tile=(Graphics2D)g.create();
             tile.translate(c.col*gp.tileSize-p.worldX+p.screenX,c.row*gp.tileSize-p.worldY+p.screenY);
-            surface.drawFloor(tile,shared(c));tile.dispose();
+            gp.placementEffects.floor(tile,c.col,c.row);surface.drawFloor(tile,shared(c));tile.dispose();
         }
         Player camera=gp.localPlayer();Graphics2D objects=(Graphics2D)g.create();
-        objects.translate(camera.screenX-camera.worldX,camera.screenY-camera.worldY);surface.drawGroundDecorations(objects);objects.dispose();
+        objects.translate(camera.screenX-camera.worldX,camera.screenY-camera.worldY);
+        for(Decoration decoration:propIndex.query(gp.chunks.camera(4)))if(PropCatalog.get(decoration.element()).ground()){
+            Graphics2D visual=(Graphics2D)objects.create();gp.placementEffects.object(visual,decoration.id(),decoration.x()*gp.tileSize/48,decoration.y()*gp.tileSize/48);
+            BuildingRenderer.drawDecoration(visual,decoration,gp.tileSize,textures);visual.dispose();
+        }
+        objects.dispose();
     }
 
     public void addDrawLayers(List<Entity> layers){
         if(!overworld())return;
-        for(Piece p:structures.values())if(visible(p.cell))layers.add(p);
-        layers.addAll(furniture);
+        if(structures.size()<256){for(Piece p:structures.values())if(visible(p.cell))layers.add(p);}
+        else {Rectangle view=gp.chunks.camera(4);int ts=gp.tileSize;for(int row=Math.floorDiv(view.y,ts);row<=Math.floorDiv(view.y+view.height,ts);row++)for(int col=Math.floorDiv(view.x,ts);col<=Math.floorDiv(view.x+view.width,ts);col++){Piece p=structures.get(new Cell(col,row));if(p!=null && visible(p.cell))layers.add(p);}}
+        for(Decoration d:propIndex.query(gp.chunks.camera(4))){Furnishing visual=furniture.get(d.id());if(visual!=null)layers.add(visual);}
     }
     private void draw(Graphics2D g,Cell c,BufferedImage image){
         Player p=gp.localPlayer();int ts=gp.tileSize;
@@ -331,9 +389,11 @@ public final class BuildSystem {
         }
         @Override public int sortY(){return worldY+gp.tileSize;}
         @Override public void draw(Graphics2D original){
-            if(surface==null)return;
+            BuildingRenderer surface=surfaceFor(cell);if(surface==null)return;
             Player camera=gp.localPlayer();Graphics2D g=(Graphics2D)original.create();
             g.translate(worldX-camera.worldX+camera.screenX,worldY-camera.worldY+camera.screenY);
+            gp.placementEffects.structure(g,cell.col,cell.row);
+            if(gp.interactions.selected(this))surface.drawStructureOutline(g,shared(cell));
             surface.drawStructure(g,shared(cell));g.dispose();
         }
     }
@@ -384,6 +444,7 @@ public final class BuildSystem {
             left=Math.subtractExact(anchorCol,blueprint.anchor().col());top=Math.subtractExact(anchorRow,blueprint.anchor().row());
         }catch(ArithmeticException e){return "Blueprint outside map";}
         if(left<0 || top<0 || (long)left+blueprint.width()>gp.maxWorldCol || (long)top+blueprint.height()>gp.maxWorldRow)return "Blueprint outside map";
+        gp.chunks.ensureTiles(left-4,top-4,left+blueprint.width()+3,top+blueprint.height()+3);
         int level=gp.tileM.buildingElevation(left,top);
         // Reserve the whole authoring rectangle, including empty courtyard/entrance cells.
         for(int row=top;row<top+blueprint.height();row++)for(int col=left;col<left+blueprint.width();col++){
@@ -417,10 +478,12 @@ public final class BuildSystem {
         if(!gp.crafting.buildingTransaction(required,Map.of()))return "Missing crafted blueprint components";
         for(BuildingBlueprint.Placed entry:entries){
             BuildingLayout.Tile tile=entry.tile();Cell c=new Cell(entry.cell().col(),entry.cell().row());
+            gp.placementEffects.tile(c.col,c.row,tile.shape().ground());
             if(tile.shape().ground()){floors.add(c);floorElements.put(c,tile.element());}
             else structures.put(c,new Piece(c,Kind.valueOf(tile.shape().name()),tile.open(),tile.vertical(),tile.element()));
         }
         decorations.addAll(props);
+        for(Decoration d:props)gp.placementEffects.object(d.id(),d.x()*gp.tileSize/48,d.y()*gp.tileSize/48,PropCatalog.get(d.element()).oriented(d.rotation()).width()*gp.tileSize/48);
         for(int row=top;row<top+blueprint.height();row++)for(int col=left;col<left+blueprint.width();col++)clearVegetation(new Cell(col,row));
         changed();return null;
     }
@@ -479,7 +542,7 @@ public final class BuildSystem {
             else{
                 textures.prop(d.element(),d.flipped(),d.rotation());
                 if(!gp.crafting.buildingTransaction(Map.of(d.element(),1),Map.of()))return;
-                decorations.add(d);
+                decorations.add(d);gp.placementEffects.object(d.id(),d.x()*gp.tileSize/48,d.y()*gp.tileSize/48,PropCatalog.get(d.element()).oriented(d.rotation()).width()*gp.tileSize/48);
                 clearDecorationVegetation(d);
                 changed();
             }
@@ -509,19 +572,30 @@ public final class BuildSystem {
         @Override public void draw(Graphics2D original){
             Player camera=gp.localPlayer();if(Math.abs(worldX-camera.worldX)>gp.screenWidth+200 || Math.abs(worldY-camera.worldY)>gp.screenHeight+200)return;
             Graphics2D g=(Graphics2D)original.create();g.translate(camera.screenX-camera.worldX,camera.screenY-camera.worldY);
+            gp.placementEffects.object(g,decoration.id(),decoration.x()*gp.tileSize/48,decoration.y()*gp.tileSize/48);
             BuildingRenderer.drawDecoration(g,decoration,gp.tileSize,textures);g.dispose();
         }
     }
 
-    private String worldId(){return gp.worldConfig.procedural()?"procedural-"+gp.worldConfig.seed()+"-"+Integer.toUnsignedString((gp.worldConfig.toString()+"/"+world.generation.WorldConfig.GENERATOR_VERSION).hashCode(),16):"authored";}
+    private int generationVersion(){return gp.generatedWorld==null?world.generation.WorldConfig.GENERATOR_VERSION:gp.generatedWorld.generatorVersion;}
+    private String worldId(){return worldId(generationVersion());}
+    private String worldId(int generatorVersion){return gp.worldConfig.procedural()?"procedural-"+gp.worldConfig.seed()+"-"+Integer.toUnsignedString((gp.worldConfig.toString()+"/"+generatorVersion+(generatorVersion>=6 && gp.generatedWorld!=null?"/"+gp.generatedWorld.generation:"")+(generatorVersion>=8 && gp.generatedWorld!=null?"/"+gp.generatedWorld.nestConfig:"")+(generatorVersion>=9 && gp.generatedWorld!=null?"/"+gp.generatedWorld.elevationConfig:"")+(generatorVersion>=10 && gp.generatedWorld!=null?"/"+gp.generatedWorld.cliffConfig:"")).hashCode(),16):"authored";}
     private Path savePath(){return AppPaths.mapFile("maps/buildings/"+worldId()+".json").toPath();}
     public void load(){restore(null);}
     public void restore(String supplied){
-        stop();floors.clear();floorElements.clear();structures.clear();groundCells.clear();surface=null;clearedCells.clear();decorations.clear();furniture.clear();dirty=false;prepare();
+        gp.placementEffects.clear();gp.interactions.clear();
+        stop();floors.clear();floorElements.clear();structures.clear();groundCells.clear();surfaces.clear();renderState.clear();renderFloors.clear();clearedCells.clear();decorations.clear();furniture.clear();indexedDecorations.clear();propIndex.clear();dirty=false;prepare();
         Path file=savePath();String json=supplied;
+        if(supplied==null && gp.worldConfig.procedural() && generationVersion()==5 && !Files.isRegularFile(file)){
+            Path previous=AppPaths.mapFile("maps/buildings/"+worldId(4)+".json").toPath();
+            if(Files.isRegularFile(previous))file=previous;
+        }
         try{
             if(supplied==null && Files.isRegularFile(file))json=Files.readString(file,StandardCharsets.UTF_8);
             else if(supplied==null)try(InputStream stream=BuildSystem.class.getResourceAsStream("/maps/buildings/"+worldId()+".json")){
+                if(stream!=null)json=new String(stream.readAllBytes(),StandardCharsets.UTF_8);
+            }
+            if(json==null && supplied==null && gp.worldConfig.procedural() && generationVersion()==5)try(InputStream stream=BuildSystem.class.getResourceAsStream("/maps/buildings/"+worldId(4)+".json")){
                 if(stream!=null)json=new String(stream.readAllBytes(),StandardCharsets.UTF_8);
             }
             if(json==null)return;
