@@ -46,14 +46,18 @@ public class SnapshotBuilder {
         snapshot.inWellArea = gp.quests.inDungeon();
         snapshot.slimeProjectiles = buildSlimeProjectiles(gp);
         List<RangerEffectState> rangerEffects = new ArrayList<>();
+        List<StaffVisual> staffVisuals = new ArrayList<>();
         List<MageEffectState> mageEffects = new ArrayList<>();
         for (Entity projectile : gp.projectileList) {
             if (projectile instanceof entity.RangerEffect effect && effect.alive)
                 rangerEffects.add(effect.snapshot());
             else if (projectile instanceof entity.MageEffect effect && effect.alive)
                 mageEffects.add(effect.snapshot());
+            else if (projectile instanceof entity.StaffSpell effect && effect.alive)
+                staffVisuals.add(effect.snapshot());
         }
         snapshot.rangerEffects = rangerEffects.toArray(RangerEffectState[]::new);
+        snapshot.staffVisuals = staffVisuals.toArray(StaffVisual[]::new);
         snapshot.mageEffects = mageEffects.toArray(MageEffectState[]::new);
         snapshot.monsters = buildMonsters(gp);
         snapshot.objects = buildObjects(gp);
@@ -128,6 +132,10 @@ public class SnapshotBuilder {
             ps.maxRage = p.maxRage;
             ps.arcaneCharge = p.arcaneCharge;
             if (p.usesMana()) {
+                ps.staffCastingId = p.mage.castingId();
+                ps.staffShield = p.mage.shieldRemaining();
+                ps.crochetReady = p.mage.crochetReady();
+                ps.staffPage = p.progression.staffPage;
                 ps.mageKit = p.isMage();
                 ps.mageCastTicks = p.mage.castTicks();
                 ps.mageCastLength = p.mage.castLength();
@@ -230,6 +238,7 @@ public class SnapshotBuilder {
             ms.criticalHitRgb = m.criticalHitRgb;
             ms.hitDirection = m.hitDirection;
             ms.dying = m.dying;
+            ms.staffMarks = m.staffMarks();
             ms.rangerPinned = m.hasStatusEffect("rangerSlow");
             ms.assassinBleeding = m.hasAssassinBleed();
             ms.berserkerSundered = m.hasBerserkerSunder();

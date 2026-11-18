@@ -15,16 +15,24 @@ public class Main {
             InstallationCheck.run();
             return;
         }
-        AppPaths.initializeLogging();
+        boolean arena = java.util.Arrays.asList(args).contains("--combat-arena");
+        if (arena) {
+            System.setProperty("astral.arena", "true");
+            System.setProperty("astral.world.mode", "authored");
+        } else AppPaths.initializeLogging();
         SwingUtilities.invokeLater(() -> {
             try {
                 com.esotericsoftware.minlog.Log.set(com.esotericsoftware.minlog.Log.LEVEL_WARN);
-                window = new JFrame("AstralCore v" + AppInfo.VERSION);
+                window =
+                        new JFrame(
+                                arena
+                                        ? "AstralCore · Combat Arena"
+                                        : "AstralCore v" + AppInfo.VERSION);
                 window.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
                 window.setResizable(false);
                 Gamepanel gamePanel = new Gamepanel();
                 window.add(gamePanel);
-                gamePanel.config.loadConfig();
+                if (!arena) gamePanel.config.loadConfig();
                 window.pack();
                 window.setLocationRelativeTo(null);
                 gamePanel.setUpGame();

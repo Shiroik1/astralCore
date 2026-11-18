@@ -38,6 +38,36 @@ public class Monster extends Entity {
         pathfinder = new ai.Pathfinder(gp);
     }
 
+    private static final String[] STAFF_MARKS = {
+        "immolated", MageEffect.FROST_SLOW, "frozen", "shocked", "frogMorph"
+    };
+
+    /** Encodes the small set of visible elemental states for guest rendering. */
+    public int staffMarks() {
+        int flags = 0;
+        for (int i = 0; i < STAFF_MARKS.length; i++)
+            if (hasStatusEffect(STAFF_MARKS[i])) flags |= 1 << i;
+        return flags;
+    }
+
+    /** On replicas the host decides when each debuff appears and disappears. */
+    public void syncStaffMarks(int flags) {
+        for (int i = 0; i < STAFF_MARKS.length; i++) {
+            String name = STAFF_MARKS[i];
+            boolean present = (flags & (1 << i)) != 0;
+            if (present && !hasStatusEffect(name)) addStatusEffect(new StatusEffect(name, 1, 1, 0));
+            if (!present && hasStatusEffect(name)) statusEffects.removeIf(e -> e.type.equals(name));
+        }
+    }
+
+    /** Keeps status and immunity timers running while hard crowd control suspends AI. */
+    public boolean tickStaffControl() {
+        if (dying || !(hasStatusEffect("frogMorph") || hasStatusEffect("frozen"))) return false;
+        moving = false;
+        tickCombatEffects();
+        return true;
+    }
+
     /** Performs the stagger operation for Monster. */
     void stagger(int ticks) {
         if (isBoss() || dying) return;

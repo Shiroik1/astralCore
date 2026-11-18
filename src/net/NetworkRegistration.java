@@ -36,5 +36,7 @@ public class NetworkRegistration {
         kryo.register(RangerEffectState[].class);
         kryo.register(MageEffectState.class);
         kryo.register(MageEffectState[].class);
+        kryo.register(StaffVisual.class);
+        kryo.register(StaffVisual[].class);
     }
 }

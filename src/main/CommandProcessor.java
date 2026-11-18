@@ -45,6 +45,19 @@ public class CommandProcessor {
         String[] args = input.substring(1).trim().split("\\s+");
         String cmd = args[0].toLowerCase(Locale.ROOT);
 
+        if (cmd.equals("arena")) {
+            gp.arena.command(args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "");
+            return;
+        }
+        if (gp.arena.training
+                && !java.util.Set.of(
+                                "help", "list", "spawn", "kill", "clear", "stats", "pos", "heal", "time")
+                        .contains(cmd)) {
+            reply(
+                    "Practice commands: /arena, /list, /spawn, /kill, /clear, /stats, /pos, /heal, /time",
+                    INFO);
+            return;
+        }
         switch (cmd) {
             case "help" -> help();
             case "list" -> list();
@@ -116,6 +129,7 @@ public class CommandProcessor {
 
     /** Performs the help operation for CommandProcessor. */
     private void help() {
+        reply("/arena [god|refill|wave|leave] · solo combat practice", INFO);
         reply("/pos  /heal  /kill  /clear  /list", INFO);
         reply("/level <1-25>|+<n>  /stats  /tp <col> <row>", INFO);
         reply("/spawn <monster> [n]", INFO);

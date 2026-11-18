@@ -115,7 +115,19 @@ public class TileManager implements GroundTiles.World {
         this.gp = gp;
         baker.allowCoreThreadTimeOut(true);
         this.ground = new GroundTiles(gp.tileSize);
-        if (gp.generatedWorld != null) applyGenerated(gp.generatedWorld);
+        if (gp.arena.training) {
+            gp.maxWorldCol = main.CombatArena.COLS;
+            gp.maxWorldRow = main.CombatArena.ROWS;
+            terrainGrid = new Terrain[gp.maxWorldCol][gp.maxWorldRow];
+            levelGrid = new int[gp.maxWorldCol][gp.maxWorldRow];
+            for (int c = 0; c < gp.maxWorldCol; c++)
+                for (int r = 0; r < gp.maxWorldRow; r++)
+                    terrainGrid[c][r] =
+                            (c == 0 || r == 0 || c == gp.maxWorldCol - 1 || r == gp.maxWorldRow - 1)
+                                    ? Terrain.DEEP
+                                    : Terrain.COBBLE;
+            bakeAll();
+        } else if (gp.generatedWorld != null) applyGenerated(gp.generatedWorld);
         else {
             loadMap();
             bakeAll();

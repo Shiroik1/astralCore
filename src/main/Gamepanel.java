@@ -67,6 +67,8 @@ public class Gamepanel extends JPanel implements Runnable {
     public volatile boolean fullScreenOn = false;
     public final DisplaySettings display = new DisplaySettings(this);
 
+    public final CombatArena arena = new CombatArena(this);
+
     // WORLD SETTINGS
     public world.generation.WorldConfig worldConfig =
             world.generation.WorldConfig.developmentDefaults();
@@ -199,18 +201,24 @@ public class Gamepanel extends JPanel implements Runnable {
 
     /** Updates the up game for Gamepanel. */
     public void setUpGame() {
-        SceneryLoader.load(this);
+        if (!arena.training) SceneryLoader.load(this);
         grass.load();
         preloadGameplayAssets();
-        assetSetter.setObject();
-        assetSetter.setNPC();
-        assetSetter.setInteractiveTile();
-        buildings.load();
-        chunks.update();
-        if (!isNetworked) crafting.ensureWorld();
-        assetSetter.setMonster();
-        soundEffect.preloadFrom(1);
-        gameState = titleState;
+        if (arena.training) {
+            arena.prepare();
+            chunks.update();
+            gameState = playState;
+        } else {
+            assetSetter.setObject();
+            assetSetter.setNPC();
+            assetSetter.setInteractiveTile();
+            buildings.load();
+            chunks.update();
+            if (!isNetworked) crafting.ensureWorld();
+            assetSetter.setMonster();
+            soundEffect.preloadFrom(1);
+            gameState = titleState;
+        }
 
         tempScreen = new BufferedImage(screenWidth, screenHeight, BufferedImage.TYPE_INT_RGB);
         g2 = (Graphics2D) tempScreen.getGraphics();
@@ -407,11 +415,13 @@ public class Gamepanel extends JPanel implements Runnable {
                     long frameInterval = NANOS_PER_SECOND / display.renderFps();
                     nextFrame += frameInterval;
                     if (now - nextFrame >= 0) nextFrame = now + frameInterval;
-                    drawToTempscreen();
-                    Prof.begin();
-                    presentGameFrame();
-                    Prof.lap(6);
-                    Prof.frameDone();
+                    if (!arena.visiting()) {
+                        drawToTempscreen();
+                        Prof.begin();
+                        presentGameFrame();
+                        Prof.lap(6);
+                        Prof.frameDone();
+                    }
                 }
 
                 now = System.nanoTime();
@@ -446,6 +456,7 @@ public class Gamepanel extends JPanel implements Runnable {
             if (closeRequested) {
                 closeRequested = false;
                 if (saves.saveActive()) {
+                    arena.closeChild();
                     shutdownNetwork();
                     gameThread = null;
                     javax.swing.SwingUtilities.invokeLater(() -> {
@@ -459,10 +470,12 @@ public class Gamepanel extends JPanel implements Runnable {
                 return;
             }
 
+            if (arena.pauseAdventure()) return;
             currentTick++;
             world.TerrainHeightResolver.updateCameras(this);
 
             processInput();
+            if (arena.visiting()) return;
 
             if (hitStopCounter > 0) {
                 hitStopCounter--;
@@ -511,6 +524,7 @@ public class Gamepanel extends JPanel implements Runnable {
                     int hoveredIndex = findHoveredMonsterIndex(local);
                     local.hoveredTarget = (hoveredIndex >= 0) ? monster[hoveredIndex] : null;
                     localInput = InputState.captureFrom(keyH, mouseH, currentTick, hoveredIndex);
+                    localInput.staffPage = local.progression.staffPage;
                     localInput.aimWorldX = mouseH.getScaledX() - local.screenX + local.worldX;
                     localInput.aimWorldY = mouseH.getScaledY() - local.screenY + local.worldY;
                     java.util.Arrays.fill(
@@ -569,7 +583,7 @@ public class Gamepanel extends JPanel implements Runnable {
                 quests.activateArea(quests.hasDungeonPlayers());
 
                 boolean simulateWorld = !isNetworked || isHost;
-                if (simulateWorld) slimeSpawner.update();
+                if (simulateWorld && !arena.training) slimeSpawner.update();
                 if (simulateWorld) world.GroundLoot.update(this);
 
                 long entityStart = performance.start();
@@ -594,10 +608,7 @@ public class Gamepanel extends JPanel implements Runnable {
                             monster[i].updateAnimation();
                         } else if (simulateWorld) {
                             if (monster[i].alive && slimeSpawner.shouldSimulate(monster[i])) {
-                                if (monster[i].hasStatusEffect("frogMorph")) {
-                                    monster[i].updateStatusEffects();
-                                    monster[i].moving = false;
-                                } else monster[i].update();
+                                if (!monster[i].tickStaffControl()) monster[i].update();
                             }
                             if (!monster[i].alive) {
                                 removeDefeatedMonster(i);
@@ -706,6 +717,10 @@ public class Gamepanel extends JPanel implements Runnable {
 
     /** Evaluates the return to title condition for Gamepanel. */
     public boolean returnToTitle() {
+        if (arena.training) {
+            requestClose();
+            return true;
+        }
         if (!saves.saveActive()) return false;
         saves.deactivate();
         stopMusic();

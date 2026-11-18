@@ -28,7 +28,8 @@ public final class MageEffect extends Entity {
         WARD_PULSE(1, 13, 0.55f),
         WARD_BREAK(1, 18, 0.65f),
         CHORUS_SPARK(1, 14, 0.48f),
-        SANCTUARY_BLOOM(1, 27, 2.5f);
+        SANCTUARY_BLOOM(1, 27, 2.5f),
+        MISSILE(0, 22, 0);
         final int impact, end;
         final float radius;
 
@@ -64,6 +65,7 @@ public final class MageEffect extends Entity {
     private float x, y, remaining;
     private int id, age, lastTrail = -1, lastHealCue = -1;
     private boolean impactCue, successfulBolt;
+    boolean crochet;
 
     /** Creates a MageEffect instance and initializes the state required by its collaborators. */
     private MageEffect(
@@ -100,6 +102,14 @@ public final class MageEffect extends Entity {
         return effect;
     }
 
+    /** Creates a rune-powered projectile whose accepted impact can react with elemental marks. */
+    static MageEffect missile(Player owner, int x, int y, double heading, int damage) {
+        var effect = new MageEffect(owner.gp, owner, Kind.MISSILE, x, y, heading, damage, 0);
+        effect.remaining = owner.gp.tileSize * 6;
+        effect.releaseCue();
+        return effect;
+    }
+
     /** Resolves the mend result used by MageEffect. */
     static MageEffect mend(Player owner, Player target) {
         int x = PriestCombat.centerX(target), y = PriestCombat.centerY(target);
@@ -117,7 +127,7 @@ public final class MageEffect extends Entity {
 
     /** Evaluates the bolt condition for MageEffect. */
     private boolean bolt() {
-        return kind == Kind.BOLT || kind == Kind.RADIANT;
+        return kind == Kind.BOLT || kind == Kind.RADIANT || kind == Kind.MISSILE;
     }
 
     /** Evaluates the support condition for MageEffect. */
@@ -253,7 +263,8 @@ public final class MageEffect extends Entity {
         }
         remaining -= travel;
         if (remaining <= 0 || age >= kind.end) alive = false;
-        if (!alive && owner != null && !successfulBolt) owner.mage.missedBolt();
+        if (!alive && owner != null && kind == Kind.BOLT && !successfulBolt)
+            owner.mage.missedBolt();
         if (alive && age % 2 == 0 && age > lastTrail) {
             lastTrail = age;
             Particle.spray(
@@ -279,10 +290,15 @@ public final class MageEffect extends Entity {
                     || !m.alive
                     || m.dying
                     || !m.solidArea.intersects(x - m.worldX - 3, y - m.worldY - 3, 6, 6)) continue;
-            if (owner.mageBoltDamage(i, damage, RangerEffect.direction(heading), boltHit)) {
+            if (kind == Kind.MISSILE
+                    ? owner.mageAreaDamage(
+                            i, damage, RangerEffect.direction(heading), true, false, boltHit)
+                    : owner.mageBoltDamage(i, damage, RangerEffect.direction(heading), boltHit)) {
                 successfulBolt = true;
                 if (kind == Kind.RADIANT) owner.priest.onBoltHit();
+                else if (kind == Kind.MISSILE) owner.mage.react(m, damage);
                 else {
+                    if (crochet) owner.mage.crochet(m, damage);
                     if (m.hasStatusEffect(FROST_SLOW)) owner.mage.runeEvent();
                     owner.mage.gainRune();
                 }
@@ -448,6 +464,7 @@ public final class MageEffect extends Entity {
         if (bolt()) {
             g.translate(0, -12);
             g.rotate(heading);
+            if (kind == Kind.MISSILE) g.scale(1.45, 1.45);
             drawBolt(g, tint());
         } else if (support()) {
             drawSupport(g);

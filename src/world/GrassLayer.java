@@ -75,6 +75,10 @@ public class GrassLayer {
             return;
         }
 
+        if (gp.arena.training) {
+            rebuildDepthTufts();
+            return;
+        }
         String text = readText();
         if (text == null) {
             // Ordinary grass is now part of the terrain textures, including authored worlds.

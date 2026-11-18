@@ -160,6 +160,24 @@ public class KeyHandler implements KeyListener {
 
     /** Performs the play state operation for KeyHandler. */
     public void playState(int code) {
+        if (gp.arena.training) {
+            if (code == KeyEvent.VK_F6) {
+                gp.arena.command("god");
+                return;
+            }
+            if (code == KeyEvent.VK_F7) {
+                gp.arena.command("refill");
+                return;
+            }
+            if (code == KeyEvent.VK_F8) {
+                gp.arena.command("wave");
+                return;
+            }
+            if (code == KeyEvent.VK_F5) {
+                gp.ui.addMessage("Practice character is temporary.");
+                return;
+            }
+        }
         if (code == KeyEvent.VK_F5) {
             if (gp.saves.saveActive())
                 gp.ui.addMessage("Character saved.", new java.awt.Color(150, 220, 170));

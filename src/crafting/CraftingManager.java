@@ -708,6 +708,7 @@ public final class CraftingManager {
 
     /** Ensures the world for CraftingManager. */
     public void ensureWorld() {
+        if (gp.arena.training) return;
         if (gp.localPlayer() == null || gp.localPlayer().inWell || gp.quests.inDungeon()) return;
         if (initialized && seed == gp.worldConfig.seed()) return;
         if (initialized && seed != gp.worldConfig.seed()) reset();

@@ -35,6 +35,7 @@ public class MonsterState {
     public int slimeArrivalGrace;
     public boolean slimePhaseTwo, slimeNextSlam, slimeReturning, slimeRadialRecovery;
     public int worldX, worldY;
+    public int staffMarks;
     public String direction;
     public int HP, maxHP;
     public int comboStacks, assassinPairMask = -1;

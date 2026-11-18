@@ -290,6 +290,7 @@ public final class SaveStore {
     public void create(
             int slot, String name, int classIndex, int genderIndex, int hairStyle, int hairColor)
             throws IOException {
+        if (g.arena.training) throw new IOException("Practice characters cannot be saved.");
         if (!(hairStyle == -1 && hairColor == -1)
                 && !(art.Hairstyles.valid(hairStyle) && art.Hairstyles.validColor(hairColor)))
             throw new IOException("Choose a hairstyle and hair color");
@@ -327,6 +328,7 @@ public final class SaveStore {
      * progression.
      */
     public void load(int slot) throws IOException {
+        if (g.arena.training) throw new IOException("Leave the arena before loading a character.");
         CharacterData d =
                 read(slot); // Fully decode and validate before touching the current session.
         boolean recovered = recoveredBackup;
@@ -444,6 +446,7 @@ public final class SaveStore {
 
     /** Saves the active for SaveStore. */
     public boolean saveActive() {
+        if (g.arena.training) return true;
         long performanceStart = g.performance.start();
         try {
             if (activeSlot < 0 || active == null) return true;
@@ -465,6 +468,7 @@ public final class SaveStore {
 
     /** Writes the character snapshot through the existing safe-save and backup procedure. */
     private void write(int slot, CharacterData d) throws IOException {
+        if (g.arena.training) throw new IOException("Practice characters cannot be saved.");
         validate(d);
         Files.createDirectories(directory);
         byte[] bytes = json().toJson(d, CharacterData.class).getBytes(StandardCharsets.UTF_8);
@@ -514,6 +518,7 @@ public final class SaveStore {
 
     /** Performs the delete operation for SaveStore. */
     public void delete(int slot) throws IOException {
+        if (g.arena.training) throw new IOException("Practice mode cannot delete characters.");
         if (slot == activeSlot)
             throw new IOException("Return to the title before deleting this character");
         Files.deleteIfExists(backup(slot));

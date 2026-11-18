@@ -24,6 +24,10 @@ public class StatusEffect {
     private static Color defaultTintFor(String type) {
         return switch (type) {
             case "attackBoost" -> new Color(255, 60, 60, 100);
+            case "immolated" -> new Color(240, 117, 75, 82);
+            case "mageFrost" -> new Color(143, 203, 233, 85);
+            case "frozen" -> new Color(171, 226, 248, 155);
+            case "shocked" -> new Color(202, 158, 232, 110);
             case "bleed" -> new Color(60, 220, 60, 100);
             case "defenseBoost" -> new Color(80, 160, 255, 100);
             case "attackSpeedBoost" -> new Color(255, 240, 80, 100);

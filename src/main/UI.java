@@ -257,7 +257,17 @@ public class UI {
                 ui.UITheme.baseFont(jetbrainsMono);
                 game.status(g2);
                 drawBossHealth();
-                drawQuestTracker();
+                if (gp.arena.training) {
+                    ui.UITheme.text(
+                            g2,
+                            "Combat Arena · Invincibility "
+                                    + (gp.arena.invulnerable ? "ON" : "OFF")
+                                    + "   F6 toggle   F7 refill   F8 wave   /arena leave",
+                            24,
+                            gp.screenHeight - 95,
+                            13,
+                            Color.WHITE);
+                } else drawQuestTracker();
                 Player local = gp.localPlayer();
                 if (local != null) {
                     drawStatusEffects(local);

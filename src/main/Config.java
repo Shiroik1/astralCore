@@ -20,6 +20,7 @@ public class Config {
 
     /** Saves the config for Config. */
     public void saveConfig() throws IOException {
+        if (gp.arena.training) return;
 
         AppPaths.createParent(path);
         BufferedWriter bw = new BufferedWriter(new FileWriter(path.toFile()));

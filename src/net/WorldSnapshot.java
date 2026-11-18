@@ -9,6 +9,7 @@ public class WorldSnapshot {
     public SlimeProjectileState[] slimeProjectiles;
     public RangerEffectState[] rangerEffects;
     public MageEffectState[] mageEffects;
+    public StaffVisual[] staffVisuals;
     public PlayerState[] players;
     public MonsterState[] monsters;
     public ObjectState[] objects;

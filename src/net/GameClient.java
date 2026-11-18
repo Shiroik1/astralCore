@@ -232,6 +232,7 @@ public class GameClient {
                         ps.effectTypes != null
                                 && java.util.Arrays.asList(ps.effectTypes)
                                         .contains(entity.MageCombat.INFUSION);
+                p.mage.syncPreparation(ps.staffCastingId, ps.staffShield, ps.crochetReady);
                 p.mage.syncVisual(
                         ps.mageCastTicks,
                         ps.mageCastLength,
@@ -287,6 +288,7 @@ public class GameClient {
                 p.defense = p.getDefense();
                 for (int i = 0;
                         i < p.skills.length
+                                && (!p.isMage() || ps.staffPage == p.progression.staffPage)
                                 && ps.skillCooldowns != null
                                 && i < ps.skillCooldowns.length;
                         i++) {
@@ -428,6 +430,7 @@ public class GameClient {
                             : ms.comboStacks;
             m.hitSequence = ms.hitSequence;
             m.dying = ms.dying;
+            m.syncStaffMarks(ms.staffMarks);
             m.syncRangerPin(ms.rangerPinned);
             m.syncAssassinBleed(ms.assassinBleeding);
             m.syncBerserkerSunder(ms.berserkerSundered);
@@ -446,6 +449,17 @@ public class GameClient {
         applySlimeProjectiles(snapshot.slimeProjectiles);
         applyRangerEffects(snapshot.rangerEffects);
         applyMageEffects(snapshot.mageEffects);
+        if (snapshot.staffVisuals != null) {
+            var previous = new java.util.HashMap<Integer, entity.StaffSpell>();
+            for (var e : gp.projectileList)
+                if (e instanceof entity.StaffSpell spell) previous.put(spell.visualId(), spell);
+            for (var state : snapshot.staffVisuals) {
+                var spell = previous.remove(state.id);
+                if (spell == null) gp.projectileList.add(new entity.StaffSpell(gp, state));
+                else spell.sync(state);
+            }
+            if (!previous.isEmpty()) gp.projectileList.removeAll(previous.values());
+        }
 
         for (int i = 0; i < snapshot.objects.length; i++) {
             net.ObjectState os = snapshot.objects[i];

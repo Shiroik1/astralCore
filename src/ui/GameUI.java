@@ -181,6 +181,12 @@ public final class GameUI {
             selectHotbar(slot, window == Window.NONE);
             return true;
         }
+        if (window == Window.NONE
+                && gp.localPlayer().isMage()
+                && (code == KeyEvent.VK_OPEN_BRACKET || code == KeyEvent.VK_CLOSE_BRACKET)) {
+            gp.localPlayer().mage.page(code == KeyEvent.VK_CLOSE_BRACKET ? 1 : -1);
+            return true;
+        }
         if (window != Window.NONE) {
             if (window == Window.CHARACTER
                     && tab == 2
@@ -438,6 +444,10 @@ public final class GameUI {
         if (window == Window.CHARACTER && tab == 0) {
             Player p = gp.localPlayer();
             int left = frame.x + 28, top = frame.y + 119;
+            if (new Rectangle(left + 442, top + 284, 192, 30).contains(x, y) && !gp.isNetworked) {
+                gp.arena.enterOrLeave();
+                return;
+            }
             int[] base = {p.strength, p.dexterity, p.intelligence, p.progression.stamina};
             for (int i = 0; i < 4; i++) {
                 if (new Rectangle(left + 250, top + 86 + i * 30, 24, 24).contains(x, y)
@@ -662,7 +672,33 @@ public final class GameUI {
     private void drawAbilities(Graphics2D g) {
         Player p = gp.localPlayer();
         int x = gp.screenWidth - 232, y = gp.screenHeight - 69;
-        UITheme.text(g, "Weapon actions · Shift + 1–5", x, y - 8, 10, UITheme.MUTED);
+        if (p.isMage())
+            UITheme.slot(
+                    g,
+                    new Rectangle(x - 42, y, 34, 34),
+                    false,
+                    entity.MageCombat.icon("arcane_bolt"));
+        UITheme.text(
+                g,
+                p.isMage()
+                        ? "LMB bolt · [ ] page " + (p.progression.staffPage + 1) + " · Shift + 1–5"
+                        : "Weapon actions · Shift + 1–5",
+                x,
+                y - 8,
+                10,
+                UITheme.MUTED);
+        if (p.isMage()) {
+            if (!p.mage.castingName().isEmpty())
+                UITheme.bar(
+                        g,
+                        new Rectangle(x, y - 37, 180, 16),
+                        p.mage.castLength() - p.mage.castTicks(),
+                        p.mage.castLength(),
+                        UITheme.ACCENT,
+                        p.mage.castingName());
+            else if (p.mage.crochetReady())
+                UITheme.text(g, "Crochet ready", x, y - 22, 11, UITheme.ACCENT);
+        }
         for (int i = 0; i < p.skills.length; i++)
             if (p.skills[i] != null) {
                 Skill skill = p.skills[i];
@@ -884,6 +920,12 @@ public final class GameUI {
         }
         int x = frame.x + 28, y = frame.y + 119;
         if (tab == 0) {
+            button(
+                    g,
+                    new Rectangle(x + 442, y + 284, 192, 30),
+                    gp.arena.training ? "Leave combat arena" : "Enter combat arena",
+                    !gp.isNetworked,
+                    false);
             UITheme.text(g, p.playerName, x, y, 23, UITheme.TEXT);
             UITheme.text(g, "Level " + p.level, x, y + 31, 15, UITheme.ACCENT);
             UITheme.bar(

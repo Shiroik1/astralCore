@@ -45,7 +45,7 @@ public final class TerrainHeightResolver {
             if (p != null) {
                 int centerX = gp.screenWidth / 2 - gp.tileSize / 2,
                         centerY = gp.screenHeight / 2 - gp.tileSize / 2;
-                if (gp.generatedWorld == null
+                if (gp.generatedWorld == null && !gp.arena.training
                         || p.inWell
                         || gp.quests != null && gp.quests.inDungeon()) {
                     p.screenX = centerX;

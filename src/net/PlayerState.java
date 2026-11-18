@@ -44,6 +44,8 @@ public class PlayerState {
     public int berserkerAction, berserkerAge, berserkerSerial;
     public double berserkerHeading;
     public boolean berserkerWaveStopped;
+    public int staffCastingId = -1, staffShield, staffPage;
+    public boolean crochetReady;
     public boolean mageKit;
     public int priestBeaconId = -1;
     public int mageCastTicks, mageCastLength, mageFrame = 1;

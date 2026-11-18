@@ -16,6 +16,7 @@ public class InputState {
             chorusSpeed,
             heavyMovement;
     public boolean[] skillKeyPressed = new boolean[5];
+    public int staffPage;
     public int targetedMonsterIndex = -1;
     public int aimWorldX, aimWorldY;
 
@@ -49,6 +50,7 @@ public class InputState {
         right = newer.right;
         aimWorldX = newer.aimWorldX;
         aimWorldY = newer.aimWorldY;
+        staffPage = newer.staffPage;
         targetedMonsterIndex = newer.targetedMonsterIndex;
         leftHeld = newer.leftHeld;
         rightHeld = newer.rightHeld;

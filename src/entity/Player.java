@@ -224,8 +224,16 @@ public class Player extends Entity {
 
     /** Updates the default position for Player. */
     public void setDefaultPosition() {
-        worldX = gp.tileSize * (gp.generatedWorld == null ? 25 : gp.generatedWorld.spawnCol);
-        worldY = gp.tileSize * (gp.generatedWorld == null ? 28 : gp.generatedWorld.spawnRow);
+        worldX =
+                gp.tileSize
+                        * (gp.arena.training
+                                ? main.CombatArena.START_X
+                                : gp.generatedWorld == null ? 25 : gp.generatedWorld.spawnCol);
+        worldY =
+                gp.tileSize
+                        * (gp.arena.training
+                                ? main.CombatArena.START_Y
+                                : gp.generatedWorld == null ? 28 : gp.generatedWorld.spawnRow);
         direction = "down";
     }
 
@@ -2293,8 +2301,10 @@ public class Player extends Entity {
     private void contactMonster(int index) {
         if (index == 999) return;
         Monster monster = gp.monster[index];
-        if (!monster.dying && monster.canDealContactDamage())
-            receiveHit(monster, monster.attack, true);
+        if (!monster.dying
+                && !monster.hasStatusEffect("frozen")
+                && !monster.hasStatusEffect("frogMorph")
+                && monster.canDealContactDamage()) receiveHit(monster, monster.attack, true);
     }
 
     /** Routes an incoming hit through protection, guarding and the authoritative damage rules. */
@@ -2324,7 +2334,7 @@ public class Player extends Entity {
         invincible = true;
         invincibilityDuration = source.incomingHitImmunity;
         invincibleCounter = 0;
-        if (damage == 0) return;
+        if (damage == 0 || gp.arena.training && gp.arena.invulnerable) return;
         if (contact && playerClass.equals("warrior")) {
             rage = Math.min(maxRage, rage + 15);
             ticksSinceRageGain = 0;
@@ -2902,6 +2912,7 @@ public class Player extends Entity {
     /** Performs the setup skills operation for Player. */
     private void setupSkills() {
         statusEffectIcons.clear();
+        statusEffectIcons.put("staffBuff", MageCombat.icon("magic_buff"));
         if (isPaladin()) {
             paladin.setup(skills);
             return;
@@ -2924,7 +2935,7 @@ public class Player extends Entity {
         }
         if (isMage()) {
             mage.setup(skills);
-            statusEffectIcons.put(MageCombat.INFUSION, skills[2].icon);
+            statusEffectIcons.put(MageCombat.INFUSION, MageCombat.icon("arcane_missile"));
         } else sword.setup(skills);
     }
 
@@ -3066,6 +3077,13 @@ public class Player extends Entity {
 
     /** Applies the input for Player. */
     public void applyInput(InputState input) {
+        if (gp.isHost
+                && !isLocal
+                && isMage()
+                && input.staffPage >= 0
+                && input.staffPage < 3
+                && input.staffPage != progression.staffPage)
+            mage.page(input.staffPage - progression.staffPage);
         currentInput = input;
         lastProcessedInputTick = input.tick;
         if (isLocal) {
