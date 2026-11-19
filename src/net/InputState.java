@@ -16,6 +16,7 @@ public class InputState {
             chorusSpeed,
             heavyMovement;
     public boolean[] skillKeyPressed = new boolean[5];
+    public boolean[] skillHeld = new boolean[5];
     public int staffPage;
     public int targetedMonsterIndex = -1;
     public int aimWorldX, aimWorldY;
@@ -37,6 +38,7 @@ public class InputState {
         state.targetedMonsterIndex = targetedMonsterIndex;
         for (int i = 0; i < state.skillKeyPressed.length; i++) {
             state.skillKeyPressed[i] = keyH.skillKeyPressed[i];
+            state.skillHeld[i] = keyH.skillHeld[i];
         }
         return state;
     }
@@ -44,6 +46,7 @@ public class InputState {
     /** Performs the merge one shot flags operation for InputState. */
     public void mergeOneShotFlags(InputState newer) {
         // Keep the newest directional/held state, but latch any one-shot press seen in this batch
+        skillHeld = newer.skillHeld.clone();
         up = newer.up;
         down = newer.down;
         left = newer.left;

@@ -45,7 +45,10 @@ public final class CombatArena {
         if (!running) {
             int result = session.exitValue();
             session = null;
-            gp.ui.addMessage(result == 0 ? "Returned from practice." : "Arena closed unexpectedly; adventure restored.");
+            gp.ui.addMessage(
+                    result == 0
+                            ? "Returned from practice."
+                            : "Arena closed unexpectedly; adventure restored.");
         }
         return running;
     }
@@ -160,6 +163,24 @@ public final class CombatArena {
             return;
         }
         switch (action) {
+            case "level1" -> {
+                Player p = gp.localPlayer();
+                p.debugSetLevel(1);
+                p.meleeMasteryXP = p.bowMasteryXP = p.magicMasteryXP = 0;
+                p.progression.talents.clear();
+                p.strength = p.dexterity = p.intelligence = 10;
+                p.sword.setup(p.skills);
+                refill();
+            }
+            case "max" -> prepare();
+            case "boss" -> {
+                Arrays.fill(gp.monster, null);
+                var boss = new monster.MON_CrownedSlime(gp);
+                boss.worldX = 16 * gp.tileSize;
+                boss.worldY = 9 * gp.tileSize;
+                boss.setHome();
+                gp.monster[0] = boss;
+            }
             case "god" -> {
                 invulnerable = !invulnerable;
                 gp.ui.addMessage("Arena invincibility " + (invulnerable ? "on" : "off"));
@@ -170,7 +191,7 @@ public final class CombatArena {
             }
             case "wave" -> opponents();
             case "leave", "exit" -> enterOrLeave();
-            default -> gp.ui.addMessage("/arena god · refill · wave · leave");
+            default -> gp.ui.addMessage("/arena level1 · max · boss · god · refill · wave · leave");
         }
     }
 }

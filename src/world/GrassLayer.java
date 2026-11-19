@@ -27,7 +27,7 @@ public class GrassLayer {
     public static final String PATH = "maps/grass.txt";
     private static final String RESOURCE = "/maps/grass.txt";
     private static final int MAX_PER_TILE = 5;
-    private static final int[] COUNT = {0, 1, 2, 3, 4}; // tufts per tile for density 0..4
+    private static final int[] COUNT = {0, 1, 1, 2, 2}; // tufts per tile for density 0..4
 
     private final Gamepanel gp;
     private final GrassArt art;
@@ -36,6 +36,7 @@ public class GrassLayer {
     private float[][] energy; // wobble left behind by something that moved through a tile
     private short[] tuftX, tuftY; // tuft positions inside their tile, in pixels
     private int[] tuftHash;
+    private byte[][] decorativeDensity;
     private Entity[] depthTufts;
     private final java.util.Set<Integer> stirred = new java.util.HashSet<>();
     private long time = 0;
@@ -246,6 +247,7 @@ public class GrassLayer {
         for (int r = r0; r <= r1; r++) {
             for (int c = c0; c <= c1; c++) {
                 if (gp.buildings.coversGround(c, r)) continue;
+                drawShortGrass(g2, cam, c, r);
                 int v = cells[c][r];
                 if (v <= 8) continue;
                 int type = (v - 1) / 4;
@@ -281,6 +283,7 @@ public class GrassLayer {
         for (int r = r0; r <= r1; r++) {
             for (int c = c0; c <= c1; c++) {
                 if (gp.buildings.coversGround(c, r)) continue;
+                if (e.type == Entity.type_player) drawShortGrass(g2, cam, c, r, e);
                 int v = cells[c][r];
                 if (v <= 8) continue;
                 int type = (v - 1) / 4;
@@ -295,6 +298,50 @@ public class GrassLayer {
                     drawTuft(g2, cam, c, r, i, type, level);
                 }
             }
+        }
+    }
+
+    /** Seeded ground decoration is drawn only in view and never participates in harvesting. */
+    private void drawShortGrass(Graphics2D g, Player camera, int c, int r) {
+        drawShortGrass(g, camera, c, r, null);
+    }
+
+    /** Replays only tufts rooted immediately in front of feet after the player is drawn. */
+    private void drawShortGrass(Graphics2D g, Player camera, int c, int r, Entity front) {
+        if (!supportsGrass(c, r) || cells[c][r] > 12) return;
+        int base = (r * cols + c) * MAX_PER_TILE;
+        int count = decorativeDensity[c][r];
+        if (count == 0) return;
+        boolean golden = false;
+        for (int y = Math.max(0, r - 3); y <= Math.min(rows - 1, r + 3) && !golden; y++)
+            for (int x = Math.max(0, c - 3); x <= Math.min(cols - 1, c + 3); x++)
+                if (cells[x][y] >= 21 && cells[x][y] <= 24) {
+                    golden = true;
+                    break;
+                }
+        for (int i = 0; i < count; i++) {
+            int index = base + i % MAX_PER_TILE, hash = tuftHash[index];
+            // Jitter stays inside each planting pocket: dense coverage without visible rows.
+            float jitterX = (((hash + i * 179) % 101) / 100f - .5f) * .65f;
+            float jitterY = (((hash / 101 + i * 53) % 101) / 100f - .5f) * .65f;
+            float wx = c * gp.tileSize + ((i % 3) + .5f + jitterX) * gp.tileSize / 3;
+            float wy = r * gp.tileSize + ((i / 3) + .5f + jitterY) * gp.tileSize / 3;
+            if (front != null) {
+                int feetX = front.worldX + front.solidArea.x + front.solidArea.width / 2;
+                int feetY = front.sortY();
+                if (wy <= feetY
+                        || wy > feetY + gp.tileSize * .28f
+                        || Math.abs(wx - feetX) > front.solidArea.width * .65f) continue;
+            }
+            int size = Math.round(gp.tileSize * (.80f + ((hash + i * 31) % 97) / 96f * .30f));
+            int bend = bendIndex(c, r, wx, wy, hash);
+            g.drawImage(
+                    art.shortGrass(golden ? 2 : (hash / 100) % 2, gp.tileM.level(c, r), bend),
+                    (int) wx - size / 2 - camera.worldX + camera.screenX,
+                    (int) wy - Math.round(size * 44f / 48) - camera.worldY + camera.screenY,
+                    size,
+                    size,
+                    null);
         }
     }
 
@@ -466,6 +513,7 @@ public class GrassLayer {
         tuftX = new short[n];
         tuftY = new short[n];
         tuftHash = new int[n];
+        decorativeDensity = new byte[cols][rows];
         int ts = gp.tileSize;
         world.generation.NoiseGenerator seeded =
                 gp.generatedWorld == null
@@ -474,6 +522,25 @@ public class GrassLayer {
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
                 int base = (r * cols + c) * MAX_PER_TILE;
+                // A filled radial patch has broad irregular lobes, with no isolated outside tufts.
+                int regionX = c / 40, regionY = r / 40;
+                double centerX =
+                        regionX * 40 + 20 + (tuftRandom(seeded, 941, regionX, regionY) - .5) * 4;
+                double centerY =
+                        regionY * 40 + 20 + (tuftRandom(seeded, 942, regionX, regionY) - .5) * 4;
+                double radiusX = 11 + tuftRandom(seeded, 943, regionX, regionY) * 3;
+                double radiusY = 11 + tuftRandom(seeded, 944, regionX, regionY) * 3;
+                double nx = (c + .5 - centerX) / radiusX, ny = (r + .5 - centerY) / radiusY;
+                double angle = Math.atan2(ny, nx);
+                double phase = tuftRandom(seeded, 945, regionX, regionY) * Math.PI * 2;
+                double edge =
+                        1
+                                + .15 * Math.sin(angle * 3 + phase)
+                                + .08 * Math.sin(angle * 5 - phase * .7)
+                                + .035 * Math.sin(angle * 9 + phase);
+                // Taper towards irregular edges while retaining a solid, dense heart.
+                double radius = Math.hypot(nx, ny) / edge;
+                decorativeDensity[c][r] = (byte) (radius > 1 ? 0 : radius > .88 ? 7 : 9);
                 for (int i = 0; i < MAX_PER_TILE; i++) {
                     tuftX[base + i] = (short) (4 + tuftRandom(seeded, 401 + i, c, r) * (ts - 8));
                     tuftY[base + i] = (short) (8 + tuftRandom(seeded, 433 + i, c, r) * (ts - 12));

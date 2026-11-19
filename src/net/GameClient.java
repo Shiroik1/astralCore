@@ -353,7 +353,12 @@ public class GameClient {
                 if (!p.isLocal && ps.assassinAction != 0) p.spriteNum = ps.assassinFrame;
             }
             if (!p.isLocal && ps.attacking && p.usesMeleeSlash())
-                p.syncMeleeAttackFrame(ps.meleeFrame, ps.meleeFrameTicks);
+                p.sword.syncBasicPose(ps.basicSwordPose);
+            p.sword.syncPower(ps.powerslash);
+            p.sword.syncSunder(ps.sundering);
+            p.sword.thrust.sync(p, ps);
+            p.sword.charge.sync(p, ps);
+            p.syncMeleeAttackFrame(ps.meleeFrame, ps.meleeFrameTicks);
             if (p.isRanger()) {
                 boolean activeArea = gp.quests.inDungeon();
                 gp.quests.activateArea(p.inWell);

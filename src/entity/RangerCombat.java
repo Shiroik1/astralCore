@@ -56,7 +56,31 @@ public final class RangerCombat {
     }
 
     /** Updates the skills for RangerCombat. */
+    private Skill[] catalog;
+
+    /** Maps saved Bow identities onto the five action slots, retaining cooldown objects. */
     void setSkills(Skill[] slots) {
+        if (catalog == null) {
+            catalog = new Skill[5];
+            buildSkills(catalog);
+        }
+        for (int i = 0; i < 5; i++) {
+            int id = player.progression.bowSlots[i];
+            slots[i] = id < 0 ? null : catalog[id];
+        }
+    }
+
+    /** Supplies the existing Bow abilities and cached icons to the skill menu. */
+    public Skill catalogSkill(int id) {
+        if (catalog == null) {
+            catalog = new Skill[5];
+            buildSkills(catalog);
+        }
+        return catalog[id];
+    }
+
+    /** Builds each authored Bow action once. */
+    private void buildSkills(Skill[] slots) {
         slots[0] =
                 skill(
                         "Pinning Shot",
@@ -141,6 +165,8 @@ public final class RangerCombat {
 
     /** Reports whether this component can use for RangerCombat. */
     boolean canUse(int slot) {
+        slot = player.progression.bowSlots[slot];
+        if (slot < 0) return false;
         if (!player.hasBow()
                 || hopAge > 0
                 || deadeye > 0
@@ -160,6 +186,13 @@ public final class RangerCombat {
 
     /** Advances this component for one simulation tick. */
     void update() {
+        if (catalog != null)
+            for (Skill skill : catalog) {
+                boolean assigned = false;
+                for (Skill visible : player.skills) if (visible == skill) assigned = true;
+                if (!assigned) skill.update();
+            }
+
         if (player.canResolveWorldActions()
                 && markTicks > 0
                 && (--markTicks == 0

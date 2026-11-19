@@ -322,6 +322,19 @@ public final class WeaponArt {
         return s;
     }
 
+    /** Basic sword anticipation, crisp smear, held follow-through and eased return. */
+    public static Swing basicSword(float t) {
+        Swing s = new Swing();
+        float raise = smooth(Math.min(1, t / .25f));
+        float cut = smooth(Math.clamp((t - .4f) / .2f, 0, 1));
+        float settle = smooth(Math.clamp((t - .75f) / .25f, 0, 1));
+        s.lift = raise * (1 - cut) * (1 - settle);
+        s.arm = 145 * raise * (1 - cut) - 75 * cut * (1 - settle);
+        s.reach = cut * (1 - settle);
+        s.smear = t >= .4f && t < .6f ? 1 : 0;
+        return s;
+    }
+
     /**
      * Eight-frame melee beat: anticipate, snap forward on frame 4, impact on 5, follow through on
      * 6, then settle. These are Player's active hit frames 4–6.

@@ -55,6 +55,7 @@ public final class GameUI {
             filters = new Rectangle[3];
     private final Map<Integer, Rectangle> recipeRows = new LinkedHashMap<>();
     private int skillIndex, craftCooldown, talentPage;
+    private int selectedAbility = -2;
     private final String[] equipmentNames = {
         "Weapon", "Offhand", "Hair", "Torso", "Legs", "Boots", "Hands", "Cloak", "Headwear"
     };
@@ -174,27 +175,18 @@ public final class GameUI {
         }
         if (code >= KeyEvent.VK_0 && code <= KeyEvent.VK_9) {
             int slot = code == KeyEvent.VK_0 ? 9 : code - KeyEvent.VK_1;
-            if (shift && slot < 5 && window == Window.NONE) {
+            if (window == Window.CHARACTER && tab == 2 && skillIndex < 3 && slot < 5) {
+                assignSkill(slot);
+                return true;
+            }
+            if (!shift && slot < 5 && window == Window.NONE) {
                 gp.keyH.skillKeyPressed[slot] = true;
                 return true;
             }
             selectHotbar(slot, window == Window.NONE);
             return true;
         }
-        if (window == Window.NONE
-                && gp.localPlayer().isMage()
-                && (code == KeyEvent.VK_OPEN_BRACKET || code == KeyEvent.VK_CLOSE_BRACKET)) {
-            gp.localPlayer().mage.page(code == KeyEvent.VK_CLOSE_BRACKET ? 1 : -1);
-            return true;
-        }
         if (window != Window.NONE) {
-            if (window == Window.CHARACTER
-                    && tab == 2
-                    && skillIndex == 1
-                    && (code == KeyEvent.VK_OPEN_BRACKET || code == KeyEvent.VK_CLOSE_BRACKET)) {
-                gp.localPlayer().mage.page(code == KeyEvent.VK_CLOSE_BRACKET ? 1 : -1);
-                return true;
-            }
             if (window == Window.INVENTORY) {
                 if (code == KeyEvent.VK_DOWN || code == KeyEvent.VK_UP)
                     selectRecipe(code == KeyEvent.VK_DOWN ? 1 : -1);
@@ -444,10 +436,6 @@ public final class GameUI {
         if (window == Window.CHARACTER && tab == 0) {
             Player p = gp.localPlayer();
             int left = frame.x + 28, top = frame.y + 119;
-            if (new Rectangle(left + 442, top + 284, 192, 30).contains(x, y) && !gp.isNetworked) {
-                gp.arena.enterOrLeave();
-                return;
-            }
             int[] base = {p.strength, p.dexterity, p.intelligence, p.progression.stamina};
             for (int i = 0; i < 4; i++) {
                 if (new Rectangle(left + 250, top + 86 + i * 30, 24, 24).contains(x, y)
@@ -479,6 +467,23 @@ public final class GameUI {
                     return;
                 }
             if (tab == 2 && skillIndex < 3) {
+                for (int i = 0; i < 5; i++)
+                    if (new Rectangle(frame.x + 439 + i * 42, frame.y + 173, 34, 34)
+                            .contains(x, y)) {
+                        assignSkill(i);
+                        return;
+                    }
+                for (int i = 0; i <= abilityCount(); i++)
+                    if (new Rectangle(
+                                    frame.x + 439 + (i % 2) * 193,
+                                    frame.y + 255 + (i / 2) * 18,
+                                    190,
+                                    18)
+                            .contains(x, y)) {
+                        selectedAbility = i - 1;
+                        return;
+                    }
+
                 if (new Rectangle(frame.x + 439, frame.y + 493, 70, 26).contains(x, y)) {
                     talentPage = Math.max(0, talentPage - 1);
                     return;
@@ -501,6 +506,7 @@ public final class GameUI {
                 for (int i = 0; i < 8; i++)
                     if (new Rectangle(frame.x + 28, skillRowTop(i), 340, 32).contains(x, y)) {
                         skillIndex = i;
+                        selectedAbility = -2;
                         talentPage = 0;
                         break;
                     }
@@ -651,7 +657,7 @@ public final class GameUI {
             UITheme.slot(g, r, p.hotbar.selected == i, item == null ? null : item.down1);
             UITheme.text(
                     g,
-                    i == 9 ? "0" : Integer.toString(i + 1),
+                    i < 5 ? "S+" + (i + 1) : i == 9 ? "0" : Integer.toString(i + 1),
                     r.x + 4,
                     r.y + 12,
                     10,
@@ -680,13 +686,19 @@ public final class GameUI {
                     entity.MageCombat.icon("arcane_bolt"));
         UITheme.text(
                 g,
-                p.isMage()
-                        ? "LMB bolt · [ ] page " + (p.progression.staffPage + 1) + " · Shift + 1–5"
-                        : "Weapon actions · Shift + 1–5",
+                p.isMage() ? "LMB bolt · 1–5 skills · C to assign" : "1–5 skills · C to assign",
                 x,
                 y - 8,
                 10,
                 UITheme.MUTED);
+        if (p.sword.equipped() && p.sword.chargePercent() >= 0)
+            UITheme.bar(
+                    g,
+                    new Rectangle(x, y - 37, 180, 16),
+                    p.sword.chargePercent(),
+                    100,
+                    UITheme.ACCENT,
+                    "Bullthrust");
         if (p.isMage()) {
             if (!p.mage.castingName().isEmpty())
                 UITheme.bar(
@@ -699,23 +711,104 @@ public final class GameUI {
             else if (p.mage.crochetReady())
                 UITheme.text(g, "Crochet ready", x, y - 22, 11, UITheme.ACCENT);
         }
-        for (int i = 0; i < p.skills.length; i++)
-            if (p.skills[i] != null) {
-                Skill skill = p.skills[i];
-                Rectangle r = new Rectangle(x + i * 42, y, 34, 34);
-                UITheme.slot(g, r, false, skill.icon);
-                if (!skill.isReady()) {
-                    g.setColor(new Color(0, 0, 0, 160));
-                    g.fillRect(r.x + 1, r.y + 1, r.width - 1, r.height - 1);
-                    UITheme.text(
-                            g,
-                            Integer.toString((skill.cooldownRemaining + 59) / 60),
-                            r.x + 10,
-                            r.y + 24,
-                            12,
-                            UITheme.TEXT);
-                }
+        for (int i = 0; i < p.skills.length; i++) {
+            Skill skill = p.skills[i];
+            Rectangle r = new Rectangle(x + i * 42, y, 34, 34);
+            if (skill == null) {
+                UITheme.slot(g, r, false, null);
+                UITheme.text(g, Integer.toString(i + 1), r.x + 3, r.y + 11, 10, UITheme.MUTED);
+                continue;
             }
+
+            UITheme.slot(g, r, false, skill.icon);
+            UITheme.text(g, Integer.toString(i + 1), r.x + 3, r.y + 11, 10, UITheme.TEXT);
+            if (!skill.isReady()) {
+                g.setColor(new Color(0, 0, 0, 160));
+                g.fillRect(r.x + 1, r.y + 1, r.width - 1, r.height - 1);
+                UITheme.text(
+                        g,
+                        Integer.toString((skill.cooldownRemaining + 59) / 60),
+                        r.x + 10,
+                        r.y + 24,
+                        12,
+                        UITheme.TEXT);
+            }
+        }
+    }
+
+    /** Returns the authored ability count for the selected combat mastery. */
+    private int abilityCount() {
+        return skillIndex == 0
+                ? entity.SwordCombat.NAMES.length
+                : skillIndex == 1 ? entity.MageCombat.SPELLS.length : 5;
+    }
+
+    /** Assigns through player authority, with a visible reason for a rejected operation. */
+    private void assignSkill(int slot) {
+        if (selectedAbility < -1) return;
+        if (!gp.localPlayer().assignAction(skillIndex, selectedAbility, slot))
+            gp.ui.addMessage("Unlock this skill first; assign while idle in solo play.");
+    }
+
+    /** Shows every ability, its correct icon, mastery lock, and the saved five-slot bar. */
+    private void drawSkillCatalog(Graphics2D g, int x, int y) {
+        Player p = gp.localPlayer();
+        int[] bar = p.actionSlots(skillIndex);
+        for (int i = 0; i < 5; i++) {
+            int id = bar[i];
+            var r = new Rectangle(x + i * 42, y + 54, 34, 34);
+            UITheme.slot(g, r, false, id < 0 ? null : abilityIcon(id));
+            UITheme.text(g, Integer.toString(i + 1), r.x + 3, r.y + 11, 10, UITheme.TEXT);
+        }
+        for (int i = 0; i <= abilityCount(); i++) {
+            int id = i - 1;
+            int left = x + (i % 2) * 193, top = y + 136 + (i / 2) * 18;
+            boolean unlocked =
+                    id < 0
+                            || abilityLevel(id)
+                                    <= progression.Progression.skillLevel(
+                                            skillIndex == 0
+                                                    ? p.meleeMasteryXP
+                                                    : skillIndex == 1
+                                                            ? p.magicMasteryXP
+                                                            : p.bowMasteryXP);
+            if (selectedAbility == id) {
+                g.setColor(UITheme.SECONDARY);
+                g.fillRect(left, top, 190, 18);
+            }
+            if (id >= 0) g.drawImage(abilityIcon(id), left, top + 1, 16, 16, null);
+            String name =
+                    id < 0
+                            ? "Empty slot"
+                            : skillIndex == 0
+                                    ? entity.SwordCombat.NAMES[id]
+                                    : skillIndex == 1
+                                            ? entity.MageCombat.SPELLS[id]
+                                            : p.ranger.catalogSkill(id).name;
+            UITheme.text(
+                    g,
+                    name + (unlocked ? "" : " [Lv " + abilityLevel(id) + "]"),
+                    left + 19,
+                    top + 13,
+                    10,
+                    unlocked ? UITheme.TEXT : UITheme.DISABLED);
+        }
+    }
+
+    /** Uses stable ability IDs rather than their current hotbar positions for icon selection. */
+    private java.awt.image.BufferedImage abilityIcon(int id) {
+        return skillIndex == 0
+                ? entity.SwordCombat.icon(id)
+                : skillIndex == 1
+                        ? entity.MageCombat.spellIcon(id)
+                        : gp.localPlayer().ranger.catalogSkill(id).icon;
+    }
+
+    /** Mirrors the authoritative mastery requirements for the catalog's lock labels. */
+    private int abilityLevel(int id) {
+        return skillIndex == 0
+                ? entity.SwordCombat.UNLOCK[id]
+                : skillIndex == 1 ? entity.MageCombat.UNLOCK[id] : new int[] {5, 7, 9, 12, 18}[id];
     }
 
     /** Performs the bag operation for GameUI. */
@@ -920,12 +1013,6 @@ public final class GameUI {
         }
         int x = frame.x + 28, y = frame.y + 119;
         if (tab == 0) {
-            button(
-                    g,
-                    new Rectangle(x + 442, y + 284, 192, 30),
-                    gp.arena.training ? "Leave combat arena" : "Enter combat arena",
-                    !gp.isNetworked,
-                    false);
             UITheme.text(g, p.playerName, x, y, 23, UITheme.TEXT);
             UITheme.text(g, "Level " + p.level, x, y + 31, 15, UITheme.ACCENT);
             UITheme.bar(
@@ -1113,13 +1200,12 @@ public final class GameUI {
             } else if (skillIndex < 3) {
                 UITheme.text(
                         g,
-                        "Gain XP by landing hits with this weapon type.",
+                        "Select a skill below, then press 1–5 to assign.",
                         dx,
                         y + 42,
                         13,
                         UITheme.TEXT);
-                UITheme.text(
-                        g, "Mastery XP is saved independently.", dx, y + 73, 13, UITheme.MUTED);
+                UITheme.text(g, "", dx, y + 73, 13, UITheme.MUTED);
                 UITheme.text(
                         g,
                         "Level "
@@ -1176,69 +1262,7 @@ public final class GameUI {
                                     : UITheme.DISABLED);
                 return;
             }
-            if (skillIndex == 0) {
-                UITheme.text(
-                        g, "Sword: Shift+1 Heavy · Shift+2 Counter", dx, y + 136, 12, UITheme.TEXT);
-                UITheme.text(
-                        g,
-                        "Shift+3 Sweep · Shift+4 Rush · Hold RMB: Guard",
-                        dx,
-                        y + 157,
-                        12,
-                        UITheme.TEXT);
-                String[] unlock = {
-                    "1 Basic Slash",
-                    "3 Heavy Slash",
-                    "5 Guard",
-                    "7 Counter Slash",
-                    "9 Sword Discipline",
-                    "12 Sweeping Slash",
-                    "15 Steady Guard",
-                    "18 Blade Rush",
-                    "22 Perfect Counter",
-                    "25 Sword Mastery"
-                };
-                for (int i = 0; i < unlock.length; i++)
-                    UITheme.text(
-                            g,
-                            unlock[i],
-                            dx + (i % 2) * 190,
-                            y + 184 + (i / 2) * 17,
-                            11,
-                            UITheme.MUTED);
-            } else {
-                UITheme.text(
-                        g,
-                        skillIndex == 1
-                                ? "Staff pages: [ / ] here · Shift+1–5 to cast"
-                                : "Bow: hold/release LMB · Shift+1–5 skills",
-                        dx,
-                        y + 144,
-                        12,
-                        UITheme.TEXT);
-                if (skillIndex == 1)
-                    UITheme.text(
-                            g,
-                            "Spell page " + (p.progression.staffPage + 1) + " / 3",
-                            dx,
-                            y + 165,
-                            12,
-                            UITheme.ACCENT);
-                if (skillIndex == 1 || skillIndex == 2)
-                    for (int i = 0; i < p.skills.length; i++)
-                        if (p.skills[i] != null)
-                            UITheme.text(
-                                    g,
-                                    (i + 1)
-                                            + " "
-                                            + p.skills[i].name
-                                            + " · "
-                                            + p.skills[i].description,
-                                    dx,
-                                    y + 185 + i * 17,
-                                    10,
-                                    UITheme.MUTED);
-            }
+            drawSkillCatalog(g, dx, y);
             for (int row = 0; row < 3; row++) {
                 int i = talentPage * 3 + row;
                 if (i >= talentRows().size()) break;

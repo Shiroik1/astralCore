@@ -9,10 +9,11 @@ public final class SlimeCombatConfig {
             SUMMON_WARNING = ticks("summonWarningSeconds", .75);
     public static final int SUMMON_ATTACK_GRACE = ticks("summonGraceSeconds", 1.25),
             RADIAL_RECOVERY = ticks("radialRecoverySeconds", 1.4);
-    public static final int RADIAL_DAMAGE = integer("radialDamage", 10, 1, 50),
-            SPIT_DAMAGE = integer("spitDamage", 12, 1, 50);
-    public static final int BOSS_HP = integer("bossHP", 220, 1, 10000),
-            SLAM_DAMAGE = integer("slamDamage", 18, 1, 100);
+    public static final int RADIAL_DAMAGE = integer("radialDamage", 28, 1, 50),
+            SPIT_DAMAGE = integer("spitDamage", 36, 1, 50);
+    public static final int BOSS_HP = integer("bossHP", 1400, 1, 10000),
+            SLAM_DAMAGE = integer("slamDamage", 64, 1, 100);
+    public static final int BOSS_DEFENSE = integer("bossDefense", 9, 0, 50);
     public static final int PROJECTILE_SPEED = integer("projectileSpeed", 3, 1, 12);
 
     /** Prevents instantiation of this utility class. */

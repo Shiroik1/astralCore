@@ -84,6 +84,11 @@ public final class SaveStore {
         j.setTypeName(null);
         j.setUsePrototypes(false);
         j.setIgnoreUnknownFields(true);
+        j.setElementType(progression.Progression.Data.class, "talents", Integer.class);
+        j.setElementType(
+                progression.Progression.Data.class,
+                "quests",
+                progression.StarterQuests.Entry.class);
         return j;
     }
 
@@ -134,6 +139,50 @@ public final class SaveStore {
         }
     }
 
+    /**
+     * Escapes raw control characters inside JSON string values. The bundled jsonbeans writer
+     * escapes quotes and backslashes but not newlines or tabs, so multi-line snapshot fields
+     * (building layouts and slime-nest plans) would otherwise write files that cannot be read back.
+     * Applying this to both write and read also repairs saves created before the fix.
+     */
+    private static String escapeStringControlCharacters(String text) {
+        StringBuilder out = new StringBuilder(text.length() + 16);
+        boolean inString = false, escaped = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (!inString) {
+                if (c == '"') inString = true;
+                out.append(c);
+                continue;
+            }
+            if (escaped) {
+                out.append(c);
+                escaped = false;
+                continue;
+            }
+            switch (c) {
+                case '\\' -> {
+                    out.append(c);
+                    escaped = true;
+                }
+                case '"' -> {
+                    out.append(c);
+                    inString = false;
+                }
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                case '\b' -> out.append("\\b");
+                case '\f' -> out.append("\\f");
+                default -> {
+                    if (c < 0x20) out.append(String.format("\\u%04x", (int) c));
+                    else out.append(c);
+                }
+            }
+        }
+        return out.toString();
+    }
+
     /** Reads the file for SaveStore. */
     private CharacterData readFile(Path path) throws IOException {
         try {
@@ -141,7 +190,8 @@ public final class SaveStore {
             CharacterData d =
                     json().fromJson(
                                     CharacterData.class,
-                                    Files.readString(path, StandardCharsets.UTF_8));
+                                    escapeStringControlCharacters(
+                                            Files.readString(path, StandardCharsets.UTF_8)));
             if (d != null) {
                 expandMonsterSlots(d.world);
                 if (d.world != null) expandMonsterSlots(d.world.otherArea);
@@ -340,6 +390,8 @@ public final class SaveStore {
         if (d.progression == null) p.progression.migrate(p);
         else p.progression.restore(d.progression);
         p.progression.validateBudget(p);
+        p.grantExperience(0);
+        p.refreshActionBar();
         if (p.isMage()) p.mage.setup(p.skills);
         p.attack = p.getAttack();
         g.quests.restoreSavedProgress(d.world.quest, new Point(d.returnX, d.returnY));
@@ -471,7 +523,9 @@ public final class SaveStore {
         if (g.arena.training) throw new IOException("Practice characters cannot be saved.");
         validate(d);
         Files.createDirectories(directory);
-        byte[] bytes = json().toJson(d, CharacterData.class).getBytes(StandardCharsets.UTF_8);
+        byte[] bytes =
+                escapeStringControlCharacters(json().toJson(d, CharacterData.class))
+                        .getBytes(StandardCharsets.UTF_8);
         Path temporary = Files.createTempFile(directory, "character-", ".tmp");
         try {
             try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {

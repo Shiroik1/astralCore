@@ -117,7 +117,7 @@ public final class MageCombat {
 
     /** Resolves the index result used by MageCombat. */
     private int index(int slot) {
-        return player.progression.staffPage * 5 + slot;
+        return player.progression.staffSlots[slot];
     }
 
     /**
@@ -128,7 +128,7 @@ public final class MageCombat {
         icon("arcane_bolt");
         for (int slot = 0; slot < slots.length; slot++) {
             int index = index(slot);
-            if (index >= SPELLS.length) {
+            if (index < 0 || index >= SPELLS.length) {
                 slots[slot] = null;
                 continue;
             }
@@ -138,13 +138,13 @@ public final class MageCombat {
                     new Skill(SPELLS[id], cost, cooldown(id), () -> cast(id), icon(ICON_NAMES[id]));
             slots[slot].cooldownRemaining = cooldowns()[id];
             slots[slot].description =
-                    "Staff Lv "
-                            + UNLOCK[id]
-                            + " · "
-                            + cost
-                            + " MP · Page "
-                            + (player.progression.staffPage + 1);
+                    "Staff Lv " + UNLOCK[id] + " · " + cost + " MP · Slot " + (slot + 1);
         }
+    }
+
+    /** Returns the cached icon for a stable spell identity. */
+    public static BufferedImage spellIcon(int id) {
+        return icon(ICON_NAMES[id]);
     }
 
     /** Loads each cropped spell icon once, when equipping the staff or preparing a spell page. */
@@ -463,7 +463,8 @@ public final class MageCombat {
      */
     boolean canUse(int slot) {
         int id = index(slot);
-        if (id >= SPELLS.length
+        if (id < 0
+                || id >= SPELLS.length
                 || level() < UNLOCK[id]
                 || cooldowns()[id] > 0
                 || !canStartCast()

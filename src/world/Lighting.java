@@ -20,7 +20,7 @@ public class Lighting {
 
     public enum Mood {
         //      ambient r, g,   b,   a      glow   vignette leaves flies clouds
-        DAY(255, 238, 205, 16, 0.00f, 0.30f, 10, 0, 0.9f),
+        DAY(255, 176, 98, 44, 0.55f, 0.45f, 18, 0, 1.0f), // legacy /mood day alias
         GOLDEN(255, 176, 98, 44, 0.55f, 0.45f, 18, 0, 1.0f),
         DUSK(78, 58, 130, 92, 1.00f, 0.55f, 10, 14, 0.7f),
         NIGHT(26, 32, 88, 150, 1.20f, 0.65f, 4, 24, 0.0f);
@@ -331,20 +331,6 @@ public class Lighting {
             pow[n] = .85f * objectPower * flicker;
             warm[n] = .85f * glow * flicker;
             n++;
-        }
-        float need =
-                Math.min(
-                        1f,
-                        aa / 140f); // players carry a soft light that grows as the world darkens
-        for (Player p : gp.players) {
-            if (p == null || p.isDead || p.inWell != gp.quests.inDungeon() || n >= MAX_LIGHTS)
-                continue;
-            sx[n] = p.worldX + gp.tileSize / 2f - camLeft;
-            sy[n] = p.worldY + gp.tileSize / 3f - camTop;
-            rad[n] = (float) (135 * s);
-            pow[n] = 0.55f * need;
-            warm[n] = 0;
-            if (onScreen(n)) n++;
         }
         // Hell Slime glows through the dungeon darkness so its red body and charge remain readable.
         for (entity.Monster monster : gp.monster)

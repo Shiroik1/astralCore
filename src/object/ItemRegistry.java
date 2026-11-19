@@ -18,7 +18,7 @@ public class ItemRegistry {
 
     /** Resolves the create result used by ItemRegistry. */
     public static Entity create(ItemType type, Gamepanel gp) {
-        return (type != null) ? type.factory.apply(gp) : null;
+        return type == null ? null : EquipmentDatabase.apply(type.factory.apply(gp), type);
     }
 
     /** Resolves the type for result used by ItemRegistry. */

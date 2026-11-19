@@ -417,6 +417,12 @@ public final class MON_Skeleton extends Monster {
                         && investigationTicks > 0
                         && distance <= (detection + 2) * gp.tileSize;
         if (visible || hunting) combatUntil = gp.currentTick + 10 * 60;
+        if (visible && !committed()) {
+            // Keep the last seen destination through brief foliage/terrain occlusion.
+            goalX = p.worldX;
+            goalY = p.worldY;
+            investigationTicks = Math.max(investigationTicks, 180);
+        }
         if (night) {
             daylightTicks = 0;
             shadeTimer = 120;
@@ -512,7 +518,8 @@ public final class MON_Skeleton extends Monster {
                     && cooldown == 0
                     && spawnDay >= SkeletonConfig.LUNGE_DAY
                     && lungeCooldown == 0) beginAttack(Attack.RATTLING_LUNGE, p);
-            else moveToward(p.worldX, p.worldY);
+            // A denied swarm attack slot must not leave the pursuer idle.
+            if (!committed()) moveToward(p.worldX, p.worldY);
         } else if (investigationTicks > 0) {
             state = State.INVESTIGATING;
             if (Math.hypot(worldX - goalX, worldY - goalY) < gp.tileSize) investigationTicks = 0;
@@ -547,7 +554,9 @@ public final class MON_Skeleton extends Monster {
         if (daylightTicks > 0 && gp.currentTick >= combatUntil) pace *= .55;
         int slow =
                 Math.max(
-                        getStatusEffectValue("rangerSlow"),
+                        Math.max(
+                                getStatusEffectValue("rangerSlow"),
+                                getStatusEffectValue("warriorSlow")),
                         getStatusEffectValue(MageEffect.FROST_SLOW));
         pace *= Math.max(.1, (100 - slow) / 100.0);
         walkRemainder += pace;
@@ -569,6 +578,22 @@ public final class MON_Skeleton extends Monster {
                                     ? amount
                                     : direction.equals("up") ? -amount : 0),
                     true);
+        if (amount > 0 && worldX == beforeX && worldY == beforeY) {
+            // Terrain routing does not include moving swarm bodies. Slip around a blocked
+            // neighbor rather than repeatedly pushing the same point; all steps still collide.
+            boolean horizontal = direction.equals("left") || direction.equals("right");
+            int side = (combatId & 1) == 0 ? 1 : -1;
+            for (int attempt = 0; attempt < 2; attempt++, side = -side) {
+                int sx = horizontal ? worldX : worldX + side * amount;
+                int sy = horizontal ? worldY + side * amount : worldY;
+                if (SlimeMotion.move(gp, this, sx, sy, true)) {
+                    direction =
+                            horizontal ? (side > 0 ? "down" : "up") : (side > 0 ? "right" : "left");
+                    break;
+                }
+                if (worldX != beforeX || worldY != beforeY) break;
+            }
+        }
         double traveled = Math.hypot(worldX - beforeX, worldY - beforeY);
         moving = traveled > 0;
         // Footfalls follow actual displacement, so blocked skeletons do not march in place.

@@ -211,6 +211,16 @@ public final class CharacterState {
             m.direction = s.direction;
             m.HP = s.HP;
             m.maxHP = s.maxHP;
+            // Migrate the two old normal-boss health defaults without healing or reviving them.
+            if (m instanceof MON_SlimeBoss boss
+                    && !boss.isHell()
+                    && (s.maxHP == 50 || s.maxHP == 220)) {
+                m.maxHP = monster.SlimeCombatConfig.BOSS_HP;
+                m.HP =
+                        s.HP <= 0
+                                ? 0
+                                : Math.max(1, (int) Math.round(s.HP / (double) s.maxHP * m.maxHP));
+            }
             m.alive = s.alive;
             m.dying = s.dying;
             Player local = g.localPlayer();

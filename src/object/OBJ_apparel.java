@@ -159,21 +159,32 @@ public class OBJ_apparel extends Entity {
         this.berserkerGear = berserkerGear;
         this.paladinGear = paladinGear;
         color =
-                paladinGear != null
-                        ? paladinGear.plate
-                        : berserkerGear != null
-                                ? berserkerGear.armorColor
-                                : priestGear != null
-                                        ? priestGear.robe
-                                        : mageGear != null
-                                                ? mageGear.robe
-                                                : assassinGear != null
-                                                        ? assassinGear.tunic
-                                                        : rangerGear != null
-                                                                ? rangerGear.tunic
-                                                                : CharacterOutfit.themed(
-                                                                                theme, longHair)
-                                                                        .color(slot);
+                EquipmentDatabase.color(
+                        itemType,
+                        itemType == ItemType.BROWN_PANTS
+                                ? art.Palette.TIMBER
+                                : itemType == ItemType.WHITE_TOP
+                                        ? art.Palette.PLASTER
+                                        : paladinGear != null
+                                                ? paladinGear.plate
+                                                : berserkerGear != null
+                                                        ? berserkerGear.armorColor
+                                                        : priestGear != null
+                                                                ? priestGear.robe
+                                                                : mageGear != null
+                                                                        ? mageGear.robe
+                                                                        : assassinGear != null
+                                                                                ? assassinGear.tunic
+                                                                                : rangerGear != null
+                                                                                        ? rangerGear
+                                                                                                .tunic
+                                                                                        : CharacterOutfit
+                                                                                                .themed(
+                                                                                                        theme,
+                                                                                                        longHair)
+                                                                                                .color(
+                                                                                                        slot));
+        // Colors are authored centrally; the existing factory still chooses each garment cut.
         name = label;
         type = type_apparel;
         description =

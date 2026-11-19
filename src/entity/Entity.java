@@ -216,7 +216,9 @@ public class Entity {
         int normalSpeed = speed;
         int slow =
                 Math.max(
-                        getStatusEffectValue("rangerSlow"),
+                        Math.max(
+                                getStatusEffectValue("rangerSlow"),
+                                getStatusEffectValue("warriorSlow")),
                         getStatusEffectValue(MageEffect.FROST_SLOW));
         if (type == type_monster && slow > 0 && speed > 0) {
             float adjusted = speed * (100 - slow) / 100f + slowRemainder;
@@ -555,6 +557,13 @@ public class Entity {
                 }
             }
 
+            if (e.type.equals("warriorBleed")
+                    && this instanceof Monster target
+                    && ++e.tickCounter >= e.tickInterval) {
+                e.tickCounter = 0;
+                if (e.source != null)
+                    e.source.assassinBleedTick(target, Math.max(1, e.value - target.defense));
+            }
             if (e.type.equals(AssassinCombat.BLEED)
                     && this instanceof Monster target
                     && ++e.tickCounter >= e.tickInterval) {
@@ -562,6 +571,10 @@ public class Entity {
                 if (e.source != null) e.source.assassinBleedTick(target, e.value);
             }
 
+            if (e.type.equals("warriorRhythm") && e.duration <= 0 && e.value > 1) {
+                e.value--;
+                e.duration = 60;
+            }
             if (e.duration <= 0) {
                 statusEffects.remove(i);
             }

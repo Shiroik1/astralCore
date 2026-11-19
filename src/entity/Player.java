@@ -334,7 +334,7 @@ public class Player extends Entity {
 
     /** Resolves the resource bar color result used by Player. */
     public Color resourceBarColor() {
-        return usesFocus() ? new Color(235, 198, 60) : new Color(220, 60, 30);
+        return usesFocus() ? new Color(235, 198, 60) : new Color(193, 112, 82);
     }
 
     /** Resolves the resource bar background result used by Player. */
@@ -370,6 +370,8 @@ public class Player extends Entity {
 
     /** Resolves the outfit mana result used by Player. */
     private static int outfitMana(Entity item) {
+        var definition = object.EquipmentDatabase.forItem(item);
+        if (definition != null) return definition.mp();
         var priest = priestOutfit(item);
         if (priest != null) return priest.mana;
         var gear = mageOutfit(item);
@@ -388,6 +390,8 @@ public class Player extends Entity {
 
     /** Resolves the outfit health result used by Player. */
     private static int outfitHealth(Entity item) {
+        var definition = object.EquipmentDatabase.forItem(item);
+        if (definition != null) return definition.hp();
         var plate = paladinOutfit(item);
         if (plate != null) return plate.health;
         var armor = berserkerOutfit(item);
@@ -400,33 +404,45 @@ public class Player extends Entity {
         return gear == null ? rangerHealth(item) : gear.health;
     }
 
+    /** Uses catalog requirements for existing weapon and armor factories. */
+    private static int equipmentLevel(Entity item) {
+        var e = object.EquipmentDatabase.forItem(item);
+        return e == null ? 1 : e.minLevel();
+    }
+
+    /** Reads torso armor from the same definition used by its item tooltip. */
+    private int torsoArmor() {
+        var e = object.EquipmentDatabase.forItem(equippedItem(EQUIP_TORSO));
+        return e == null ? 0 : e.armor();
+    }
+
     /** Returns the defense for Player. */
     public int getDefense() {
         if (isPaladin()) {
             var plate = paladinOutfit(equippedItem(EQUIP_TORSO));
             return defense =
-                    (plate == null ? 0 : plate.armor)
+                    (plate == null ? 0 : torsoArmor())
                             + (currentShield == null ? 0 : currentShield.defenseValue);
         }
         if (isBerserker()) {
             var gear = berserkerOutfit(equippedItem(EQUIP_TORSO));
-            return defense = gear == null ? 0 : gear.armor;
+            return defense = gear == null ? 0 : torsoArmor();
         }
         if (isPriest()) {
             var gear = priestOutfit(equippedItem(EQUIP_TORSO));
-            return defense = gear == null ? 0 : gear.armor;
+            return defense = gear == null ? 0 : torsoArmor();
         }
         if (usesMana()) {
             var gear = mageOutfit(equippedItem(EQUIP_TORSO));
-            return defense = gear == null ? 0 : gear.armor;
+            return defense = gear == null ? 0 : torsoArmor();
         }
         if (isAssassin()) {
             var gear = assassinOutfit(equippedItem(EQUIP_TORSO));
-            return defense = gear == null ? 0 : gear.armor;
+            return defense = gear == null ? 0 : torsoArmor();
         }
         if (isRanger()) {
             var gear = rangerOutfit(equippedItem(EQUIP_TORSO));
-            return defense = gear == null ? 0 : gear.armor;
+            return defense = gear == null ? 0 : torsoArmor();
         }
         return defense = dexterity * currentShield.defenseValue;
     }
@@ -673,7 +689,7 @@ public class Player extends Entity {
         Skill[] cached = weaponSkills.get(id);
         skills = new Skill[5];
         setupSkills();
-        if (cached != null)
+        if (cached != null && !id.equals("warrior") && !id.equals("mage") && !id.equals("ranger"))
             for (int i = 0; i < skills.length; i++)
                 if (skills[i] != null && cached[i] != null)
                     skills[i].cooldownRemaining = cached[i].cooldownRemaining;
@@ -682,74 +698,10 @@ public class Player extends Entity {
     /** Starter wardrobe for the chosen class and preset. */
     private void applyStarterAppearance() {
         boolean female = "female".equals(gender);
-        ItemType[] items =
-                switch (CharacterClass.fromId(playerClass)) {
-                    case RANGER ->
-                            new ItemType[] {
-                                female ? ItemType.LONG_HAIR : ItemType.HAIR,
-                                ItemType.TRAIL_SCOUT_OUTFIT,
-                                ItemType.PANTS,
-                                ItemType.BOOTS,
-                                ItemType.GLOVES,
-                                ItemType.CLOAK
-                            };
-                    case HUNTER ->
-                            new ItemType[] {
-                                female ? ItemType.LONG_HAIR : ItemType.HAIR,
-                                ItemType.ALLEY_SCOUT_OUTFIT,
-                                ItemType.PANTS,
-                                ItemType.BOOTS,
-                                ItemType.GLOVES,
-                                ItemType.CLOAK
-                            };
-                    case PRIEST ->
-                            new ItemType[] {
-                                female ? ItemType.MAGE_LONG_HAIR : ItemType.MAGE_HAIR,
-                                ItemType.WAYFARER_ROBE,
-                                ItemType.MAGE_PANTS,
-                                ItemType.MAGE_BOOTS,
-                                ItemType.MAGE_GLOVES,
-                                ItemType.MAGE_CLOAK
-                            };
-                    case MAGE ->
-                            new ItemType[] {
-                                female ? ItemType.MAGE_LONG_HAIR : ItemType.MAGE_HAIR,
-                                ItemType.HEARTH_ROBE,
-                                ItemType.MAGE_PANTS,
-                                ItemType.MAGE_BOOTS,
-                                ItemType.MAGE_GLOVES,
-                                ItemType.MAGE_CLOAK
-                            };
-                    case PALADIN ->
-                            new ItemType[] {
-                                female ? ItemType.WARRIOR_LONG_HAIR : ItemType.WARRIOR_HAIR,
-                                ItemType.GATE_SENTINEL_ARMOR,
-                                ItemType.WARRIOR_PANTS,
-                                ItemType.WARRIOR_BOOTS,
-                                ItemType.WARRIOR_GLOVES,
-                                ItemType.WARRIOR_CLOAK
-                            };
-                    case BERSERKER ->
-                            new ItemType[] {
-                                female ? ItemType.WARRIOR_LONG_HAIR : ItemType.WARRIOR_HAIR,
-                                ItemType.ROAD_REAVER_ARMOR,
-                                ItemType.WARRIOR_PANTS,
-                                ItemType.WARRIOR_BOOTS,
-                                ItemType.WARRIOR_GLOVES,
-                                ItemType.WARRIOR_CLOAK
-                            };
-                    case WARRIOR ->
-                            new ItemType[] {
-                                female ? ItemType.WARRIOR_LONG_HAIR : ItemType.WARRIOR_HAIR,
-                                ItemType.WARRIOR_ARMOR,
-                                ItemType.WARRIOR_PANTS,
-                                ItemType.WARRIOR_BOOTS,
-                                ItemType.WARRIOR_GLOVES,
-                                ItemType.WARRIOR_CLOAK
-                            };
-                };
-        for (int i = 0; i < items.length; i++) apparelSlots[i] = ItemRegistry.create(items[i], gp);
-        apparelSlots[6] = null;
+        java.util.Arrays.fill(apparelSlots, null);
+        apparelSlots[0] = ItemRegistry.create(female ? ItemType.LONG_HAIR : ItemType.HAIR, gp);
+        apparelSlots[2] = ItemRegistry.create(ItemType.BROWN_PANTS, gp);
+        if (female) apparelSlots[1] = ItemRegistry.create(ItemType.WHITE_TOP, gp);
     }
 
     /** Resolves the current outfit result used by Player. */
@@ -921,33 +873,34 @@ public class Player extends Entity {
     /** Evaluates the fits equipment condition for Player. */
     private boolean fitsEquipment(Entity item, int slot) {
         if (item == null) return false;
+        if (level < equipmentLevel(item)) return false;
         if (item instanceof OBJ_crafted crafted)
             return slot == EQUIP_WEAPON && crafted.definition.equipment();
         if (item instanceof OBJ_paladinGear gear)
-            return level >= gear.gear.level
+            return level >= equipmentLevel(item)
                     && (slot == EQUIP_WEAPON && gear.type == type_sword
                             || slot == EQUIP_SHIELD && gear.type == type_shield);
         if (slot == EQUIP_WEAPON) {
-            if (item instanceof OBJ_greatsword sword) return level >= sword.gear.level;
-            if (item instanceof OBJ_rangerbow bow) return level >= bow.gear.level;
-            if (item instanceof OBJ_dualdaggers daggers) return level >= daggers.gear.level;
-            if (item instanceof OBJ_prieststaff staff) return level >= staff.gear.level;
-            if (item instanceof OBJ_staff staff) return level >= staff.gear.level;
+            if (item instanceof OBJ_greatsword sword) return level >= equipmentLevel(item);
+            if (item instanceof OBJ_rangerbow bow) return level >= equipmentLevel(item);
+            if (item instanceof OBJ_dualdaggers daggers) return level >= equipmentLevel(item);
+            if (item instanceof OBJ_prieststaff staff) return level >= equipmentLevel(item);
+            if (item instanceof OBJ_staff staff) return level >= equipmentLevel(item);
             return inventory.Hotbar.isWeapon(item);
         }
         if (slot == EQUIP_SHIELD) return item.type == type_shield;
         var gear = rangerOutfit(item);
-        if (gear != null && level < gear.level) return false;
+        if (gear != null && level < equipmentLevel(item)) return false;
         var leathers = assassinOutfit(item);
-        if (leathers != null && level < leathers.level) return false;
+        if (leathers != null && level < equipmentLevel(item)) return false;
         var robe = mageOutfit(item);
-        if (robe != null && level < robe.level) return false;
+        if (robe != null && level < equipmentLevel(item)) return false;
         var plate = paladinOutfit(item);
-        if (plate != null && level < plate.level) return false;
+        if (plate != null && level < equipmentLevel(item)) return false;
         var armor = berserkerOutfit(item);
-        if (armor != null && level < armor.level) return false;
+        if (armor != null && level < equipmentLevel(item)) return false;
         var vestment = priestOutfit(item);
-        if (vestment != null && level < vestment.level) return false;
+        if (vestment != null && level < equipmentLevel(item)) return false;
         return item instanceof OBJ_apparel clothing && slot == EQUIP_HAIR + clothing.slot.ordinal();
     }
 
@@ -964,9 +917,10 @@ public class Player extends Entity {
                                 : "warrior";
         sword.cancel();
         applySyncedClass(profile);
+        refreshActionBar();
         if (sword.equipped()) {
-            maxRage = 0;
-            rage = 0;
+            maxRage = 100;
+            rage = Math.min(100, rage);
         } else if (!usesMana() && !isPaladin() && maxRage == 0)
             maxRage = 100; // Existing non-mana kit capacity, including legacy caster saves.
     }
@@ -1320,6 +1274,10 @@ public class Player extends Entity {
             attackBufferTicks = 0;
         } else if (attackBuffered && gp.hitStopCounter <= 0 && --attackBufferTicks <= 0)
             attackBuffered = false;
+        if (gp.isNetworked && !gp.isHost) {
+            sword.thrust.advanceReplica();
+            sword.charge.advanceReplica();
+        }
         if (!isLocal && !gp.isHost) {
             updateAura(); // effects come from the snapshot
             if (isRanger()) ranger.advanceVisual();
@@ -1335,6 +1293,16 @@ public class Player extends Entity {
             return;
         }
 
+        if ((sword.thrust.active() || sword.charge.active())
+                && (isDead
+                        || merchantOpen
+                        || inDialogue
+                        || isLocal && gp.inventoryOpen
+                        || gp.quests.isBossIntro()
+                        || currentInput.gameplaySuppressed
+                        || knockbackActive
+                        || hasStatusEffect("stun")
+                        || hasStatusEffect("frozen"))) sword.cancel();
         if (isDead) {
             ranger.cancelCast();
             assassin.reset();
@@ -1474,7 +1442,11 @@ public class Player extends Entity {
             }
         }
 
-        currentInput.movementLocked = false;
+        currentInput.movementLocked = sword.thrust.active() || sword.charge.active();
+        if (currentInput.movementLocked) {
+            moving = false;
+            bounceCounter = 0;
+        }
         currentInput.heavyMovement = sword.guarding();
         if (isPaladin()) {
             boolean wasActing = paladin.active();
@@ -1546,8 +1518,11 @@ public class Player extends Entity {
             updateKnockback();
         } else if (attacking) {
             if (currentInput.leftClicked) {
-                attackBuffered = true;
-                attackBufferTicks = 15; // A quarter-second window for the next deliberate swing.
+                attackBuffered = !sword.charge.active() || sword.charge.bufferOpen();
+                attackBufferTicks =
+                        sword.charge.active()
+                                ? 9
+                                : 15; // A quarter-second window for the next deliberate swing.
                 if (isLocal) {
                     gp.mouseH.leftClicked = false;
                 }
@@ -2000,6 +1975,7 @@ public class Player extends Entity {
     private void finishMonster(Monster target) {
         if (target.HP > 0 || target.dying) return;
         target.dying = true;
+        progression.defeated(this, target);
         if (target instanceof monster.MON_Skeleton) progression.journal.event("kill:skeleton", 1);
         if (target instanceof monster.MON_CrownedSlime) {
             progression.milestones.add("boss:crowned");
@@ -2008,7 +1984,7 @@ public class Player extends Entity {
         gp.slimeSpawner.onMonsterDefeated(target);
         if (target instanceof monster.MON_CrownedSlime) gp.slimeSpawner.onEncounterEnded();
         if (playerId >= 0 && playerId < gp.players.length && gp.players[playerId] == this) {
-            grantExperience(target.exp);
+            grantExperience(Progression.characterReward(target));
             gp.broadcastPlayerEvent(
                     playerId,
                     GameEventType.KILL,
@@ -2017,7 +1993,7 @@ public class Player extends Entity {
                             + " killed the "
                             + target.name
                             + "! (+"
-                            + target.exp
+                            + Progression.characterReward(target)
                             + " EXP)",
                     null);
         }
@@ -2079,7 +2055,14 @@ public class Player extends Entity {
                 int armor =
                         Math.max(
                                 0,
-                                target.defense
+                                (int)
+                                                Math.ceil(
+                                                        target.defense
+                                                                * (1
+                                                                        - target
+                                                                                        .getStatusEffectValue(
+                                                                                                "exposed")
+                                                                                / 100.0))
                                         - Math.max(
                                                 target.getStatusEffectValue("armorBreak"),
                                                 target.getStatusEffectValue(
@@ -2099,6 +2082,7 @@ public class Player extends Entity {
                         && !isBerserker()
                         && !isPaladin()
                         && !assassinSkill
+                        && !sword.equipped()
                         && (!isAssassin() || cut != null)) {
                     rage = Math.min(maxRage, rage + (cut == null ? 10 : 5));
                     ticksSinceRageGain = 0;
@@ -2124,6 +2108,7 @@ public class Player extends Entity {
                 target.statusEffects.removeIf(effect -> effect.type.equals("frogMorph"));
                 event.record(target);
                 event.log(this, target, damage, "accepted");
+                int eligibleDamage = Math.min(target.HP, damage);
                 target.HP -= damage;
                 int mastery =
                         event.masteryType >= 0
@@ -2131,7 +2116,7 @@ public class Player extends Entity {
                                 : currentWeapon != null && !currentWeapon.isPlaceholder
                                         ? currentWeapon.type
                                         : -1;
-                if (mastery >= 0) progression.hit(this, mastery, damage);
+                if (mastery >= 0) target.recordMasteryDamage(this, mastery, eligibleDamage);
                 target.invincibilityDuration =
                         usesFocus() || usesMana() || isBerserker() || isPaladin() ? 12 : 22;
                 target.invincibleCounter = 0;
@@ -2324,6 +2309,8 @@ public class Player extends Entity {
     private void applyHit(Entity source, int incoming, boolean contact, boolean braced) {
         if (contact) gp.playSE(6);
         int armored = damageTaken(incoming);
+        if (sword.equipped()) armored = Math.max(1, (int) Math.ceil(armored / 1.2));
+        if (hasStatusEffect("warcry")) armored = Math.max(1, (int) Math.ceil(armored / 1.1));
         recordShieldMitigation(incoming, armored);
         if (braced) armored = Math.max(1, Math.round(armored * 0.65f));
         int guarded =
@@ -2335,10 +2322,11 @@ public class Player extends Entity {
         invincibilityDuration = source.incomingHitImmunity;
         invincibleCounter = 0;
         if (damage == 0 || gp.arena.training && gp.arena.invulnerable) return;
-        if (contact && playerClass.equals("warrior")) {
+        if (contact && playerClass.equals("warrior") && !sword.equipped()) {
             rage = Math.min(maxRage, rage + 15);
             ticksSinceRageGain = 0;
         }
+        sword.received(source, damage);
         HP -= damage;
         flashing = true;
         flashCounter = 0;
@@ -2750,10 +2738,14 @@ public class Player extends Entity {
             berserker.drawAfterimage(g2, bodyImage, drawX, drawY);
         }
         if (isAssassin() && !isDead) assassin.drawAfterimages(g2, bodyImage, drawX, drawY);
+        if (!isDead) {
+            sword.thrust.drawBehind(g2, drawX, drawY);
+            sword.charge.drawBehind(g2, drawX, drawY);
+        }
         boolean up = "up".equals(direction);
         boolean bowBehind = isRanger() && up;
         if (bowBehind) ranger.drawBow(g2);
-        if (!up) drawMeleeSlashes(g2);
+        if (sword.equipped() ? up : !up) drawMeleeSlashes(g2);
         AffineTransform originalTransform = g2.getTransform();
         g2.translate(0, bounce);
         if (hopLift > 0)
@@ -2783,13 +2775,14 @@ public class Player extends Entity {
             held.drawImage(crafted.down1, -16, -20, 32, 42, null);
             held.dispose();
         }
-        if (up) drawMeleeSlashes(g2);
+        if (sword.equipped() ? !up : up) drawMeleeSlashes(g2);
         drawNameLabel(g2, drawX + bodyWidth / 2, drawY);
         if (isRanger()) {
             if (!bowBehind) ranger.drawBow(g2);
             ranger.draw(g2);
         }
         if (isMage()) mage.draw(g2);
+        sword.thrust.drawMeter(g2);
         life.draw(g2);
         if (isBerserker()) berserker.draw(g2);
         if (isPaladin()) paladin.draw(g2);
@@ -2909,6 +2902,44 @@ public class Player extends Entity {
                 backY * distance + backX * lateral - 5);
     }
 
+    /** Returns the saved action bar for a mastery tab (Sword, Staff, Bow). */
+    public int[] actionSlots(int path) {
+        return path == 0
+                ? progression.swordSlots
+                : path == 1 ? progression.staffSlots : progression.bowSlots;
+    }
+
+    /** Rebuilds only the equipped weapon bar; ability identities own their cooldowns. */
+    public void refreshActionBar() {
+        if (sword.equipped()) sword.setup(skills);
+        else if (isMage()) mage.setup(skills);
+        else if (isRanger()) ranger.setSkills(skills);
+    }
+
+    /** Assigns an unlocked skill, swapping duplicates so each ability occurs at most once. */
+    public boolean assignAction(int path, int id, int slot) {
+        if (gp.isNetworked
+                || attacking
+                || mage.castTicks() > 0
+                || slot < 0
+                || slot >= 5
+                || path < 0
+                || path > 2) return false;
+        int[] levels =
+                path == 0
+                        ? SwordCombat.UNLOCK
+                        : path == 1 ? MageCombat.UNLOCK : new int[] {5, 7, 9, 12, 18};
+        int xp = path == 0 ? meleeMasteryXP : path == 1 ? magicMasteryXP : bowMasteryXP;
+        if (id < -1 || id >= levels.length || id >= 0 && Progression.skillLevel(xp) < levels[id])
+            return false;
+        int[] bar = actionSlots(path);
+        int previous = bar[slot];
+        if (id >= 0) for (int i = 0; i < 5; i++) if (i != slot && bar[i] == id) bar[i] = previous;
+        bar[slot] = id;
+        refreshActionBar();
+        return true;
+    }
+
     /** Performs the setup skills operation for Player. */
     private void setupSkills() {
         statusEffectIcons.clear();
@@ -2958,7 +2989,10 @@ public class Player extends Entity {
 
     /** Returns the effective attack for Player. */
     public int getEffectiveAttack() {
-        return attack + getStatusEffectValue("attackBoost");
+        return (int)
+                Math.round(
+                        (attack + getStatusEffectValue("attackBoost"))
+                                * (sword.equipped() && hasStatusEffect("warcry") ? 1.1 : 1));
     }
 
     /** Resolves the damage taken result used by Player. */
@@ -2997,6 +3031,15 @@ public class Player extends Entity {
     /** Resolves the animation frame result used by Player. */
     @Override
     protected BufferedImage animationFrame(SpriteAnimation anim) {
+        int chargePose = sword.equipped() ? sword.charge.poseIndex() : -1;
+        SpriteAnimation chargeFrames = sprites.get("charge_" + direction);
+        if (chargePose >= 0 && chargeFrames != null) return chargeFrames.frames[chargePose];
+        int thrustPose = sword.equipped() ? sword.thrust.poseIndex() : -1;
+        SpriteAnimation thrustFrames = sprites.get("bullthrust_" + direction);
+        if (thrustPose >= 0 && thrustFrames != null) return thrustFrames.frames[thrustPose];
+        int pose = sword.equipped() ? sword.basicPose() : -1;
+        SpriteAnimation basic = sprites.get("basic_sword_" + direction);
+        if (pose >= 0 && basic != null) return basic.frames[pose];
         if (!"attack".equals(animState)
                 || anim.frames.length != CharacterSprites.SWORD_ATTACK_FRAMES)
             return super.animationFrame(anim);

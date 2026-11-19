@@ -49,10 +49,11 @@ public class MON_SlimeBoss extends Monster {
 
         name = hell ? "Hell Slime" : "Slime King";
         speed = 2;
-        maxHP = hell ? 350 : 50;
+        maxHP = hell ? 350 : SlimeCombatConfig.BOSS_HP;
+        clearMasteryCredit();
         HP = maxHP;
-        attack = hell ? 13 : 9;
-        defense = hell ? 2 : 1;
+        attack = hell ? 13 : SlimeCombatConfig.SLAM_DAMAGE;
+        defense = hell ? 2 : SlimeCombatConfig.BOSS_DEFENSE;
         exp = hell ? 25 : 20;
         aggroRange = 24;
 
@@ -79,6 +80,7 @@ public class MON_SlimeBoss extends Monster {
 
     /** Resets the encounter for MON_SlimeBoss. */
     public void resetEncounter() {
+        clearMasteryCredit();
         HP = maxHP;
         worldX = 25 * gp.tileSize;
         worldY = 14 * gp.tileSize;
@@ -417,6 +419,7 @@ public class MON_SlimeBoss extends Monster {
         for (int i = 0; i < sprayProjectileCount; i++) {
             double angle = (sprayProjectileCount > 1) ? startAngle + step * i : baseAngle;
             OBJ_slimebolt droplet = new OBJ_slimebolt(gp);
+            droplet.attack = SlimeCombatConfig.SPIT_DAMAGE;
             droplet.setAngled(
                     (int) centerX - gp.tileSize / 2,
                     (int) centerY - gp.tileSize / 2,

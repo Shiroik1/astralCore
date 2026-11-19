@@ -250,8 +250,14 @@ public class ObjectArt {
     public Sprite natureProp(NatureProp prop) {
         return sprite(
                 prop.assetName,
-                sceneryPng(
-                        "/scenery/nature/" + prop.assetName + ".png", k / NatureProp.EXPORT_SCALE),
+                prop.ordinal() < 6
+                        ? MeadowDetails.flowers(
+                                prop.ordinal(),
+                                (int) Math.round(prop.width * k),
+                                (int) Math.round(prop.height * k))
+                        : sceneryPng(
+                                "/scenery/nature/" + prop.assetName + ".png",
+                                k / NatureProp.EXPORT_SCALE),
                 prop.footX,
                 prop.footY,
                 -prop.solidWidth / 2.0,

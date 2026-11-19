@@ -41,9 +41,10 @@ public final class MON_CrownedSlime extends MON_SlimeBoss implements SlimeActor 
         route = new ai.Pathfinder(gp);
         name = "Crowned Slime";
         maxHP = SlimeCombatConfig.BOSS_HP;
+        clearMasteryCredit();
         HP = maxHP;
         attack = SlimeCombatConfig.SLAM_DAMAGE;
-        defense = 0;
+        defense = SlimeCombatConfig.BOSS_DEFENSE;
         exp = 35;
         aggroRange = 5;
         incomingHitImmunity = 36;
@@ -85,6 +86,7 @@ public final class MON_CrownedSlime extends MON_SlimeBoss implements SlimeActor 
         gp.projectileList.removeIf(e -> e instanceof Projectile p && p.firedBy(this));
         worldX = homeX;
         worldY = homeY;
+        clearMasteryCredit();
         HP = maxHP;
         phaseTwo = false;
         adds = 0;

@@ -46,8 +46,50 @@ public final class CharacterArt {
         public float idle = 0f; // 0..1 breathing phase
         public float attack = 0f; // attack progress 0..1
         public boolean attacking = false;
+        public boolean basicSword;
         public float guard;
         public float greatswordRaise;
+        public boolean chargePose;
+        public int bullStage;
+        public float bullTime, bullCharge, bullBreath;
+
+        /** Selects the cached Bullthrust-specific pose family, independently of basic swings. */
+        public Pose bullthrust(int index) {
+            if (index < 9) {
+                bullStage = 1;
+                bullTime = index / 8f;
+            } else if (index < 34) {
+                bullStage = 2;
+                bullCharge = Math.min(1, ((index - 9) / 4) / 5f);
+                bullBreath = (index - 9) % 4 / 4f;
+            } else if (index < 51) {
+                bullStage = 3;
+                bullTime = (index - 34) / 16f;
+            } else {
+                bullStage = 4;
+                bullTime = (index - 51) / 12f;
+            }
+            return this;
+        }
+
+        /** Dedicated Charge samples share clothing/limb helpers, with their own authored motion. */
+        public Pose charge(int index) {
+            chargePose = true;
+            if (index < 6) {
+                bullStage = 1;
+                bullTime = index / 5f;
+            } else if (index < 14) {
+                bullStage = 2;
+                bullTime = (index - 6) / 7f;
+            } else if (index < 24) {
+                bullStage = 3;
+                bullTime = (index - 14) / 9f;
+            } else {
+                bullStage = 4;
+                bullTime = (index - 24) / 7f;
+            }
+            return this;
+        }
 
         /** Resolves the walk result used by Pose. */
         public Pose walk(float p) {
@@ -108,7 +150,10 @@ public final class CharacterArt {
         }
 
         if (p.attacking && look.rangerBow == null) {
-            WeaponArt.Swing attack = WeaponArt.swing(look.weapon, true, p.attack);
+            WeaponArt.Swing attack =
+                    (p.basicSword
+                            ? WeaponArt.basicSword(p.attack)
+                            : WeaponArt.swing(look.weapon, true, p.attack));
             squash = 0.025f * attack.reach - (look.weapon.isStaff() ? 0.012f * attack.lift : 0);
             bob = 0;
         }
@@ -124,10 +169,39 @@ public final class CharacterArt {
         g.translate(-32, -FOOT_Y);
 
         if (p.attacking && !look.weapon.isStaff() && look.rangerBow == null) {
-            float reach = WeaponArt.swing(look.weapon, true, p.attack).reach;
+            float reach =
+                    (p.basicSword
+                                    ? WeaponArt.basicSword(p.attack)
+                                    : WeaponArt.swing(look.weapon, true, p.attack))
+                            .reach;
             float dx = dir == Dir.RIGHT ? 2.5f : dir == Dir.LEFT ? -2.5f : 0;
             float dy = dir == Dir.DOWN ? 1.2f : dir == Dir.UP ? -0.3f : 0;
             g.translate(dx * reach, dy * reach);
+            if (p.basicSword) {
+                g.translate(32, FOOT_Y);
+                g.shear((dir == Dir.RIGHT ? -.07 : dir == Dir.LEFT ? .07 : 0) * reach, 0);
+                g.translate(-32, -FOOT_Y);
+            }
+        }
+        if (p.bullStage > 0) {
+            float lean = bullLean(p);
+            float crouch =
+                    p.bullStage == 4
+                            ? .10f * (1 - ease(p.bullTime))
+                            : p.bullStage == 1
+                                    ? .10f * ease(p.bullTime)
+                                    : p.bullStage == 2
+                                            ? .10f + .025f * p.bullCharge
+                                            : .10f - .04f * (float) Math.sin(p.bullTime * Math.PI);
+            float hop =
+                    p.bullStage == 1 && !p.chargePose
+                            ? -4 * (float) Math.sin(p.bullTime * Math.PI)
+                            : 0;
+            g.translate(32, FOOT_Y + hop);
+            g.scale(1 + crouch * .25, 1 - crouch);
+            g.shear(dir == Dir.RIGHT ? -lean : dir == Dir.LEFT ? lean : 0, 0);
+            g.translate(-32, -FOOT_Y);
+            if (p.bullStage == 2) g.translate(0, .25 * Math.sin(p.bullBreath * Math.PI * 2));
         }
         baseBody(g, dir, look, swing, p);
         g.setTransform(base);
@@ -147,7 +221,10 @@ public final class CharacterArt {
         }
         boolean bow = look.rangerBow != null;
         boolean bowAim = bow && pose.attacking;
-        WeaponArt.Swing sw = WeaponArt.swing(look.weapon, pose.attacking && !bow, pose.attack);
+        WeaponArt.Swing sw =
+                pose.basicSword
+                        ? WeaponArt.basicSword(pose.attack)
+                        : WeaponArt.swing(look.weapon, pose.attacking && !bow, pose.attack);
         boolean running = pose.moving && !pose.attacking;
         float step = running ? (float) Math.sin(pose.walk * Math.PI * 2) : 0;
         float nearLift = Math.max(0, -step) * 5;
@@ -176,6 +253,30 @@ public final class CharacterArt {
                 handY = 45.5f - sw.lift * 7 + (back ? -17 : 7) * sw.reach;
             }
         }
+        if (pose.basicSword) {
+            float cut = pose.attack < .4f ? 0 : pose.attack < .6f ? (pose.attack - .4f) / .2f : 1;
+            float raise = Math.clamp(pose.attack / .25f, 0, 1);
+            raise = raise * raise * (3 - 2 * raise);
+            float settle = Math.clamp((pose.attack - .75f) / .25f, 0, 1);
+            settle = settle * settle * (3 - 2 * settle);
+            float restX = handX, restY = 45.5f;
+            if (side) {
+                handX = 38;
+                handY = 35 + 9 * cut;
+                angle = -25 + 155 * cut;
+            } else {
+                handX = back ? 23 + 18 * cut : 41 - 18 * cut;
+                handY = back ? 32 : 44;
+                angle = back ? -65 + 130 * cut : 65 - 130 * cut;
+            }
+            float visibility = raise * (1 - settle);
+            handX = restX + (handX - restX) * visibility;
+            handY = restY + (handY - restY) * visibility;
+            angle =
+                    (side ? look.weapon.restSide : look.weapon.restFront)
+                            + (angle - (side ? look.weapon.restSide : look.weapon.restFront))
+                                    * visibility;
+        }
         if (look.weapon.isStaff()) {
             if (side) {
                 handX = Math.max(handX, 39);
@@ -190,12 +291,19 @@ public final class CharacterArt {
         boolean greatsword = look.weapon.isGreatsword();
         boolean heldSword = look.weapon.isHeldSword();
         float swordScale = 1;
-        if (heldSword) {
+        if (heldSword && !pose.basicSword && pose.bullStage == 0) {
             SwordGrip grip = swordGrip(greatsword, side, back, pose, swing, step);
             handX = grip.x;
             handY = grip.y;
             angle = grip.angle;
             swordScale = grip.scale;
+        }
+        if (pose.bullStage > 0) {
+            SwordGrip grip = bullGrip(pose, side, back, handX, handY, angle);
+            handX = grip.x;
+            handY = grip.y;
+            angle = grip.angle;
+            previous = angle;
         }
         double gripAngle = Math.toRadians(angle);
         float gripDX = -(float) Math.sin(gripAngle) * swordScale,
@@ -205,9 +313,14 @@ public final class CharacterArt {
         boolean frontDaggers = !side && !back && look.weapon.isDaggers();
         float frontDaggerRest = -WeaponArt.Kind.DAGGERS.restFront;
         boolean showMain =
-                !melee
-                        || heldSword && sw.smear < 0.01f
-                        || pairedAttack && sw.daggerHand != WeaponArt.DaggerHand.MAIN;
+                pose.bullStage > 0
+                        ? !(pose.bullStage == 3 && pose.bullTime > .18f && pose.bullTime < .72f)
+                        : pose.basicSword
+                                ? sw.smear == 0
+                                : !melee
+                                        || heldSword && sw.smear < 0.01f
+                                        || pairedAttack
+                                                && sw.daggerHand != WeaponArt.DaggerHand.MAIN;
         // During the offhand cut, the main blade stays in its resting grip.
         // On these swords the center of the wrapped grip is below the artwork origin.
         float gripInset = greatsword ? 1.45f : 2.45f;
@@ -234,9 +347,9 @@ public final class CharacterArt {
                                 weaponX,
                                 weaponY,
                                 weaponAngle,
-                                side || frontDaggers || heldSword ? 1 : hs,
+                                pose.basicSword || side || frontDaggers || heldSword ? 1 : hs,
                                 pairedAttack || heldSword ? 0 : sw.reach,
-                                sw.smear,
+                                pose.bullStage > 0 ? 0 : sw.smear,
                                 priorAngle,
                                 weaponScale);
         Runnable offhand =
@@ -275,17 +388,30 @@ public final class CharacterArt {
         if (side) {
             softPart(
                     g,
-                    running
-                            ? runLeg(29.5f, -swing * 6.5f, farLift)
-                            : sideLeg(29.5f, 48.5f, -swing * 3.2f),
+                    pose.bullStage > 0
+                            ? bullLeg(29.5f, -1, pose, true)
+                            : running
+                                    ? runLeg(29.5f, -swing * 6.5f, farLift)
+                                    : sideLeg(29.5f, 48.5f, -swing * 3.2f),
                     shade(look.skin, running ? 0.94f : 0.97f));
             CharacterClothing.leg(
                     g,
                     look.outfit,
-                    running
-                            ? runLeg(29.5f, -swing * 6.5f, farLift)
-                            : sideLeg(29.5f, 48.5f, -swing * 3.2f),
+                    pose.bullStage > 0
+                            ? bullLeg(29.5f, -1, pose, true)
+                            : running
+                                    ? runLeg(29.5f, -swing * 6.5f, farLift)
+                                    : sideLeg(29.5f, 48.5f, -swing * 3.2f),
                     57 - farLift);
+            if (pose.bullStage > 0) {
+                float balance =
+                        pose.bullStage == 4
+                                ? 1 - ease(pose.bullTime)
+                                : pose.bullStage == 1 ? ease(pose.bullTime) : 1;
+                float ox = 28 + 14 * balance, oy = 46 - 7 * balance;
+                softPart(g, handArm(31, 38, ox, oy), shade(look.skin, .94f));
+                CharacterClothing.arm(g, look.outfit, 31, 38, ox, oy);
+            }
             if (running && !greatsword) {
                 double farArm = Math.toRadians(swing * 48);
                 softPart(
@@ -314,14 +440,20 @@ public final class CharacterArt {
             Area body = new Area(torso);
             body.add(
                     new Area(
-                            running
-                                    ? runLeg(32, swing * 6.5f, nearLift)
-                                    : sideLeg(32, 48.5f, swing * 3.2f)));
+                            pose.bullStage > 0
+                                    ? bullLeg(32, 1, pose, true)
+                                    : running
+                                            ? runLeg(32, swing * 6.5f, nearLift)
+                                            : sideLeg(32, 48.5f, swing * 3.2f)));
             softPart(g, body, look.skin);
             CharacterClothing.leg(
                     g,
                     look.outfit,
-                    running ? runLeg(32, swing * 6.5f, nearLift) : sideLeg(32, 48.5f, swing * 3.2f),
+                    pose.bullStage > 0
+                            ? bullLeg(32, 1, pose, true)
+                            : running
+                                    ? runLeg(32, swing * 6.5f, nearLift)
+                                    : sideLeg(32, 48.5f, swing * 3.2f),
                     57 - nearLift);
             CharacterClothing.torso(
                     g,
@@ -351,6 +483,11 @@ public final class CharacterArt {
             torso.curveTo(40, 37, 39, 35, 36, 33);
             torso.closePath();
             Area body = new Area(torso);
+            if (pose.bullStage > 0) {
+                body.intersect(new Area(new Rectangle2D.Float(0, 0, 64, 50)));
+                body.add(new Area(bullLeg(23, -1, pose, false)));
+                body.add(new Area(bullLeg(34, 1, pose, false)));
+            }
             if (running) {
                 // Replace the resting feet, rather than stacking moving feet over them.
                 body.intersect(new Area(new Rectangle2D.Float(0, 0, 64, 51)));
@@ -364,24 +501,28 @@ public final class CharacterArt {
                                         ? handArm(26, 37.5f, handX, handY)
                                         : greatsword
                                                 ? handArm(26, 37.5f, secondX, secondY)
-                                                : arm(
-                                                        26,
-                                                        37.5f,
-                                                        -1,
-                                                        8,
-                                                        -swing * (running ? 3.2f : 0.8f))));
+                                                : pose.bullStage > 0
+                                                        ? handArm(26, 37.5f, 19, 40)
+                                                        : arm(
+                                                                26,
+                                                                37.5f,
+                                                                -1,
+                                                                8,
+                                                                -swing * (running ? 3.2f : 0.8f))));
                 body.add(
                         new Area(
                                 strikeSide > 0
                                         ? handArm(38, 37.5f, handX, handY)
                                         : greatsword
                                                 ? handArm(38, 37.5f, secondX, secondY)
-                                                : arm(
-                                                        38,
-                                                        37.5f,
-                                                        1,
-                                                        8,
-                                                        swing * (running ? 3.2f : 0.8f))));
+                                                : pose.bullStage > 0
+                                                        ? handArm(38, 37.5f, 45, 40)
+                                                        : arm(
+                                                                38,
+                                                                37.5f,
+                                                                1,
+                                                                8,
+                                                                swing * (running ? 3.2f : 0.8f))));
             }
             softPart(g, body, look.skin);
             for (int i = 0; i < 2; i++) {
@@ -404,16 +545,28 @@ public final class CharacterArt {
                         look.outfit,
                         26,
                         37.5f,
-                        strikeSide < 0 ? handX : greatsword ? secondX : 26 - (4.2f + leftS * 0.3f),
-                        strikeSide < 0 ? handY : greatsword ? secondY : 45.5f + leftS,
+                        strikeSide < 0
+                                ? handX
+                                : greatsword
+                                        ? secondX
+                                        : pose.bullStage > 0 ? 19 : 26 - (4.2f + leftS * 0.3f),
+                        strikeSide < 0
+                                ? handY
+                                : greatsword ? secondY : pose.bullStage > 0 ? 40 : 45.5f + leftS,
                         strikeSide < 0 ? look.berserkerOutfit : null);
                 CharacterClothing.arm(
                         g,
                         look.outfit,
                         38,
                         37.5f,
-                        strikeSide > 0 ? handX : greatsword ? secondX : 38 + (4.2f + rightS * 0.3f),
-                        strikeSide > 0 ? handY : greatsword ? secondY : 45.5f + rightS,
+                        strikeSide > 0
+                                ? handX
+                                : greatsword
+                                        ? secondX
+                                        : pose.bullStage > 0 ? 45 : 38 + (4.2f + rightS * 0.3f),
+                        strikeSide > 0
+                                ? handY
+                                : greatsword ? secondY : pose.bullStage > 0 ? 40 : 45.5f + rightS,
                         strikeSide > 0 ? look.berserkerOutfit : null);
             }
         }
@@ -486,6 +639,94 @@ public final class CharacterArt {
         // Headgear is the final character layer, above hair, limbs, weapons, and effects.
         CharacterClothing.headpiece(g, look.outfit);
         g.setTransform(saved);
+    }
+
+    /** Dedicated anticipation and release lean; feet remain at the rig's common anchor. */
+    private static float bullLean(Pose p) {
+        if (p.chargePose)
+            return switch (p.bullStage) {
+                case 1 -> .18f * ease(p.bullTime);
+                case 2 -> .18f + .16f * (float) Math.sin(Math.PI * p.bullTime);
+                case 3 -> .18f * (1 - .4f * ease(p.bullTime));
+                default -> .108f * (1 - ease(p.bullTime));
+            };
+        return switch (p.bullStage) {
+            case 1 -> -.12f * (float) Math.sin(p.bullTime * Math.PI) + .10f * ease(p.bullTime);
+            case 2 -> .10f + .07f * p.bullCharge;
+            case 3 -> .17f + .13f * (float) Math.sin(p.bullTime * Math.PI);
+            default -> .17f * (1 - ease(p.bullTime));
+        };
+    }
+
+    /** Bent, planted legs become a stretched trailing leg and forward foot during release. */
+    private static Shape bullLeg(float hip, int side, Pose p, boolean profile) {
+        float stance =
+                p.bullStage == 1 ? ease(p.bullTime) : p.bullStage == 4 ? 1 - ease(p.bullTime) : 1;
+        float stride = (profile ? 5 : 3) * side * stance;
+        float lift = 0;
+        if (p.bullStage == 3 && profile) {
+            stride = side < 0 ? -7 : 4;
+            lift = side < 0 ? 3 * (float) Math.sin(p.bullTime * Math.PI) : 0;
+        }
+        if (p.chargePose && p.bullStage == 2) {
+            stride = profile ? (side < 0 ? -8 : 5) : side * 4;
+            lift = side < 0 ? 3 + (float) Math.sin(p.bullTime * Math.PI * 2) : 0;
+        }
+        return runLeg(hip, stride, lift);
+    }
+
+    /** Sword hand moves from drawn-back preparation through sweep into a long finishing thrust. */
+    private static SwordGrip bullGrip(
+            Pose p, boolean side, boolean back, float restX, float restY, float restAngle) {
+        SwordGrip rest = new SwordGrip(restX, restY, restAngle, 1);
+        if (p.chargePose) {
+            SwordGrip sprint =
+                    new SwordGrip(
+                            side ? 25 : back ? 42 : 22,
+                            side ? 47 : back ? 43 : 40,
+                            side ? -105 : back ? 135 : -60,
+                            1);
+            SwordGrip cut =
+                    new SwordGrip(
+                            side ? 43 : back ? 23 : 41,
+                            side ? 44 : back ? 29 : 47,
+                            side ? 120 : back ? -65 : 65,
+                            1);
+            return switch (p.bullStage) {
+                case 1 -> rest.toward(sprint, ease(p.bullTime));
+                case 2 ->
+                        new SwordGrip(
+                                sprint.x,
+                                sprint.y + .8f * (float) Math.sin(p.bullTime * Math.PI * 2),
+                                sprint.angle,
+                                1);
+                case 3 -> sprint.toward(cut, ease(Math.clamp(p.bullTime / .7f, 0, 1)));
+                default -> cut.toward(rest, ease(p.bullTime));
+            };
+        }
+        SwordGrip ready =
+                new SwordGrip(
+                        side ? 25 : back ? 41 : 23,
+                        side ? 43 : back ? 46 : 38,
+                        side ? -110 : back ? 150 : -30,
+                        1);
+        SwordGrip finish =
+                new SwordGrip(
+                        side ? 47 : 32, side ? 41 : back ? 16 : 45, side ? 90 : back ? 0 : 180, 1);
+        return switch (p.bullStage) {
+            case 1 -> rest.toward(ready, ease(p.bullTime));
+            case 2 ->
+                    new SwordGrip(
+                            ready.x - (side ? p.bullCharge : 0),
+                            ready.y,
+                            ready.angle
+                                    + .8f
+                                            * p.bullCharge
+                                            * (float) Math.sin(p.bullBreath * Math.PI * 2),
+                            1);
+            case 3 -> ready.toward(finish, ease(Math.clamp(p.bullTime / .85f, 0, 1)));
+            default -> finish.toward(rest, ease(p.bullTime));
+        };
     }
 
     private record SwordGrip(float x, float y, float angle, float scale) {

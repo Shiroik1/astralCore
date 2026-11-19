@@ -38,6 +38,37 @@ public class Monster extends Entity {
         pathfinder = new ai.Pathfinder(gp);
     }
 
+    private final java.util.Map<Player, long[]> masteryDamage = new java.util.WeakHashMap<>();
+    private boolean masteryClaimed;
+
+    /** Records only accepted damage, never XP; projectile events retain their original weapon. */
+    public void recordMasteryDamage(Player player, int weapon, int damage) {
+        if (masteryClaimed || damage <= 0) return;
+        int slot =
+                weapon == type_sword ? 0 : weapon == type_bow ? 1 : weapon == type_staff ? 2 : -1;
+        if (slot < 0) return;
+        long[] totals = masteryDamage.computeIfAbsent(player, key -> new long[3]);
+        totals[slot] += damage;
+    }
+
+    /** Consumes the encounter's credit once, choosing the most damaging eligible weapon. */
+    public int consumeMasteryCredit(Player killer) {
+        if (masteryClaimed || HP > 0) return -1;
+        masteryClaimed = true;
+        long[] totals = masteryDamage.get(killer);
+        masteryDamage.clear();
+        if (totals == null) return -1;
+        int best = 0;
+        for (int i = 1; i < 3; i++) if (totals[i] > totals[best]) best = i;
+        return totals[best] <= 0 ? -1 : best == 0 ? type_sword : best == 1 ? type_bow : type_staff;
+    }
+
+    /** Healing/resetting an encounter discards its previous training contributions. */
+    public void clearMasteryCredit() {
+        masteryDamage.clear();
+        masteryClaimed = false;
+    }
+
     private static final String[] STAFF_MARKS = {
         "immolated", MageEffect.FROST_SLOW, "frozen", "shocked", "frogMorph"
     };
@@ -306,6 +337,18 @@ public class Monster extends Entity {
             g.setStroke(stroke);
         }
         super.draw(g);
+        int stacks = getStatusEffectValue("warriorRhythm");
+        if (stacks > 0) {
+            Player camera = gp.localPlayer();
+            if (monster.SlimeMotion.distance(camera, this) < gp.tileSize * 7) {
+                int x = worldX - camera.worldX + camera.screenX,
+                        y = worldY - camera.worldY + camera.screenY - 10;
+                for (int i = 0; i < 5; i++) {
+                    g.setColor(i < stacks ? new Color(232, 193, 129) : new Color(95, 81, 88));
+                    g.fillOval(x + i * 7, y, 5, 5);
+                }
+            }
+        }
         if (!dying && (challengeReplica || isChallenged())) {
             var marker = (Graphics2D) g.create();
             Player camera = gp.localPlayer();

@@ -49,6 +49,11 @@ public final class GrassArt {
     /** Creates a GrassArt instance and initializes the state required by its collaborators. */
     public GrassArt(int tileSize) {
         this.tileSize = tileSize;
+        for (int shade = 0; shade < 3; shade++)
+            for (int level = 0; level < Palette.GROUND.length; level++)
+                for (int bend = 0; bend < BEND_FRAMES; bend++)
+                    shortGrass[shade][level][bend] =
+                            MeadowDetails.grass(shade, level, bend, tileSize);
         footX = scale(ROOT_X, tileSize);
         footY = scale(ROOT_Y, tileSize);
         synchronized (CACHE) {
@@ -72,6 +77,13 @@ public final class GrassArt {
     }
 
     private final int tileSize;
+    private final BufferedImage[][][] shortGrass =
+            new BufferedImage[3][Palette.GROUND.length][BEND_FRAMES];
+
+    /** Returns the cached decorative three-line grass; it has no harvesting identity. */
+    public BufferedImage shortGrass(int shade, int level, int bend) {
+        return shortGrass[shade][level][bend];
+    }
 
     /** Resolves the load result used by GrassArt. */
     private static BufferedImage[][] load(int tileSize) {

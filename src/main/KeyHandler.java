@@ -9,6 +9,7 @@ public class KeyHandler implements KeyListener {
     Gamepanel gp;
     public boolean upPressed, downPressed, leftPressed, rightPressed;
     public boolean[] skillKeyPressed = new boolean[5];
+    public boolean[] skillHeld = new boolean[5];
     public boolean ePressed;
     private boolean ePressedPrevCapture = false;
     public boolean showDebug;
@@ -75,6 +76,7 @@ public class KeyHandler implements KeyListener {
 
     /** Performs the handle key pressed operation for KeyHandler. */
     void handleKeyPressed(int code) {
+        if (code >= KeyEvent.VK_1 && code <= KeyEvent.VK_5) skillHeld[code - KeyEvent.VK_1] = true;
         if (gp.gameState == gp.characterSelectState) {
             gp.ui.characterSlots.key(code);
             return;
@@ -118,6 +120,7 @@ public class KeyHandler implements KeyListener {
 
     /** Performs the handle key released operation for KeyHandler. */
     void handleKeyReleased(int code) {
+        if (code >= KeyEvent.VK_1 && code <= KeyEvent.VK_5) skillHeld[code - KeyEvent.VK_1] = false;
         if (code == KeyEvent.VK_SHIFT) gp.ui.game.shift = false;
         if (code == KeyEvent.VK_W) {
             upPressed = false;

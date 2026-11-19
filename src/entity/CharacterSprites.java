@@ -64,6 +64,26 @@ public final class CharacterSprites {
                                 new CharacterArt.Pose().attack(i / (float) (attackFrames - 1)),
                                 look);
 
+            if (look.weapon == art.WeaponArt.Kind.SWORD) {
+                var basic = new BufferedImage[41];
+                for (int i = 0; i < basic.length; i++) {
+                    var pose = new CharacterArt.Pose().attack(i / 40f);
+                    pose.basicSword = true;
+                    basic[i] = frame(DIRS[d], pose, look);
+                }
+                sprites.put("basic_sword_" + NAMES[d], new SpriteAnimation(basic, size, size));
+            }
+            if (look.weapon == art.WeaponArt.Kind.SWORD
+                    || look.weapon.isHeldSword() && !look.weapon.isGreatsword()) {
+                var charge = new BufferedImage[32];
+                for (int i = 0; i < charge.length; i++)
+                    charge[i] = frame(DIRS[d], new CharacterArt.Pose().charge(i), look);
+                sprites.put("charge_" + NAMES[d], new SpriteAnimation(charge, size, size));
+                var thrust = new BufferedImage[64];
+                for (int i = 0; i < thrust.length; i++)
+                    thrust[i] = frame(DIRS[d], new CharacterArt.Pose().bullthrust(i), look);
+                sprites.put("bullthrust_" + NAMES[d], new SpriteAnimation(thrust, size, size));
+            }
             if (look.weapon.isGreatsword()) {
                 var raised = new BufferedImage[GREATSWORD_RAISE_FRAMES];
                 for (int i = 0; i < raised.length; i++) {

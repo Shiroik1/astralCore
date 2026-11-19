@@ -78,6 +78,7 @@ public class MON_GreenSlime extends Monster implements SlimeActor {
         route = new ai.Pathfinder(gp);
         name = "Green Slime";
         maxHP = 30;
+        clearMasteryCredit();
         HP = maxHP;
         attack = 8;
         exp = 3;
@@ -363,7 +364,9 @@ public class MON_GreenSlime extends Monster implements SlimeActor {
         float progress = Math.min(1, timer / (float) LEAP_TICKS);
         int slow =
                 Math.max(
-                        getStatusEffectValue("rangerSlow"),
+                        Math.max(
+                                getStatusEffectValue("rangerSlow"),
+                                getStatusEffectValue("warriorSlow")),
                         getStatusEffectValue(MageEffect.FROST_SLOW));
         int tx = startX + Math.round((goalX - startX) * progress),
                 ty = startY + Math.round((goalY - startY) * progress);

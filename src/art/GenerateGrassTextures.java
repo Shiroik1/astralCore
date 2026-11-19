@@ -3,7 +3,6 @@ package art;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
-import java.awt.geom.QuadCurve2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -60,7 +59,7 @@ public final class GenerateGrassTextures {
         int count = type == 2 ? 3 : 4 + (type == 1 ? variant % 2 : 0);
         double height = type == 1 ? 21 : type == 0 ? 13 : 8;
         double direction = variant % 2 == 0 ? -1 : 1;
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; type != 2 && i < count; i++) {
             double spread = i / (double) (count - 1) - 0.5;
             double x = GrassArt.ROOT_X + spread * 8.0;
             double h = height * (0.77 + random.nextDouble() * 0.29);
@@ -120,8 +119,7 @@ public final class GenerateGrassTextures {
         double lean = natural + bend * h * .55;
         double y = GrassArt.ROOT_Y;
         g.setStroke(new BasicStroke(1.25f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(color);
-        g.draw(new QuadCurve2D.Double(x, y, x + lean * .32, y - h * .66, x + lean, y - h));
+        // Flower patches intentionally have no stems or green backing.
         blossom(g, x + lean, y - h, radius, petals);
     }
 

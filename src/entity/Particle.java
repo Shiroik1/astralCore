@@ -48,6 +48,9 @@ public final class Particle extends Entity {
 
     private final Style style;
     private final Color color, light, edge;
+    private final RadialGradientPaint glow;
+    private static final Shape GLOW_DISC = new Ellipse2D.Float(-1, -1, 2, 2);
+    private static final float[] GLOW_STOPS = {0f, .35f, 1f};
     private final float size;
     private final float angle;
     private final int lifetime, depth;
@@ -101,6 +104,30 @@ public final class Particle extends Entity {
         super(gp);
         this.style = style;
         this.color = color;
+        boolean luminous =
+                style == Style.SQUARE
+                        || style == Style.SPARK
+                        || style == Style.MOTE
+                        || style == Style.RING;
+        Color glowColor = ArtKit.mix(color, IVORY, .25f);
+        glow =
+                luminous
+                        ? new RadialGradientPaint(
+                                0,
+                                0,
+                                1,
+                                GLOW_STOPS,
+                                new Color[] {
+                                    new Color(
+                                            glowColor.getRed(),
+                                            glowColor.getGreen(),
+                                            glowColor.getBlue(),
+                                            150),
+                                    new Color(
+                                            color.getRed(), color.getGreen(), color.getBlue(), 65),
+                                    new Color(color.getRed(), color.getGreen(), color.getBlue(), 0)
+                                })
+                        : null;
         this.edge = ArtKit.mix(color, art.Palette.IRON, .55f);
         this.light =
                 switch (style) {
@@ -328,6 +355,7 @@ public final class Particle extends Entity {
         float progress = age / (float) lifetime;
         float fade = 1 - progress;
         Composite composite = g.getComposite();
+        if (glow != null) drawGlow(g, sx, sy, fade, composite);
         if (style == Style.SQUARE) {
             // Integer edges keep tiny squares crisp as their positions change between ticks.
             int side = Math.max(4, Math.round(size));
@@ -380,6 +408,21 @@ public final class Particle extends Entity {
         }
         g.setTransform(transform);
         g.setComposite(composite);
+    }
+
+    /** Draws a cached soft colored halo; brightness fades with the particle's existing lifetime. */
+    private void drawGlow(Graphics2D g, float sx, float sy, float fade, Composite original) {
+        AffineTransform transform = g.getTransform();
+        Paint paint = g.getPaint();
+        float radius = Math.max(7f, size * (style == Style.RING ? 1.8f : 2.4f));
+        g.translate(sx, sy);
+        g.scale(radius, radius);
+        g.setComposite(AlphaComposite.SrcOver.derive(Math.min(1f, fade * 1.5f)));
+        g.setPaint(glow);
+        g.fill(GLOW_DISC);
+        g.setPaint(paint);
+        g.setTransform(transform);
+        g.setComposite(original);
     }
 
     /** Draws or constructs the polygon shape used by this artwork. */

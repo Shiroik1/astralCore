@@ -149,7 +149,9 @@ public enum ItemType {
     HEARTY_MEAL("hearty_meal"),
     HERBAL_DRINK("herbal_drink"),
     SLIME_GEL(OBJ_slimegel.class, OBJ_slimegel::new),
-    ROYAL_SLIME_CORE(OBJ_royalslimecore.class, OBJ_royalslimecore::new);
+    ROYAL_SLIME_CORE(OBJ_royalslimecore.class, OBJ_royalslimecore::new),
+    BROWN_PANTS(art.CharacterOutfit.Slot.PANTS, "Plain Brown Pants"),
+    WHITE_TOP(art.CharacterOutfit.Slot.TORSO, "Plain White Top");
 
     final Class<? extends Entity> itemClass;
     final Function<Gamepanel, Entity> factory;

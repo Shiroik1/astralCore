@@ -131,6 +131,8 @@ public class SnapshotBuilder {
             ps.rage = p.rage;
             ps.maxRage = p.maxRage;
             ps.arcaneCharge = p.arcaneCharge;
+            p.sword.thrust.snapshot(ps);
+            p.sword.charge.snapshot(ps);
             if (p.usesMana()) {
                 ps.staffCastingId = p.mage.castingId();
                 ps.staffShield = p.mage.shieldRemaining();
@@ -143,6 +145,9 @@ public class SnapshotBuilder {
                 ps.mageHeading = p.mage.heading();
             }
             if (p.attacking && p.usesMeleeSlash()) {
+                ps.basicSwordPose = p.sword.basicPose();
+                ps.powerslash = p.sword.powerslash();
+                ps.sundering = p.sword.sundering();
                 ps.meleeFrame = p.spriteNum;
                 ps.meleeFrameTicks = p.attackFrameTicks();
             }

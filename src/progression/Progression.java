@@ -13,6 +13,9 @@ public final class Progression {
             Double.parseDouble(System.getProperty("astral.progression.softRate", "0.5"));
     public static final double ENERGY_PER_POINT =
             Double.parseDouble(System.getProperty("astral.progression.energyPerPoint", "3"));
+    public int[] swordSlots = {0, 1, 2, 3, 4},
+            staffSlots = {0, 1, 2, 3, 4},
+            bowSlots = {0, 1, 2, 3, 4};
     public int staffPage, mealTicks, drinkTicks;
     public int[] staffCooldowns = new int[13];
     public int version = 1, attributePoints, talentPoints, stamina = 10, energy = 100;
@@ -21,12 +24,11 @@ public final class Progression {
     public final Map<String, Integer> talents = new LinkedHashMap<>();
     public final StarterQuests journal = new StarterQuests();
     public final Set<String> milestones = new HashSet<>();
-    private final Map<Integer, Long> hitCooldown = new HashMap<>();
 
     /** Resolves the required result used by Progression. */
     public static int required(int level) {
         int n = Math.clamp(level, 1, CAP) - 1;
-        return 100 + 35 * n + 15 * n * n;
+        return 80 + 20 * n + 4 * n * n;
     }
 
     /** Resolves the mastery required result used by Progression. */
@@ -98,21 +100,27 @@ public final class Progression {
         if (level % 2 == 0) talentPoints++;
     }
 
-    /**
-     * Awards weapon mastery only for accepted damage, throttling rapid multi-hit rewards per weapon
-     * type.
-     */
-    public void hit(Player p, int weapon, int damage) {
-        if (damage <= 0 || p.gp.isNetworked) return;
-        long now = p.gp.currentTick;
-        if (now < hitCooldown.getOrDefault(weapon, Long.MIN_VALUE)) return;
-        hitCooldown.put(weapon, now + 20);
+    /** Rewards defeated threats, with bosses worth more than ordinary gathering-area enemies. */
+    public static int combatReward(entity.Monster target) {
+        return Math.min(300, (target.isBoss() ? 80 : 20) + 4 * Math.max(1, target.exp));
+    }
+
+    /** Character XP remains kill-based and separate from weapon mastery. */
+    public static int characterReward(entity.Monster target) {
+        return Math.max(1, target.exp) * 8;
+    }
+
+    /** Awards one kill reward to the weapon that dealt the most accepted damage. */
+    public void defeated(Player p, entity.Monster target) {
+        int weapon = target.consumeMasteryCredit(p);
+        if (p.gp.isNetworked) return; // Preserve the current single-player progression authority.
+        int reward = combatReward(target);
         if (weapon == entity.Entity.type_sword)
-            p.meleeMasteryXP = Math.min(1000000, p.meleeMasteryXP + 3);
+            p.meleeMasteryXP = Math.min(1000000, p.meleeMasteryXP + reward);
         else if (weapon == entity.Entity.type_bow)
-            p.bowMasteryXP = Math.min(1000000, p.bowMasteryXP + 3);
+            p.bowMasteryXP = Math.min(1000000, p.bowMasteryXP + reward);
         else if (weapon == entity.Entity.type_staff)
-            p.magicMasteryXP = Math.min(1000000, p.magicMasteryXP + 3);
+            p.magicMasteryXP = Math.min(1000000, p.magicMasteryXP + reward);
     }
 
     /** Performs the life operation for Progression. */
@@ -145,14 +153,26 @@ public final class Progression {
         if (p.exp >= p.nextLevelExp) p.grantExperience(0);
     }
 
+    /** Validates saved ability identities; -1 is an intentionally empty action slot. */
+    private static int[] slots(int[] values, int count) {
+        if (values == null) return new int[] {0, 1, 2, 3, 4};
+        if (values.length != 5) throw new IllegalArgumentException("Invalid action bar");
+        var seen = new HashSet<Integer>();
+        for (int v : values)
+            if (v < -1 || v >= count || v >= 0 && !seen.add(v))
+                throw new IllegalArgumentException("Invalid skill assignment");
+        return values.clone();
+    }
+
     public static final class Data {
+        public int[] swordSlots, staffSlots, bowSlots;
         public int staffPage, mealTicks, drinkTicks;
         public int[] staffCooldowns = new int[13];
         public int schema = 1, attributePoints, talentPoints, stamina = 10, energy = 100;
         public int[] lifeXP = new int[4];
-        public Map<String, Integer> talents = new LinkedHashMap<>();
+        public LinkedHashMap<String, Integer> talents = new LinkedHashMap<>();
         public ArrayList<String> milestones = new ArrayList<>();
-        public Map<String, StarterQuests.Entry> quests = new LinkedHashMap<>();
+        public LinkedHashMap<String, StarterQuests.Entry> quests = new LinkedHashMap<>();
         public String tracked = "rest";
     }
 
@@ -162,6 +182,9 @@ public final class Progression {
      */
     public Data snapshot() {
         Data d = new Data();
+        d.swordSlots = swordSlots.clone();
+        d.staffSlots = staffSlots.clone();
+        d.bowSlots = bowSlots.clone();
         d.staffPage = staffPage;
         d.mealTicks = mealTicks;
         d.drinkTicks = drinkTicks;
@@ -198,6 +221,9 @@ public final class Progression {
             throw new IllegalArgumentException("Missing or unsupported progression");
         if (d.staffCooldowns == null || d.staffCooldowns.length != 13)
             throw new IllegalArgumentException("Invalid staff cooldowns");
+        swordSlots = slots(d.swordSlots, 7);
+        staffSlots = slots(d.staffSlots, 13);
+        bowSlots = slots(d.bowSlots, 5);
         staffCooldowns = d.staffCooldowns.clone();
         for (int c : staffCooldowns)
             if (c < 0 || c > 36000) throw new IllegalArgumentException("Invalid spell cooldown");

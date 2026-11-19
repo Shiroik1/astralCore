@@ -33,6 +33,13 @@ public class PlayerState {
     public int rage, maxRage;
     public int arcaneCharge;
     public int meleeFrame = 1, meleeFrameTicks;
+    public int basicSwordPose = -1;
+    public boolean sundering;
+    public boolean powerslash;
+    public int chargePhase;
+    public double chargeElapsed, chargeHeading, chargeDuration;
+    public int bullPhase;
+    public double bullElapsed, bullCharge, bullHeading;
     public int paladinMove, paladinAge, paladinGuard, paladinBlock, paladinLinkId = -1;
     public int paladinWallX,
             paladinWallY,
