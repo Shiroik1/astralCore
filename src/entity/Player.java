@@ -114,9 +114,12 @@ public class Player extends Entity {
     public Entity[] inventorySlots = new Entity[20];
     public final int inventorySize = 20;
 
+    public String deathOwnerId = java.util.UUID.randomUUID().toString();
+    public String deathMemorialId;
     public static final int EQUIP_WEAPON = 1;
     public static final int EQUIP_SHIELD = 2;
 
+    // Slot 3 and apparelSlots[0] are reserved for old saves; hair is now appearance data.
     public static final int EQUIP_HAIR = 3,
             EQUIP_TORSO = 4,
             EQUIP_PANTS = 5,
@@ -699,8 +702,9 @@ public class Player extends Entity {
     private void applyStarterAppearance() {
         boolean female = "female".equals(gender);
         java.util.Arrays.fill(apparelSlots, null);
-        apparelSlots[0] = ItemRegistry.create(female ? ItemType.LONG_HAIR : ItemType.HAIR, gp);
-        apparelSlots[2] = ItemRegistry.create(ItemType.BROWN_PANTS, gp);
+        if (!art.Hairstyles.valid(hairStyle)) hairStyle = female ? 37 : 0;
+        if (!art.Hairstyles.validColor(hairColor)) hairColor = 0;
+        apparelSlots[2] = ItemRegistry.create(ItemType.BROWN_LONGYI, gp);
         if (female) apparelSlots[1] = ItemRegistry.create(ItemType.WHITE_TOP, gp);
     }
 
@@ -710,11 +714,10 @@ public class Player extends Entity {
         art.CharacterOutfit.Theme[] themes = new art.CharacterOutfit.Theme[6];
         java.util.Arrays.fill(themes, art.CharacterOutfit.Theme.LEATHER);
         boolean longHair = false;
-        for (int i = 0; i < colors.length; i++)
+        for (int i = 1; i < colors.length; i++)
             if (apparelSlots[i] instanceof OBJ_apparel item) {
                 colors[i] = item.color;
                 if (i < themes.length) themes[i] = item.theme;
-                if (i == 0) longHair = item.longHair;
             }
         var rangerGear = rangerOutfit(equippedItem(EQUIP_TORSO));
         if (rangerGear != null) {
@@ -770,9 +773,40 @@ public class Player extends Entity {
                                 themes[0], themes[1], themes[2], themes[3], themes[4], themes[5],
                                 longHair),
                         colors[6]);
-        return art.Hairstyles.valid(hairStyle) && art.Hairstyles.validColor(hairColor)
-                ? art.Hairstyles.outfit(outfit, hairStyle, hairColor)
-                : outfit;
+        // Hair belongs to the character even when every wearable slot is empty.
+        int style =
+                art.Hairstyles.valid(hairStyle) ? hairStyle : ("female".equals(gender) ? 37 : 0);
+        int color = art.Hairstyles.validColor(hairColor) ? hairColor : 0;
+        return art.Hairstyles.outfit(outfit, style, color);
+    }
+
+    /**
+     * Converts old equipped hair into permanent appearance without renumbering saved armor slots.
+     */
+    public void migrateCosmeticHair() {
+        if (!art.Hairstyles.valid(hairStyle) || !art.Hairstyles.validColor(hairColor)) {
+            OBJ_apparel legacy = apparelSlots[0] instanceof OBJ_apparel item ? item : null;
+            hairStyle =
+                    legacy != null
+                            ? (legacy.longHair ? 37 : 0)
+                            : ("female".equals(gender) ? 37 : 0);
+            hairColor = 0;
+            if (legacy != null) {
+                int nearest = Integer.MAX_VALUE;
+                for (int i = 0; i < art.Hairstyles.COLORS.length; i++) {
+                    Color c = art.Hairstyles.COLORS[i];
+                    int r = c.getRed() - legacy.color.getRed();
+                    int g = c.getGreen() - legacy.color.getGreen();
+                    int b = c.getBlue() - legacy.color.getBlue();
+                    int distance = r * r + g * g + b * b;
+                    if (distance < nearest) {
+                        nearest = distance;
+                        hairColor = i;
+                    }
+                }
+            }
+        }
+        apparelSlots[0] = null;
     }
 
     /** Performs the customize hair operation for Player. */
@@ -865,14 +899,14 @@ public class Player extends Entity {
     public Entity equippedItem(int slot) {
         if (slot == EQUIP_WEAPON) return currentWeapon;
         if (slot == EQUIP_SHIELD) return currentShield;
-        return slot >= EQUIP_HAIR && slot <= EQUIP_HEADPIECE
+        return slot >= EQUIP_TORSO && slot <= EQUIP_HEADPIECE
                 ? apparelSlots[slot - EQUIP_HAIR]
                 : null;
     }
 
     /** Evaluates the fits equipment condition for Player. */
     private boolean fitsEquipment(Entity item, int slot) {
-        if (item == null) return false;
+        if (item == null || slot == EQUIP_HAIR) return false;
         if (level < equipmentLevel(item)) return false;
         if (item instanceof OBJ_crafted crafted)
             return slot == EQUIP_WEAPON && crafted.definition.equipment();
@@ -942,7 +976,7 @@ public class Player extends Entity {
             currentShield = item != null ? item : new OBJ_no_shield(gp);
             defense = getDefense();
             paladin.cancel();
-        } else if (slot >= EQUIP_HAIR && slot <= EQUIP_HEADPIECE) {
+        } else if (slot >= EQUIP_TORSO && slot <= EQUIP_HEADPIECE) {
             if (slot == EQUIP_TORSO) {
                 Entity previous = equippedItem(slot);
                 maxHP += outfitHealth(item) - outfitHealth(previous);
@@ -1263,6 +1297,9 @@ public class Player extends Entity {
 
     /** Advances this component for one simulation tick. */
     public void update() {
+        if (HP <= 0 && canResolveWorldActions()) gp.memorials.onDeath(this);
+        if (isDead) statusEffects.removeIf(e -> e.type.equals("warriorRetaliation"));
+        sword.retaliationVisual.tick(1.0 / 60);
         if (isLocal && !gp.isNetworked) life.tick();
         if (currentInput != null
                 && (currentInput.gameplaySuppressed
@@ -1277,6 +1314,7 @@ public class Player extends Entity {
         if (gp.isNetworked && !gp.isHost) {
             sword.thrust.advanceReplica();
             sword.charge.advanceReplica();
+            sword.shout.replicaTick();
         }
         if (!isLocal && !gp.isHost) {
             updateAura(); // effects come from the snapshot
@@ -1293,7 +1331,7 @@ public class Player extends Entity {
             return;
         }
 
-        if ((sword.thrust.active() || sword.charge.active())
+        if ((sword.thrust.active() || sword.charge.active() || sword.shout.active())
                 && (isDead
                         || merchantOpen
                         || inDialogue
@@ -1442,7 +1480,8 @@ public class Player extends Entity {
             }
         }
 
-        currentInput.movementLocked = sword.thrust.active() || sword.charge.active();
+        currentInput.movementLocked =
+                sword.thrust.active() || sword.charge.active() || sword.shout.active();
         if (currentInput.movementLocked) {
             moving = false;
             bounceCounter = 0;
@@ -2741,6 +2780,8 @@ public class Player extends Entity {
         if (!isDead) {
             sword.thrust.drawBehind(g2, drawX, drawY);
             sword.charge.drawBehind(g2, drawX, drawY);
+            sword.shout.drawGround(g2);
+            sword.retaliationVisual.drawGround(g2);
         }
         boolean up = "up".equals(direction);
         boolean bowBehind = isRanger() && up;
@@ -3031,6 +3072,12 @@ public class Player extends Entity {
     /** Resolves the animation frame result used by Player. */
     @Override
     protected BufferedImage animationFrame(SpriteAnimation anim) {
+        int reactionPose = sword.equipped() ? sword.retaliationVisual.poseIndex() : -1;
+        SpriteAnimation reactionFrames = sprites.get("retaliation_" + direction);
+        if (reactionPose >= 0 && reactionFrames != null) return reactionFrames.frames[reactionPose];
+        int shoutPose = sword.equipped() ? sword.shout.poseIndex() : -1;
+        SpriteAnimation shoutFrames = sprites.get("shout_" + direction);
+        if (shoutPose >= 0 && shoutFrames != null) return shoutFrames.frames[shoutPose];
         int chargePose = sword.equipped() ? sword.charge.poseIndex() : -1;
         SpriteAnimation chargeFrames = sprites.get("charge_" + direction);
         if (chargePose >= 0 && chargeFrames != null) return chargeFrames.frames[chargePose];
@@ -3281,6 +3328,8 @@ public class Player extends Entity {
 
     /** Performs the perform respawn operation for Player. */
     public void performRespawn() {
+        if (canResolveWorldActions()) gp.memorials.onDeath(this);
+        gp.memorials.respawned(this);
         gp.quests.respawnAtPlaza(this);
         gp.playSE(11);
     }

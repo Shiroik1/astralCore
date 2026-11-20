@@ -21,11 +21,13 @@ public final class CharacterState {
 
     /** Resolves the capture result used by CharacterState. */
     public static PlayerState capture(Gamepanel g, Player p) {
+        if (p.HP <= 0) g.memorials.onDeath(p);
         PlayerState s =
                 Arrays.stream(SnapshotBuilder.buildPlayers(g))
                         .filter(state -> state.playerId == p.playerId)
                         .findFirst()
                         .orElseThrow();
+        s.carriedItemState = g.memorials.carried(p);
         // A monster can land a fatal hit after the player's update, before the next death tick.
         s.HP = Math.max(0, Math.min(s.maxHP, s.HP));
         if (s.HP == 0) s.isDead = true;
@@ -97,6 +99,8 @@ public final class CharacterState {
     public static void apply(Gamepanel g, Player p, PlayerState s) {
         validate(s);
         p.resetForSceneTransition();
+        if (s.deathOwnerId != null) p.deathOwnerId = s.deathOwnerId;
+        p.deathMemorialId = s.deathMemorialId;
         p.playerName = s.playerName;
         p.setCharacterDesign(s.playerClass, s.gender);
         p.setDefaultValues();
@@ -148,6 +152,8 @@ public final class CharacterState {
             p.intelligence = 2 + (p.level - 1) / 2;
             p.nextLevelExp = p.level * (30 + 2 * (p.level - 1));
         }
+        g.memorials.restoreCarried(p, s.carriedItemState);
+        p.migrateCosmeticHair();
         p.syncWeaponProfile();
         p.attack = p.getAttack();
         p.defense = p.getDefense();

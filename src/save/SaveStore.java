@@ -360,6 +360,7 @@ public final class SaveStore {
         if (hairStyle >= 0) p.customizeHair(hairStyle, hairColor);
         CharacterData d = new CharacterData();
         d.id = UUID.randomUUID().toString();
+        p.deathOwnerId = d.id;
         g.assetSetter.setMonster();
         g.crafting.reset();
         g.crafting.ensureWorld();
@@ -387,6 +388,8 @@ public final class SaveStore {
         g.players[0] = new entity.Player(g, g.keyH);
         var p = g.localPlayer();
         CharacterState.apply(g, p, d.character);
+        if (d.character.deathOwnerId == null) p.deathOwnerId = d.id;
+        g.memorials.restore(d.world.deathMemorials);
         if (d.progression == null) p.progression.migrate(p);
         else p.progression.restore(d.progression);
         p.progression.validateBudget(p);
@@ -453,6 +456,7 @@ public final class SaveStore {
             d.buildingWorld = g.buildings.snapshot();
             d.slimeNestWorld = g.slimeNest.snapshot();
             d.world = SnapshotBuilder.build(g);
+            d.world.deathMemorials = g.memorials.snapshot();
             d.world.players = null;
             if (d.world.otherArea != null) d.world.otherArea.players = null;
             var returnPosition = g.quests.returnPositionForSave(g.localPlayerIndex);

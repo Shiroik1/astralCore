@@ -1,6 +1,7 @@
 package net;
 
 public class InventoryAction {
+    public String memorialId, memorialItemId;
     public object.ItemType hotbarType;
     public int playerId;
     public InventoryActionType actionType;

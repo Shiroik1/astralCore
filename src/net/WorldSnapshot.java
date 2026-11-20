@@ -1,6 +1,7 @@
 package net;
 
 public class WorldSnapshot {
+    public String deathMemorials;
     public String generationSettings;
     public long tick;
     public boolean inWellArea;

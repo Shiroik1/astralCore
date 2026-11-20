@@ -335,6 +335,8 @@ public final class BuildSystem {
         if (gp.tileM.isSolid(c.col, c.row)) return "Needs walkable ground";
         if (gp.tileM.terrain(c.col, c.row) == art.Terrain.STEPS) return "Cannot build on stairs";
         int ts = gp.tileSize, x = c.col * ts, y = c.row * ts;
+        if (gp.memorials.covers(new Rectangle(x, y, ts, ts)))
+            return "A permanent memorial rests here";
         int level = gp.tileM.buildingElevation(c.col, c.row);
         for (int i = 0; i < 4; i++) {
             Cell n = new Cell(c.col + DC[i], c.row + DR[i]);

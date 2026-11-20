@@ -23,6 +23,7 @@ public class SnapshotBuilder {
     /** Resolves the build result used by SnapshotBuilder. */
     public static WorldSnapshot build(Gamepanel gp) {
         WorldSnapshot snapshot = new WorldSnapshot();
+        snapshot.deathMemorials = gp.memorials.networkSnapshot();
         snapshot.generationSettings = gp.generationSettingsJson();
         snapshot.tick = gp.currentTick;
         snapshot.quest = gp.quests.snapshot();
@@ -131,8 +132,12 @@ public class SnapshotBuilder {
             ps.rage = p.rage;
             ps.maxRage = p.maxRage;
             ps.arcaneCharge = p.arcaneCharge;
+            ps.deathOwnerId = p.deathOwnerId;
+            ps.deathMemorialId = p.deathMemorialId;
             p.sword.thrust.snapshot(ps);
             p.sword.charge.snapshot(ps);
+            p.sword.shout.snapshot(ps);
+            p.sword.retaliationVisual.snapshot(ps);
             if (p.usesMana()) {
                 ps.staffCastingId = p.mage.castingId();
                 ps.staffShield = p.mage.shieldRemaining();

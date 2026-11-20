@@ -75,6 +75,14 @@ public final class CharacterSprites {
             }
             if (look.weapon == art.WeaponArt.Kind.SWORD
                     || look.weapon.isHeldSword() && !look.weapon.isGreatsword()) {
+                var counter = new BufferedImage[16];
+                for (int i = 0; i < counter.length; i++)
+                    counter[i] = frame(DIRS[d], new CharacterArt.Pose().retaliation(i), look);
+                sprites.put("retaliation_" + NAMES[d], new SpriteAnimation(counter, size, size));
+                var shout = new BufferedImage[24];
+                for (int i = 0; i < shout.length; i++)
+                    shout[i] = frame(DIRS[d], new CharacterArt.Pose().shout(i), look);
+                sprites.put("shout_" + NAMES[d], new SpriteAnimation(shout, size, size));
                 var charge = new BufferedImage[32];
                 for (int i = 0; i < charge.length; i++)
                     charge[i] = frame(DIRS[d], new CharacterArt.Pose().charge(i), look);

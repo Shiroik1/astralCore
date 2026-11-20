@@ -273,6 +273,6 @@ public final class SkeletonArt {
                 RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
         g.drawImage(hi, 0, 0, WIDTH, HEIGHT, null);
         g.dispose();
-        return out;
+        return SpriteContour.apply(out);
     }
 }

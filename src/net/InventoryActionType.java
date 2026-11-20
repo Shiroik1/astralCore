@@ -1,6 +1,7 @@
 package net;
 
 public enum InventoryActionType {
+    RECOVER_MEMORIAL,
     EQUIP,
     SWAP,
     UNEQUIP_TO_BAG,

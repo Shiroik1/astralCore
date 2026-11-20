@@ -49,7 +49,7 @@ public final class GameUI {
             plus = new Rectangle(),
             minus = new Rectangle();
     private final Rectangle[] bag = new Rectangle[20],
-            equipment = new Rectangle[9],
+            equipment = new Rectangle[8],
             hotbar = new Rectangle[10],
             tabs = new Rectangle[3],
             filters = new Rectangle[3];
@@ -57,7 +57,12 @@ public final class GameUI {
     private int skillIndex, craftCooldown, talentPage;
     private int selectedAbility = -2;
     private final String[] equipmentNames = {
-        "Weapon", "Offhand", "Hair", "Torso", "Legs", "Boots", "Hands", "Cloak", "Headwear"
+        "Weapon", "Offhand", "Torso", "Legs", "Boots", "Hands", "Cloak", "Headwear"
+    };
+    // Keep legacy save/network slot IDs stable while omitting the former hair slot.
+    private static final int[] EQUIPMENT_SLOTS = {
+        Player.EQUIP_WEAPON, Player.EQUIP_SHIELD, Player.EQUIP_TORSO, Player.EQUIP_PANTS,
+        Player.EQUIP_BOOTS, Player.EQUIP_GLOVES, Player.EQUIP_CLOAK, Player.EQUIP_HEADPIECE
     };
     private final String[] skillNames = {
         "Sword", "Staff", "Bow", "Crafting", "Mining", "Gathering", "Cooking", "Fishing"
@@ -67,7 +72,7 @@ public final class GameUI {
     public GameUI(Gamepanel gp) {
         this.gp = gp;
         for (int i = 0; i < 20; i++) bag[i] = new Rectangle();
-        for (int i = 0; i < 9; i++) equipment[i] = new Rectangle();
+        for (int i = 0; i < equipment.length; i++) equipment[i] = new Rectangle();
         for (int i = 0; i < 10; i++) hotbar[i] = new Rectangle();
         for (int i = 0; i < 3; i++) {
             tabs[i] = new Rectangle();
@@ -89,7 +94,7 @@ public final class GameUI {
 
     /** Evaluates the blocks world condition for GameUI. */
     public boolean blocksWorld() {
-        return window != Window.NONE || visibility > 0 || releaseGate;
+        return gp.memorials.open() || window != Window.NONE || visibility > 0 || releaseGate;
     }
 
     /** Reports whether this component can control for GameUI. */
@@ -145,6 +150,10 @@ public final class GameUI {
 
     /** Evaluates the key condition for GameUI. */
     public boolean key(int code) {
+        if (gp.memorials.open()) {
+            if (code == KeyEvent.VK_ESCAPE) gp.memorials.close();
+            return true;
+        }
         if (code == KeyEvent.VK_SHIFT) {
             shift = true;
             return true;
@@ -245,6 +254,7 @@ public final class GameUI {
         if (craftCooldown > 0) craftCooldown--;
         Player p = gp.localPlayer();
         if (p == null || gp.gameState != gp.playState) return false;
+        if (gp.memorials.open()) return gp.memorials.updateUI(x, y, clicked);
         if (p.isDead || p.inDialogue || p.merchantOpen) {
             reset();
             return false;
@@ -318,11 +328,11 @@ public final class GameUI {
                     return;
                 }
         if (window == Window.CHARACTER && tab == 1)
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < equipment.length; i++)
                 if (equipment[i].contains(x, y)) {
-                    Entity item = p.equippedItem(i + 1);
+                    Entity item = p.equippedItem(EQUIPMENT_SLOTS[i]);
                     if (item != null && !item.isPlaceholder) {
-                        dragEquip = i + 1;
+                        dragEquip = EQUIPMENT_SLOTS[i];
                         return;
                     }
                 }
@@ -366,9 +376,9 @@ public final class GameUI {
                     return;
                 }
         if (window == Window.CHARACTER && tab == 1 && dragBag >= 0)
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < equipment.length; i++)
                 if (equipment[i].contains(x, y)) {
-                    action(InventoryActionType.EQUIP, dragBag, 0, i + 1, null);
+                    action(InventoryActionType.EQUIP, dragBag, 0, EQUIPMENT_SLOTS[i], null);
                     cancelDrag();
                     return;
                 }
@@ -384,11 +394,16 @@ public final class GameUI {
                 return;
             }
         if (window == Window.CHARACTER && tab == 1)
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < equipment.length; i++)
                 if (equipment[i].contains(x, y)) {
                     for (int n = 0; n < 20; n++)
                         if (gp.localPlayer().inventorySlots[n] == null) {
-                            action(InventoryActionType.UNEQUIP_TO_BAG, 0, n, i + 1, null);
+                            action(
+                                    InventoryActionType.UNEQUIP_TO_BAG,
+                                    0,
+                                    n,
+                                    EQUIPMENT_SLOTS[i],
+                                    null);
                             return;
                         }
                     gp.ui.addMessage("Make room in your inventory first.");
@@ -403,7 +418,8 @@ public final class GameUI {
                     action(InventoryActionType.USE, i, 0, 0, null);
                 else if (inventory.Hotbar.isWeapon(item))
                     action(InventoryActionType.EQUIP, i, 0, Player.EQUIP_WEAPON, null);
-                else if (item instanceof OBJ_apparel clothing)
+                else if (item instanceof OBJ_apparel clothing
+                        && clothing.slot != art.CharacterOutfit.Slot.HAIR)
                     action(
                             InventoryActionType.EQUIP,
                             i,
@@ -595,6 +611,12 @@ public final class GameUI {
         g.setRenderingHint(
                 RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
         drawHotbar(g);
+        gp.memorials.drawHint(g);
+        if (gp.memorials.open()) {
+            gp.memorials.drawUI(g);
+            g.dispose();
+            return;
+        }
         if (paintWindow == Window.NONE) drawAbilities(g);
         if (paintWindow != Window.NONE && visibility > 0) {
             frame = UITheme.window(gp.screenWidth, gp.screenHeight);
@@ -1113,16 +1135,16 @@ public final class GameUI {
                     y + 263,
                     12,
                     UITheme.MUTED);
-            for (int i = 0; i < 9; i++) {
+            for (int i = 0; i < equipment.length; i++) {
                 Rectangle r = equipment[i];
                 r.setBounds(frame.x + 470 + i % 3 * 165, frame.y + 135 + i / 3 * 117, 54, 54);
-                Entity item = p.equippedItem(i + 1);
+                Entity item = p.equippedItem(EQUIPMENT_SLOTS[i]);
                 UITheme.text(g, equipmentNames[i], r.x, r.y - 10, 12, UITheme.MUTED);
                 UITheme.slot(
                         g,
                         r,
                         r.contains(mx, my),
-                        item == null || item.isPlaceholder || dragEquip == i + 1
+                        item == null || item.isPlaceholder || dragEquip == EQUIPMENT_SLOTS[i]
                                 ? null
                                 : item.down1);
                 if (item != null && !item.isPlaceholder)
@@ -1324,9 +1346,9 @@ public final class GameUI {
             for (int i = 0; i < 20; i++) if (bag[i].contains(mx, my)) return p.inventorySlots[i];
         }
         if (window == Window.CHARACTER && tab == 1)
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < equipment.length; i++)
                 if (equipment[i].contains(mx, my)) {
-                    Entity item = p.equippedItem(i + 1);
+                    Entity item = p.equippedItem(EQUIPMENT_SLOTS[i]);
                     return item == null || item.isPlaceholder ? null : item;
                 }
         return null;

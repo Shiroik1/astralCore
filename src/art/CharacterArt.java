@@ -49,7 +49,9 @@ public final class CharacterArt {
         public boolean basicSword;
         public float guard;
         public float greatswordRaise;
-        public boolean chargePose;
+        public boolean chargePose, shoutPose, retaliationPose;
+        public float retaliationTurn;
+        public float shoutRaise;
         public int bullStage;
         public float bullTime, bullCharge, bullBreath;
 
@@ -88,6 +90,25 @@ public final class CharacterArt {
                 bullStage = 4;
                 bullTime = (index - 24) / 7f;
             }
+            return this;
+        }
+
+        /** One fast planted 360-degree sword reaction, separate from activation shouts. */
+        public Pose retaliation(int index) {
+            retaliationPose = true;
+            bullStage = 2;
+            float t = index / 15f;
+            retaliationTurn = Math.clamp((t - .16f) / .62f, 0, 1);
+            bullTime = t;
+            return this;
+        }
+
+        /** Shared raised-arm shout, sampled through preparation, hold and recovery. */
+        public Pose shout(int index) {
+            shoutPose = true;
+            bullStage = 2; // Reuse the planted-leg rig, with distinct arms and torso below.
+            shoutRaise =
+                    index < 8 ? ease(index / 7f) : index < 16 ? 1 : 1 - ease((index - 16) / 7f);
             return this;
         }
 
@@ -193,6 +214,7 @@ public final class CharacterArt {
                                     : p.bullStage == 2
                                             ? .10f + .025f * p.bullCharge
                                             : .10f - .04f * (float) Math.sin(p.bullTime * Math.PI);
+            if (p.shoutPose) crouch = .04f * (1 - p.shoutRaise) - .015f * p.shoutRaise;
             float hop =
                     p.bullStage == 1 && !p.chargePose
                             ? -4 * (float) Math.sin(p.bullTime * Math.PI)
@@ -384,7 +406,11 @@ public final class CharacterArt {
                 look.berserkerOutfit,
                 look.paladinOutfit);
         if (!back) CharacterClothing.longHair(g, look.outfit, side, false, swing);
-        if (showMain && back) weapon.run();
+        boolean weaponBehind =
+                pose.retaliationPose && pose.retaliationTurn > 0 && pose.retaliationTurn < 1
+                        ? Math.cos(pose.retaliationTurn * Math.PI * 2) > 0
+                        : back;
+        if (showMain && weaponBehind) weapon.run();
         if (side) {
             softPart(
                     g,
@@ -408,7 +434,8 @@ public final class CharacterArt {
                         pose.bullStage == 4
                                 ? 1 - ease(pose.bullTime)
                                 : pose.bullStage == 1 ? ease(pose.bullTime) : 1;
-                float ox = 28 + 14 * balance, oy = 46 - 7 * balance;
+                float ox = pose.shoutPose ? 28 - 11 * pose.shoutRaise : 28 + 14 * balance;
+                float oy = pose.shoutPose ? 46 - 19 * pose.shoutRaise : 46 - 7 * balance;
                 softPart(g, handArm(31, 38, ox, oy), shade(look.skin, .94f));
                 CharacterClothing.arm(g, look.outfit, 31, 38, ox, oy);
             }
@@ -463,6 +490,7 @@ public final class CharacterArt {
                     look.priestOutfit,
                     look.berserkerOutfit,
                     look.paladinOutfit);
+            CharacterClothing.longyi(g, look.outfit, true, back, swing, running);
 
         } else {
             // Union the limbs with the torso so there are no outlines at the joints.
@@ -502,7 +530,15 @@ public final class CharacterArt {
                                         : greatsword
                                                 ? handArm(26, 37.5f, secondX, secondY)
                                                 : pose.bullStage > 0
-                                                        ? handArm(26, 37.5f, 19, 40)
+                                                        ? handArm(
+                                                                26,
+                                                                37.5f,
+                                                                pose.shoutPose
+                                                                        ? 19 - 7 * pose.shoutRaise
+                                                                        : 19,
+                                                                pose.shoutPose
+                                                                        ? 45 - 20 * pose.shoutRaise
+                                                                        : 40)
                                                         : arm(
                                                                 26,
                                                                 37.5f,
@@ -516,7 +552,15 @@ public final class CharacterArt {
                                         : greatsword
                                                 ? handArm(38, 37.5f, secondX, secondY)
                                                 : pose.bullStage > 0
-                                                        ? handArm(38, 37.5f, 45, 40)
+                                                        ? handArm(
+                                                                38,
+                                                                37.5f,
+                                                                pose.shoutPose
+                                                                        ? 45 + 7 * pose.shoutRaise
+                                                                        : 45,
+                                                                pose.shoutPose
+                                                                        ? 45 - 20 * pose.shoutRaise
+                                                                        : 40)
                                                         : arm(
                                                                 38,
                                                                 37.5f,
@@ -538,6 +582,7 @@ public final class CharacterArt {
                     look.priestOutfit,
                     look.berserkerOutfit,
                     look.paladinOutfit);
+            CharacterClothing.longyi(g, look.outfit, false, back, swing, running);
             if (!bowAim) {
                 float leftS = -swing * (running ? 3.2f : 0.8f), rightS = -leftS;
                 CharacterClothing.arm(
@@ -549,10 +594,16 @@ public final class CharacterArt {
                                 ? handX
                                 : greatsword
                                         ? secondX
-                                        : pose.bullStage > 0 ? 19 : 26 - (4.2f + leftS * 0.3f),
+                                        : pose.bullStage > 0
+                                                ? (pose.shoutPose ? 19 - 7 * pose.shoutRaise : 19)
+                                                : 26 - (4.2f + leftS * 0.3f),
                         strikeSide < 0
                                 ? handY
-                                : greatsword ? secondY : pose.bullStage > 0 ? 40 : 45.5f + leftS,
+                                : greatsword
+                                        ? secondY
+                                        : pose.bullStage > 0
+                                                ? (pose.shoutPose ? 45 - 20 * pose.shoutRaise : 40)
+                                                : 45.5f + leftS,
                         strikeSide < 0 ? look.berserkerOutfit : null);
                 CharacterClothing.arm(
                         g,
@@ -563,10 +614,16 @@ public final class CharacterArt {
                                 ? handX
                                 : greatsword
                                         ? secondX
-                                        : pose.bullStage > 0 ? 45 : 38 + (4.2f + rightS * 0.3f),
+                                        : pose.bullStage > 0
+                                                ? (pose.shoutPose ? 45 + 7 * pose.shoutRaise : 45)
+                                                : 38 + (4.2f + rightS * 0.3f),
                         strikeSide > 0
                                 ? handY
-                                : greatsword ? secondY : pose.bullStage > 0 ? 40 : 45.5f + rightS,
+                                : greatsword
+                                        ? secondY
+                                        : pose.bullStage > 0
+                                                ? (pose.shoutPose ? 45 - 20 * pose.shoutRaise : 40)
+                                                : 45.5f + rightS,
                         strikeSide > 0 ? look.berserkerOutfit : null);
             }
         }
@@ -614,7 +671,7 @@ public final class CharacterArt {
             softPart(g, handArm(31.5f, 38, secondX, secondY), shade(look.skin, 0.96f));
             CharacterClothing.arm(g, look.outfit, 31.5f, 38, secondX, secondY);
         }
-        if (showMain && !back && !behindHead) weapon.run();
+        if (showMain && !weaponBehind && !behindHead) weapon.run();
         if (showMain && heldSword) {
             // Wrap the fingers over the same grip that the arm and weapon use.
             Color glove = look.outfit.gloves() == null ? look.skin : look.outfit.gloves();
@@ -643,6 +700,8 @@ public final class CharacterArt {
 
     /** Dedicated anticipation and release lean; feet remain at the rig's common anchor. */
     private static float bullLean(Pose p) {
+        if (p.retaliationPose) return .07f * (float) Math.sin(p.retaliationTurn * Math.PI * 2);
+        if (p.shoutPose) return 0;
         if (p.chargePose)
             return switch (p.bullStage) {
                 case 1 -> .18f * ease(p.bullTime);
@@ -662,6 +721,8 @@ public final class CharacterArt {
     private static Shape bullLeg(float hip, int side, Pose p, boolean profile) {
         float stance =
                 p.bullStage == 1 ? ease(p.bullTime) : p.bullStage == 4 ? 1 - ease(p.bullTime) : 1;
+        if (p.shoutPose) stance = p.shoutRaise;
+        if (p.retaliationPose) stance = .2f;
         float stride = (profile ? 5 : 3) * side * stance;
         float lift = 0;
         if (p.bullStage == 3 && profile) {
@@ -679,6 +740,23 @@ public final class CharacterArt {
     private static SwordGrip bullGrip(
             Pose p, boolean side, boolean back, float restX, float restY, float restAngle) {
         SwordGrip rest = new SwordGrip(restX, restY, restAngle, 1);
+        if (p.retaliationPose) {
+            double turn = p.retaliationTurn * Math.PI * 2;
+            SwordGrip sweep =
+                    new SwordGrip(
+                            32 + (float) Math.sin(turn) * 15,
+                            40 - (float) Math.cos(turn) * 10,
+                            restAngle + p.retaliationTurn * 360,
+                            1);
+            if (p.bullTime < .16f) return rest.toward(sweep, ease(p.bullTime / .16f));
+            if (p.bullTime > .78f)
+                return sweep.toward(
+                        new SwordGrip(restX, restY, restAngle + 360, 1),
+                        ease((p.bullTime - .78f) / .22f));
+            return sweep;
+        }
+        if (p.shoutPose)
+            return rest.toward(new SwordGrip(side ? 49 : back ? 52 : 12, 26, 0, 1), p.shoutRaise);
         if (p.chargePose) {
             SwordGrip sprint =
                     new SwordGrip(

@@ -9,7 +9,7 @@ Bullthrust now has a dedicated sequence using the existing generated character r
 | Backstep | 0.18 s | Smooth 0.75-tile hop backward; drawn-back sword, bent legs, weight shift, two dust puffs |
 | Charging | 1.5 s to full | Planted feet, low torso, balanced off-hand, sword behind; subtle breathing and increasing tension |
 | Full charge hold | Up to 4 additional seconds | Holds the full pose and capped meter; one restrained full-charge cue |
-| Release | 0.30 s | One continuous 4-tile dash: launch, sweeping arms/trails, extended finishing thrust |
+| Release | 0.12 s | One continuous 10-tile dash: launch, sweeping arms/trails, extended finishing thrust |
 | Recovery | 0.25 s | Low landing stance, extended sword settles back to rest |
 
 Release during backstep is latched and launches after the hop with zero charge. Release after the hop uses the current continuous charge. Maximum hold timeout releases automatically. Input is locked during the committed sequence; key repeat cannot restart it while active or on cooldown. Ordinary game pause/hit-stop pauses simulation time.
@@ -23,7 +23,7 @@ Set these JVM options in IntelliJ's **Run Configuration → VM options**, then r
 -Dastral.bullthrust.backstepTiles=0.75
 -Dastral.bullthrust.chargeSeconds=1.5
 -Dastral.bullthrust.holdSeconds=4.0
--Dastral.bullthrust.releaseSeconds=0.30
+-Dastral.bullthrust.releaseSeconds=0.12
 -Dastral.bullthrust.rangeTiles=10.0
 -Dastral.bullthrust.recoverySeconds=0.25
 ```

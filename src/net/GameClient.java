@@ -41,7 +41,7 @@ public class GameClient {
 
     /** Performs the connect operation for GameClient. */
     public void connect(String hostAddress, int port) throws IOException {
-        client = new Client();
+        client = new Client(NetworkRegistration.BUFFER_BYTES, NetworkRegistration.BUFFER_BYTES);
         NetworkRegistration.register(client);
         client.start();
         Log.debug(
@@ -167,6 +167,7 @@ public class GameClient {
                 && !snapshot.generationSettings.equals(gp.generationSettingsJson()))
             gp.installGeneration(
                     world.generation.WorldSettings.decode(snapshot.generationSettings));
+        gp.memorials.restore(snapshot.deathMemorials);
         gp.lighting.cycle.syncFromHost(snapshot.dayTime);
         gp.quests.applySnapshot(snapshot.quest);
         for (PlayerState ps : snapshot.players) {
@@ -223,7 +224,10 @@ public class GameClient {
                     }
                 }
             }
-            if (appearanceChanged) p.refreshWeaponAnimation();
+            if (appearanceChanged) {
+                p.migrateCosmeticHair();
+                p.refreshWeaponAnimation();
+            }
 
             if (p.usesMana()) {
                 boolean activeArea = gp.quests.inDungeon();
@@ -354,10 +358,14 @@ public class GameClient {
             }
             if (!p.isLocal && ps.attacking && p.usesMeleeSlash())
                 p.sword.syncBasicPose(ps.basicSwordPose);
+            if (ps.deathOwnerId != null) p.deathOwnerId = ps.deathOwnerId;
+            p.deathMemorialId = ps.deathMemorialId;
             p.sword.syncPower(ps.powerslash);
             p.sword.syncSunder(ps.sundering);
             p.sword.thrust.sync(p, ps);
             p.sword.charge.sync(p, ps);
+            p.sword.shout.sync(ps);
+            p.sword.retaliationVisual.sync(ps);
             p.syncMeleeAttackFrame(ps.meleeFrame, ps.meleeFrameTicks);
             if (p.isRanger()) {
                 boolean activeArea = gp.quests.inDungeon();

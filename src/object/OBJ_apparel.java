@@ -161,7 +161,7 @@ public class OBJ_apparel extends Entity {
         color =
                 EquipmentDatabase.color(
                         itemType,
-                        itemType == ItemType.BROWN_PANTS
+                        (itemType == ItemType.BROWN_PANTS || itemType == ItemType.BROWN_LONGYI)
                                 ? art.Palette.TIMBER
                                 : itemType == ItemType.WHITE_TOP
                                         ? art.Palette.PLASTER
@@ -286,10 +286,15 @@ public class OBJ_apparel extends Entity {
                                     new int[] {18, 10, 10, 18, 24, 21, 38, 38, 21, 24},
                                     10);
                     case PANTS ->
-                            new Polygon(
-                                    new int[] {13, 35, 33, 26, 24, 22, 15},
-                                    new int[] {10, 10, 38, 38, 22, 38, 38},
-                                    7);
+                            itemType == ItemType.BROWN_LONGYI
+                                    ? new Polygon(
+                                            new int[] {14, 34, 37, 11},
+                                            new int[] {10, 10, 32, 32},
+                                            4)
+                                    : new Polygon(
+                                            new int[] {13, 35, 33, 26, 24, 22, 15},
+                                            new int[] {10, 10, 38, 38, 22, 38, 38},
+                                            7);
                     case BOOTS ->
                             new Polygon(
                                     new int[] {12, 22, 22, 36, 37, 12},
@@ -307,6 +312,12 @@ public class OBJ_apparel extends Entity {
         g.draw(shape);
         g.setColor(color);
         g.fill(shape);
+        if (itemType == ItemType.BROWN_LONGYI) {
+            g.setColor(color.darker());
+            g.fill(new RoundRectangle2D.Float(14, 10, 20, 3, 2, 2));
+            g.fill(new Polygon(new int[] {25, 28, 27}, new int[] {13, 32, 32}, 3));
+            g.fill(new Ellipse2D.Float(22, 11, 7, 5));
+        }
         g.dispose();
     }
 }

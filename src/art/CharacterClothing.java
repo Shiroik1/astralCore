@@ -169,7 +169,9 @@ final class CharacterClothing {
         if (o.theme(CharacterOutfit.Slot.BOOTS) == CharacterOutfit.Theme.ARMOR) bootTop -= 2;
         Shape clip = g.getClip();
         g.clip(shape);
-        if (o.pants() != null) CharacterArt.softPart(g, shape, o.pants());
+        if (o.pants() != null
+                && o.theme(CharacterOutfit.Slot.PANTS) != CharacterOutfit.Theme.LONGYI)
+            CharacterArt.softPart(g, shape, o.pants());
         if (o.boots() != null) {
             g.clip(new Rectangle2D.Float(0, bootTop, 64, 64 - bootTop));
             CharacterArt.softPart(g, shape, o.boots());
@@ -177,6 +179,47 @@ final class CharacterClothing {
             g.fill(new Rectangle2D.Float(0, bootTop, 64, 1.3f));
         }
         g.setClip(clip);
+    }
+
+    /** Keeps a short wrapped hem above the shins; running shifts and opens the side drape. */
+    static void longyi(
+            Graphics2D g,
+            CharacterOutfit o,
+            boolean side,
+            boolean back,
+            float swing,
+            boolean running) {
+        if (o.pants() == null
+                || o.theme(CharacterOutfit.Slot.PANTS) != CharacterOutfit.Theme.LONGYI) return;
+        float left = side ? 25.5f : 22.5f, right = side ? 40f : 41.5f;
+        float stride = running ? swing : 0;
+        float sway = stride * (side ? 2.4f : .6f);
+        float flare = side ? Math.abs(stride) * 1.1f : 0;
+        float hem = 55.3f - Math.abs(stride) * (side ? .6f : .2f);
+        float tilt = side ? stride * .7f : 0;
+        Path2D cloth = new Path2D.Float();
+        cloth.moveTo(left + 1, 48);
+        cloth.quadTo(32, 46.8, right - 1, 48);
+        cloth.lineTo(right + sway + flare, hem - tilt);
+        cloth.quadTo(32 + sway, hem + 1.2f, left + sway - flare, hem + tilt);
+        cloth.closePath();
+        CharacterArt.softPart(g, cloth, o.pants());
+        g.setColor(CharacterArt.shade(o.pants(), .88f));
+        g.fill(new RoundRectangle2D.Float(left + 1, 48, right - left - 2, 1.6f, 1, 1));
+        Path2D fold = new Path2D.Float();
+        float seam = side ? 36.5f : 33;
+        fold.moveTo(seam, 49);
+        fold.lineTo(seam + 1.4f + sway, hem + .3f);
+        fold.lineTo(seam - .8f + sway, hem + .5f);
+        fold.closePath();
+        g.setColor(CharacterArt.shade(o.pants(), .84f));
+        g.fill(fold);
+        if (!back) {
+            g.setColor(CharacterArt.shade(o.pants(), .90f));
+            g.fill(new Ellipse2D.Float(seam - 2, 48.2f, 4.3f, 3));
+            g.setColor(CharacterArt.shade(o.pants(), 1.08f));
+            g.fill(new Ellipse2D.Float(seam - 1.3f, 48.3f, 2.6f, 1.6f));
+        }
     }
 
     /** Performs the torso operation for CharacterClothing. */

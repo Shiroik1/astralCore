@@ -27,6 +27,9 @@ public final class EquipmentDatabase {
     }
 
     private static final Map<ItemType, Entry> ENTRIES = load();
+    // Legacy hair definitions remain readable for migration, but are no longer equipment.
+    private static final List<Entry> EQUIPMENT =
+            ENTRIES.values().stream().filter(entry -> !entry.slot().equals("HAIR")).toList();
 
     /** Uses shared immutable definitions rather than per-player catalog instances. */
     private EquipmentDatabase() {}
@@ -43,7 +46,7 @@ public final class EquipmentDatabase {
 
     /** Exposes immutable definitions for authoring tools or equipment browser interfaces. */
     public static Collection<Entry> all() {
-        return ENTRIES.values();
+        return EQUIPMENT;
     }
 
     /** Applies authored base statistics while retaining the existing image and item behavior. */

@@ -274,6 +274,9 @@ public class UI {
                     drawOtherPlayersHUD(local);
                 }
                 drawCombatLog();
+                if (gp.keyH.enteringChat) {
+                    drawChatInput();
+                }
                 gp.grassEditor.drawHud(g2, jetbrainsMono);
                 gp.buildings.drawHud(g2, jetbrainsMono);
                 game.draw(g2, jetbrainsMono);
@@ -312,10 +315,10 @@ public class UI {
         boolean hovering = combatLogHovered;
         boolean chatActive = gp.keyH.enteringChat;
 
-        // Background only shows while actively interacting
+        // Background only shows while actively interacting; 50% opacity lets the world show through
         boolean boxVisible = hovering || chatActive || chatScrollOffset > 0;
         if (boxVisible) {
-            g2.setColor(Color.BLACK);
+            g2.setColor(new Color(0, 0, 0, 128));
             g2.fillRoundRect(boxX, boxY, chatLogWidth, chatLogHeight, 12, 12);
         }
 
@@ -1263,12 +1266,14 @@ public class UI {
     /** Draws the chat input for UI. */
     private void drawChatInput() {
         int boxX = combatLogBounds.x;
-        int boxHeight = 30;
-        int boxY = combatLogBounds.y - boxHeight - 6;
+        int boxHeight = 24;
+        // Sit directly beneath the chat window so the caret sits below the message history.
+        int boxY = combatLogBounds.y + chatLogHeight + 6;
 
-        g2.setColor(Color.BLACK);
+        // 50% opacity background and border so the input reads as a translucent field.
+        g2.setColor(new Color(0, 0, 0, 128));
         g2.fillRoundRect(boxX, boxY, chatLogWidth, boxHeight, 10, 10);
-        g2.setColor(Color.white);
+        g2.setColor(new Color(255, 255, 255, 128));
         g2.setStroke(new BasicStroke(1));
         g2.drawRoundRect(boxX, boxY, chatLogWidth, boxHeight, 10, 10);
 
@@ -1281,6 +1286,9 @@ public class UI {
         while (display.length() > 1 && fm.stringWidth(display) > chatLogWidth - 20) {
             display = display.substring(1); // keep the tail visible when the text outgrows the box
         }
-        g2.drawString(display, boxX + 10, boxY + 20);
+        // Vertically center the line so the shorter box still reads cleanly.
+        int baseline =
+                boxY + (boxHeight - fm.getHeight()) / 2 + fm.getAscent();
+        g2.drawString(display, boxX + 10, baseline);
     }
 }

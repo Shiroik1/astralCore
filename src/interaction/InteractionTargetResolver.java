@@ -118,6 +118,7 @@ public final class InteractionTargetResolver {
             resolving = p;
             best = null;
             try {
+                gp.memorials.collectTargets(this);
                 gp.crafting.collectTargets(this);
                 gp.buildings.collectTargets(this);
                 for (WorldObject o : gp.worldObjects.query(validator.frontBounds(p)))

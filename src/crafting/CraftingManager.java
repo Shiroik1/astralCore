@@ -523,6 +523,10 @@ public final class CraftingManager {
         var def = RecipeRegistry.item(placing);
         Station station = new Station(UUID.randomUUID().toString(), def.place(), placing, x, y);
         Rectangle box = station.bounds().rectangle();
+        if (gp.memorials.covers(box)) {
+            message("A permanent memorial rests here.");
+            return;
+        }
         if (world.TerrainHeightResolver.active(gp)
                 && !gp.generatedWorld.lowland(
                         Math.floorDiv(x, gp.tileSize), Math.floorDiv(y, gp.tileSize))) {

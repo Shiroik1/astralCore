@@ -33,16 +33,28 @@ one-second ticks. Bleed uses the existing kill/reward completion handler;
 physical armor reduces its tick damage. Ordinary entity disposal clears state.
 
 Exposed reduces armor in the shared physical-hit calculation by 15%, rounded
-up for fractional armor. Sunder refreshes duration to `(3 + Rhythm) seconds`.
-It never spends Rhythm. Powerslash is 180% attack with additive +25% for
-Bleed and +20% for Exposed. Bullthrust scales 150–300% with +20% Exposed
-per target. Talent damage modifiers are applied before shared damage handling.
+up for fractional armor. Sunder refreshes duration to `(3 + Rhythm) seconds`,
+read before the spend, then consumes every Rhythm stack on the target. Exposed
+does not stack: reapplication replaces the effect and its duration.
+
+Powerslash deals `Basic Slash Damage × (1.50 + 0.15 × Rhythm consumed)`,
+so 1.50× at zero stacks up to 2.25× at five, with additive +20% for Bleed and
++15% for Exposed (+35% when both apply). Bullthrust scales 150–300% with
++20% Exposed per target. Talent damage modifiers (Heavy Edge, Strong Counter,
+Masterful Blade) stack additively on top of the Powerslash multiplier.
+
+Powerslash, Sunder and Bullthrust each consume all Rhythm stacks on a target
+only when the hit is accepted; a miss spends nothing. Bleed and Exposed are
+separate effects and persist after the spend. At five stacks the next accepted
+Basic Slash removes Rhythm and applies `warriorBleed`. Talent damage modifiers
+are applied before shared damage handling.
 
 Charge and Bullthrust move in one-pixel terrain checks. Charge stops on solid
 entities; Bullthrust passes through enemies during release, hitting each once.
-Bullthrust does not require or consume Rhythm. It checks its frontal hitbox during movement;
-one CombatHit owns all hit tracking. Its qualifying target's five stacks are
-consumed at activation. Taunt uses the existing challenger targeting mechanism.
+Bullthrust consumes whatever Rhythm stacks its target holds (it has no hard
+five-stack gate) on each accepted hit during release; it does not consume at
+activation. It checks its frontal hitbox during movement; one CombatHit owns
+all hit tracking. Taunt uses the existing challenger targeting mechanism.
 Retaliate uses three charges over six seconds and the shared damage handler.
 
 Warcry currently grants +10% effective Sword attack and 10% effective incoming

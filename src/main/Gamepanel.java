@@ -102,6 +102,7 @@ public class Gamepanel extends JPanel implements Runnable {
     public EventHandler eventHandler = new EventHandler(this);
     public AmbientFX ambient = new AmbientFX(this);
     public Lighting lighting = new Lighting(this);
+    public final world.memorial.DeathMemorials memorials = new world.memorial.DeathMemorials(this);
     public GrassLayer grass = new GrassLayer(this);
     public GrassEditor grassEditor = new GrassEditor(this);
     public final visual.PlacementEffectManager placementEffects =
@@ -283,6 +284,7 @@ public class Gamepanel extends JPanel implements Runnable {
 
     /** Performs the prepare new world operation for Gamepanel. */
     public void prepareNewWorld() {
+        memorials.reset();
         lighting.cycle.restore(1, world.DayCycle.START_HOUR / 24, 0);
         installGeneration(
                 world.generation.WorldSettings.of(
@@ -354,6 +356,7 @@ public class Gamepanel extends JPanel implements Runnable {
     public void preloadGameplayAssets() {
         MonsterType.preload(this);
         WorldObject.preloadTrees(this);
+        memorials.preload();
         quests.prepare();
         merchant.prepare();
         new object.OBJ_slimebolt(this, true);
@@ -541,6 +544,10 @@ public class Gamepanel extends JPanel implements Runnable {
                         mouseH.leftClicked = false;
                     }
                     if (localInput.ePressed || localInput.leftClicked) interactions.refresh();
+                    if (localInput.ePressed && memorials.openTarget(local)) {
+                        localInput.suppressGameplay();
+                        mouseH.leftClicked = false;
+                    }
                     if (!isNetworked && localInput.ePressed && interactions.interact())
                         localInput.ePressed = false;
                     if (grassEditor.active || buildings.active) {
@@ -813,6 +820,7 @@ public class Gamepanel extends JPanel implements Runnable {
                 buildings.drawFloors(g2);
                 buildings.addDrawLayers(entityList);
                 crafting.addDrawLayers(entityList);
+                memorials.addDrawLayers(entityList);
                 performance.end(PerformanceMetrics.Section.TERRAIN_RENDER, terrainStart);
                 Prof.lap(0);
 
@@ -1083,6 +1091,7 @@ public class Gamepanel extends JPanel implements Runnable {
 
     /** Resets the after network session for Gamepanel. */
     public void resetAfterNetworkSession() {
+        memorials.reset();
         buildings.stop();
         placementEffects.clear();
         interactions.clear();
@@ -1246,6 +1255,12 @@ public class Gamepanel extends JPanel implements Runnable {
         quests.activateArea(target.inWell);
         try {
             switch (action.actionType) {
+                case RECOVER_MEMORIAL ->
+                        memorials.recoverRequest(
+                                target,
+                                action.memorialId,
+                                action.memorialItemId,
+                                action.sourceIndex);
                 case HOTBAR_ASSIGN ->
                         target.hotbar.assign(target, action.targetIndex, action.hotbarType);
                 case HOTBAR_SELECT ->

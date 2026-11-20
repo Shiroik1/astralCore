@@ -3,6 +3,7 @@ package net;
 import object.ItemType;
 
 public class PlayerState {
+    public String deathOwnerId, deathMemorialId, carriedItemState;
     public object.ItemType[] hotbarTypes = new object.ItemType[10];
     public int selectedHotbar;
     public int craftingLevel = 1, craftingXP, meleeMasteryXP, magicMasteryXP, bowMasteryXP;
@@ -34,6 +35,11 @@ public class PlayerState {
     public int arcaneCharge;
     public int meleeFrame = 1, meleeFrameTicks;
     public int basicSwordPose = -1;
+    public int retaliationSerial;
+    public double retaliationTime;
+    public boolean shoutActive, shoutReleased;
+    public int shoutSkill;
+    public double shoutElapsed, shoutRingAge, shoutX, shoutY;
     public boolean sundering;
     public boolean powerslash;
     public int chargePhase;

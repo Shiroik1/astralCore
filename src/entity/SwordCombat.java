@@ -26,6 +26,8 @@ public final class SwordCombat {
     /** Creates a SwordCombat instance and initializes the state required by its collaborators. */
     SwordCombat(Player p) {
         this.p = p;
+        shout = new WarriorShout(p, this);
+        retaliationVisual = new RetaliationVisual(p);
     }
 
     /** Evaluates the equipped condition for SwordCombat. */
@@ -60,10 +62,17 @@ public final class SwordCombat {
     }
 
     private final int[] cooldowns = new int[7];
-    private int page, retaliation, retaliationTicks;
+    private int page;
+    public static final int RETALIATION_CHARGES =
+            Math.clamp(Integer.getInteger("astral.retaliate.charges", 3), 1, 8);
+    public static final int RETALIATION_TICKS = 360;
+    private long retaliationTick = Long.MIN_VALUE;
+    private Entity retaliationSource;
+    public final RetaliationVisual retaliationVisual;
     private Monster chargeTarget;
     private boolean bull;
     private int heldSlot;
+    public final WarriorShout shout;
     public final ChargeAnimation charge = new ChargeAnimation(this);
     public final BullthrustAnimation thrust = new BullthrustAnimation(this);
 
@@ -114,6 +123,8 @@ public final class SwordCombat {
     public boolean canUse(int slot) {
         int id = ability(slot);
         if (id < 0) return false;
+        if ((id == 1 || id == 3 || id == 5)
+                && (p.hasStatusEffect("stun") || p.hasStatusEffect("frozen"))) return false;
         return equipped()
                 && level() >= UNLOCK[id]
                 && cooldowns[id] == 0
@@ -132,32 +143,8 @@ public final class SwordCombat {
         heldSlot = slot;
         int id = ability(slot);
         cooldowns[id] = CD[id];
-        if (id == 1) {
-            for (Player ally : p.gp.players)
-                if (ally != null
-                        && !ally.isDead
-                        && ally.inWell == p.inWell
-                        && SlimeMotion.distance(p, ally) <= p.gp.tileSize * 5) {
-                    MageCombat.mark(ally, "warcry", 600, 10);
-                }
-            pulse();
-            return;
-        }
-        if (id == 3) {
-            for (Monster m : p.gp.monster)
-                if (m != null
-                        && m.alive
-                        && !m.dying
-                        && !m.isBoss()
-                        && SlimeMotion.distance(p, m) <= p.gp.tileSize * 4
-                        && SlimeMotion.sight(p.gp, p, m)) m.challenge(p, p.gp.currentTick + 240);
-            pulse();
-            return;
-        }
-        if (id == 5) {
-            retaliation = 3;
-            retaliationTicks = 360;
-            pulse();
+        if (id == 1 || id == 3 || id == 5) {
+            shout.start(id);
             return;
         }
         action = NAMES[id];
@@ -177,9 +164,31 @@ public final class SwordCombat {
         } else if (id == 2) p.direction = bearing;
     }
 
-    /** Emits restrained feedback using the shared particle pool. */
-    private void pulse() {
-        Particle.emit(p, Particle.Style.RING, art.Palette.PLASTER, 48, 24, 0, 0, 0, -8);
+    /** Applies the existing radius/status rules exactly once at the shared shout release. */
+    void releaseShout(int id) {
+        if (id == 5)
+            MageCombat.mark(p, "warriorRetaliation", RETALIATION_TICKS, RETALIATION_CHARGES);
+
+        if (id == 1) {
+            for (Player ally : p.gp.players)
+                if (ally != null
+                        && !ally.isDead
+                        && ally.inWell == p.inWell
+                        && SlimeMotion.distance(p, ally)
+                                <= p.gp.tileSize * WarriorShout.radiusTiles(id)) {
+                    MageCombat.mark(ally, "warcry", 600, 10);
+                }
+        }
+        if (id == 3) {
+            for (Monster m : p.gp.monster)
+                if (m != null
+                        && m.alive
+                        && !m.dying
+                        && !m.isBoss()
+                        && SlimeMotion.distance(p, m)
+                                <= p.gp.tileSize * WarriorShout.radiusTiles(id)
+                        && SlimeMotion.sight(p.gp, p, m)) m.challenge(p, p.gp.currentTick + 240);
+        }
     }
 
     /** Applies one valid basic-hit reward independently to each enemy. */
@@ -201,18 +210,39 @@ public final class SwordCombat {
     public void received(Entity source, int damage) {
         if (!equipped() || damage <= 0) return;
         p.rage = Math.min(100, p.rage + 5);
-        if (retaliation > 0 && retaliationTicks > 0 && source instanceof Monster m) {
-            retaliation--;
-            for (int i = 0; i < p.gp.monster.length; i++)
-                if (p.gp.monster[i] == m)
-                    p.damageMonsterOnce(
-                            i,
-                            Math.max(1, damage / 4),
-                            false,
-                            p.direction,
-                            new CombatHit("retaliation").mastery(Entity.type_sword),
-                            0);
-        }
+        Entity attacker = source instanceof Projectile projectile ? projectile.user : source;
+        if (!(attacker instanceof Monster m)
+                || !m.alive
+                || m.dying
+                || m.HP <= 0
+                || (retaliationTick == p.gp.currentTick && retaliationSource == source)) return;
+        StatusEffect buff = null;
+        for (StatusEffect effect : p.statusEffects)
+            if (effect.type.equals("warriorRetaliation")
+                    && effect.duration > 0
+                    && effect.value > 0) {
+                buff = effect;
+                break;
+            }
+        if (buff == null) return;
+        int index = -1;
+        for (int i = 0; i < p.gp.monster.length; i++)
+            if (p.gp.monster[i] == m) {
+                index = i;
+                break;
+            }
+        if (index < 0) return;
+        retaliationTick = p.gp.currentTick;
+        retaliationSource = source;
+        if (--buff.value == 0) p.statusEffects.remove(buff);
+        retaliationVisual.trigger();
+        p.damageMonsterOnce(
+                index,
+                Math.max(1, damage / 4),
+                false,
+                p.direction,
+                new CombatHit("retaliation").mastery(Entity.type_sword),
+                0);
     }
 
     /** Keeps the existing Pursuing Strike follow-up after a connected Charge. */
@@ -222,8 +252,10 @@ public final class SwordCombat {
 
     /** Advances this component for one simulation tick. */
     public void tick() {
+        if (!(p.gp.isNetworked && !p.gp.isHost)) shout.tick(1.0 / 60);
         for (int i = 0; i < 7; i++) if (cooldowns[i] > 0) cooldowns[i]--;
-        if (retaliationTicks > 0) --retaliationTicks;
+        if (!equipped() || p.isDead)
+            p.statusEffects.removeIf(e -> e.type.equals("warriorRetaliation"));
         if (!equipped() || p.isDead || p.inDialogue || p.currentInput.gameplaySuppressed) {
             cancel();
             return;
@@ -265,12 +297,13 @@ public final class SwordCombat {
 
     /** Cancels the active operation and clears its temporary state. */
     public void cancel() {
-        if (thrust.active() || charge.active()) {
+        if (thrust.active() || charge.active() || shout.active()) {
             p.attacking = false;
             p.animState = "idle";
             p.spriteNum = 1;
             p.currentInput.movementLocked = false;
         }
+        shout.clear();
         thrust.clear();
         charge.clear();
         bull = false;
@@ -381,6 +414,7 @@ public final class SwordCombat {
      * bypass.
      */
     public void animate() {
+        if (shout.active()) return;
         if (p.gp.isNetworked && !p.gp.isHost && (thrust.active() || charge.active())) return;
         if (hit == null) {
             action = "Basic Slash";
@@ -518,9 +552,7 @@ public final class SwordCombat {
         double scale =
                 switch (action) {
                     case "Powerslash" ->
-                            1.8
-                                    + .12 * rank("heavy_edge")
-                                    + (counterTicks > 0 ? .12 * rank("strong_counter") : 0);
+                            1.50; // base multiplier; per-target Rhythm and talents added in-loop
                     case "Bullthrust" -> 1.5 + 1.5 * thrust.charge();
                     case "Sunder" -> 1;
                     case "Charge" -> 0;
@@ -532,7 +564,9 @@ public final class SwordCombat {
                     case "Blade Rush" -> 1.5;
                     default -> basicAttackScale();
                 };
-        if (!action.equals("Basic Slash") && !action.equals("Counter Slash"))
+        if (!action.equals("Basic Slash")
+                && !action.equals("Counter Slash")
+                && !action.equals("Powerslash")) // Powerslash adds it to its per-target multiplier
             scale += .08 * rank("masterful_blade");
         double bonus =
                 rhythm
@@ -554,32 +588,44 @@ public final class SwordCombat {
                             m.solidArea.height)
                     || !SlimeMotion.sight(p.gp, p, m)
                     || action.equals("Charge")) continue;
+            // Read Rhythm before spending it so damage and duration scale from what was spent.
+            int wr = m.getStatusEffectValue("warriorRhythm");
             double statusBonus =
                     action.equals("Powerslash")
-                            ? (m.hasStatusEffect("warriorBleed") ? .25 : 0)
-                                    + (m.hasStatusEffect("exposed") ? .20 : 0)
+                            ? (m.hasStatusEffect("warriorBleed") ? .20 : 0)
+                                    + (m.hasStatusEffect("exposed") ? .15 : 0)
                             : bull && m.hasStatusEffect("exposed") ? .20 : 0;
-            boolean accepted =
-                    p.damageMonsterOnce(
-                            i,
-                            (int)
+            int damage =
+                    action.equals("Powerslash")
+                            ? (int)
+                                    Math.round(
+                                            basicAttackDamage()
+                                                    * (scale
+                                                            + .15 * wr
+                                                            + .12 * rank("heavy_edge")
+                                                            + (counterTicks > 0
+                                                                    ? .12 * rank("strong_counter")
+                                                                    : 0)
+                                                            + .08 * rank("masterful_blade"))
+                                                    * (1 + statusBonus))
+                            : (int)
                                     Math.round(
                                             p.getEffectiveAttack()
                                                     * (scale + bonus)
-                                                    * (1 + statusBonus)),
-                            false,
-                            bearing,
-                            hit,
-                            CombatTuning.SWORD);
+                                                    * (1 + statusBonus));
+            boolean accepted =
+                    p.damageMonsterOnce(i, damage, false, bearing, hit, CombatTuning.SWORD);
             if (accepted && powerslash())
                 Particle.burst(m, Particle.Style.SPARK, art.Palette.ROOF_CORAL, 10, 5, 20, 4);
             if (accepted && sundering())
                 Particle.burst(m, Particle.Style.SPARK, art.Palette.GLOW, 10, 5, 20, 4);
             if (accepted && bull) thrust.impact(m);
             if (accepted && action.equals("Basic Slash")) basic(m);
-            if (accepted && action.equals("Sunder"))
-                MageCombat.mark(
-                        m, "exposed", 180 + 60 * m.getStatusEffectValue("warriorRhythm"), 15);
+            if (accepted && action.equals("Sunder")) MageCombat.mark(m, "exposed", 180 + 60 * wr, 15);
+            // Spenders drop every stack on a landed hit only; Bleed and Exposed are separate
+            // effects and outlive the spend. A miss spends nothing.
+            if (accepted && consumesRhythm(action))
+                m.statusEffects.removeIf(e -> e.type.equals("warriorRhythm"));
             if (!accepted) continue;
             if (!connected) {
                 connected = true;
@@ -588,6 +634,13 @@ public final class SwordCombat {
                 comboTicks = 180;
             }
         }
+    }
+
+    /** Rhythm spenders: these skills clear every stack a target holds when they land. */
+    private static boolean consumesRhythm(String action) {
+        return action.equals("Powerslash")
+                || action.equals("Sunder")
+                || action.equals("Bullthrust");
     }
 
     /**
@@ -631,6 +684,7 @@ public final class SwordCombat {
     /** Renders this component into the supplied Java2D graphics context. */
     public void draw(Graphics2D g) {
         if (!equipped()) return;
+        retaliationVisual.drawTrail(g);
         if (charge.active()) {
             charge.drawImpact(g);
             return;

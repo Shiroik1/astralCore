@@ -3,6 +3,9 @@ package net;
 import com.esotericsoftware.kryonet.EndPoint;
 
 public class NetworkRegistration {
+    public static final int BUFFER_BYTES =
+            2 * 1024 * 1024; // Persistent nearby-container snapshots.
+
     /** Performs the register operation for NetworkRegistration. */
     public static void register(EndPoint endPoint) {
         var kryo = endPoint.getKryo();

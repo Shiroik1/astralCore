@@ -34,7 +34,7 @@ public class GameServer {
 
     /** Performs the start operation for GameServer. */
     public void start(int port) throws IOException {
-        server = new Server();
+        server = new Server(NetworkRegistration.BUFFER_BYTES, NetworkRegistration.BUFFER_BYTES);
         NetworkRegistration.register(server);
 
         server.addListener(

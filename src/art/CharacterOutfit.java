@@ -2,7 +2,7 @@ package art;
 
 import java.awt.Color;
 
-/** Immutable equipment snapshot; colours and cuts belong to each removable item. */
+/** Immutable visual snapshot combining permanent hair appearance with removable clothing. */
 public record CharacterOutfit(
         Color hair,
         Color torso,
@@ -25,7 +25,8 @@ public record CharacterOutfit(
     public enum Theme {
         LEATHER,
         CASTER,
-        ARMOR
+        ARMOR,
+        LONGYI
     }
 
     public record Details(
@@ -85,7 +86,7 @@ public record CharacterOutfit(
     public static CharacterOutfit themed(Theme theme, boolean longHair) {
         int[] colors =
                 switch (theme) {
-                    case LEATHER ->
+                    case LEATHER, LONGYI ->
                             new int[] {0x86574E, 0xF4E6CC, 0x51474B, 0x574046, 0x704A49, 0x427782};
                     case CASTER ->
                             new int[] {0xB1A0BF, 0xF4E6CC, 0x62576F, 0x4B424F, 0x514653, 0x655A73};

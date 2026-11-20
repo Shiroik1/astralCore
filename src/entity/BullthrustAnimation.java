@@ -22,7 +22,7 @@ public final class BullthrustAnimation {
     public static final double BACKSTEP_SECONDS = setting("backstepSeconds", .18, .05, 1);
     public static final double CHARGE_SECONDS = setting("chargeSeconds", 1.5, .1, 5);
     public static final double HOLD_SECONDS = setting("holdSeconds", 4, 0, 10);
-    public static final double RELEASE_SECONDS = setting("releaseSeconds", .30, .1, 1);
+    public static final double RELEASE_SECONDS = setting("releaseSeconds", .12, .06, 1);
     public static final double RECOVERY_SECONDS = setting("recoverySeconds", .25, .1, 1);
     public static final double BACKSTEP_TILES = setting("backstepTiles", .75, 0, 1);
     public static final double RANGE_TILES = setting("rangeTiles", 10, 1, 16);
@@ -194,7 +194,7 @@ public final class BullthrustAnimation {
                 int oldX = p.worldX, oldY = p.worldY;
                 travel(releaseDistance * smooth(t), true);
                 if (oldX != p.worldX || oldY != p.worldY) {
-                    if (effectTimer >= .10 - .04 * charged) {
+                    if (effectTimer >= RELEASE_SECONDS * (.26 - .08 * charged)) {
                         arc(t > .82);
                         effectTimer = 0;
                     }

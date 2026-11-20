@@ -2,8 +2,6 @@ package main;
 
 import art.*;
 
-import entity.CharacterClass;
-
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
@@ -172,18 +170,27 @@ public final class CharacterCustomization {
                 k -> {
                     CharacterArt.Look look = new CharacterArt.Look();
                     look.shadow = false;
+                    // Preview the actual zero-stat starting wardrobe, with permanent hair.
                     CharacterOutfit outfit =
-                            CharacterClass.WARRIOR.outfit(g.keyH.selectedGenderIndex == 1);
-                    // Let the player inspect hair unobstructed; equippable hats remain separate.
-                    outfit =
                             new CharacterOutfit(
-                                    outfit.hair(),
-                                    outfit.torso(),
-                                    outfit.pants(),
-                                    outfit.boots(),
-                                    outfit.gloves(),
-                                    outfit.cloak(),
-                                    outfit.details(),
+                                    null,
+                                    g.keyH.selectedGenderIndex == 1
+                                            ? object.EquipmentDatabase.color(
+                                                    object.ItemType.WHITE_TOP, art.Palette.PLASTER)
+                                            : null,
+                                    object.EquipmentDatabase.color(
+                                            object.ItemType.BROWN_LONGYI, art.Palette.TIMBER),
+                                    null,
+                                    null,
+                                    null,
+                                    new CharacterOutfit.Details(
+                                            CharacterOutfit.Theme.LEATHER,
+                                            CharacterOutfit.Theme.LEATHER,
+                                            CharacterOutfit.Theme.LONGYI,
+                                            CharacterOutfit.Theme.LEATHER,
+                                            CharacterOutfit.Theme.LEATHER,
+                                            CharacterOutfit.Theme.LEATHER,
+                                            false),
                                     null);
                     look.outfit = Hairstyles.outfit(outfit, id, color);
                     if (thumbnail) return HairArt.thumbnail(look.outfit);

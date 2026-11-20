@@ -151,7 +151,8 @@ public enum ItemType {
     SLIME_GEL(OBJ_slimegel.class, OBJ_slimegel::new),
     ROYAL_SLIME_CORE(OBJ_royalslimecore.class, OBJ_royalslimecore::new),
     BROWN_PANTS(art.CharacterOutfit.Slot.PANTS, "Plain Brown Pants"),
-    WHITE_TOP(art.CharacterOutfit.Slot.TORSO, "Plain White Top");
+    WHITE_TOP(art.CharacterOutfit.Slot.TORSO, "Plain White Top"),
+    BROWN_LONGYI(art.CharacterOutfit.Slot.PANTS, "Plain Brown Longyi");
 
     final Class<? extends Entity> itemClass;
     final Function<Gamepanel, Entity> factory;
@@ -298,11 +299,13 @@ public enum ItemType {
     ItemType(art.CharacterOutfit.Slot slot, String label) {
         this.itemClass = OBJ_apparel.class;
         art.CharacterOutfit.Theme theme =
-                name().startsWith("MAGE_")
-                        ? art.CharacterOutfit.Theme.CASTER
-                        : name().startsWith("WARRIOR_")
-                                ? art.CharacterOutfit.Theme.ARMOR
-                                : art.CharacterOutfit.Theme.LEATHER;
+                name().equals("BROWN_LONGYI")
+                        ? art.CharacterOutfit.Theme.LONGYI
+                        : name().startsWith("MAGE_")
+                                ? art.CharacterOutfit.Theme.CASTER
+                                : name().startsWith("WARRIOR_")
+                                        ? art.CharacterOutfit.Theme.ARMOR
+                                        : art.CharacterOutfit.Theme.LEATHER;
         boolean longHair = name().contains("LONG_HAIR");
         this.factory = gp -> new OBJ_apparel(gp, this, slot, label, theme, longHair);
     }

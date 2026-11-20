@@ -70,11 +70,11 @@ public final class Hairstyles {
                 };
     }
 
-    /** Resolves the outfit result used by Hairstyles. */
+    /** Applies permanent hairstyle and color independently of worn equipment. */
     public static CharacterOutfit outfit(CharacterOutfit o, int style, int color) {
         var d = o.details();
         return new CharacterOutfit(
-                o.hair() == null ? null : COLORS[color],
+                COLORS[color],
                 o.torso(),
                 o.pants(),
                 o.boots(),
