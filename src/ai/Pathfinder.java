@@ -56,9 +56,11 @@ public final class Pathfinder {
             scene = gp.quests.areaVersion();
             ticks = 30;
         }
-        if (clearLine(m, m.worldX, m.worldY, tx, m.worldY) && clearLine(m, tx, m.worldY, tx, ty)) {
+        // An unobstructed line is approached directly, so open-ground pursuit runs diagonally
+        // instead of walking an L-shaped cardinal path first.
+        if (clearLine(m, m.worldX, m.worldY, tx, ty)) {
             route.clear();
-            steer(m, tx, m.worldX != tx ? m.worldY : ty);
+            steer(m, tx, ty);
             if (!m.collisionOn) return;
         }
         while (!route.isEmpty() && route.peek().x == m.worldX && route.peek().y == m.worldY)
@@ -90,11 +92,16 @@ public final class Pathfinder {
         int dx = x - m.worldX, dy = y - m.worldY;
         if (dx == 0 && dy == 0) {
             m.speed = 0;
+            m.stepX = m.stepY = 0;
             return;
         }
         boolean horizontal = Math.abs(dx) > Math.abs(dy);
         m.direction = horizontal ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
         m.speed = Math.min(m.speed, Math.abs(horizontal ? dx : dy));
+        // Full vector, not just the dominant axis: Entity resolves each axis separately so
+        // pursuers close diagonally instead of stair-stepping one cardinal direction at a time.
+        m.stepX = dx;
+        m.stepY = dy;
         m.collisionOn = false;
         gp.collisionChecker.checkTile(m);
     }

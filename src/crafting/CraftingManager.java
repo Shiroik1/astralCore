@@ -328,7 +328,8 @@ public final class CraftingManager {
             return;
         }
         open = false;
-        if (Set.of("floor", "wall", "door", "bed_blue").contains(def.place())) {
+        if (Set.of("floor", "wall", "door", "bed_blue", "palisade", "palisade_gate")
+                .contains(def.place())) {
             gp.buildings.start(def.place());
             return;
         }
@@ -506,7 +507,7 @@ public final class CraftingManager {
                 y = gp.mouseH.getScaledY(),
                 w =
                         (def.place().equals("workbench")
-                                        ? 72
+                                        ? 81 // match the enlarged overworld sprite
                                         : def.place().equals("forge") ? 72 : 48)
                                 * gp.tileSize
                                 / 48,
@@ -678,7 +679,9 @@ public final class CraftingManager {
                     BufferedImage image = CraftingArt.icon(RecipeRegistry.item(item));
                     int
                             w =
-                                    (type.equals("workbench") || type.equals("forge") ? 72 : 48)
+                                    (type.equals("workbench")
+                                                    ? 81 // +12.5% over the shared 72px station base
+                                                    : type.equals("forge") ? 72 : 48)
                                             * gp.tileSize
                                             / 48,
                             h = image.getHeight() * w / image.getWidth();
@@ -933,6 +936,8 @@ public final class CraftingManager {
     /** Resolves the building item result used by CraftingManager. */
     public ItemType buildingItem(String element) {
         return switch (element) {
+            case "palisade" -> ItemType.WOODEN_PALISADE;
+            case "palisade_gate" -> ItemType.WOODEN_GATE;
             case "floor" -> ItemType.WOODEN_FLOOR;
             case "wall" -> ItemType.WOODEN_WALL;
             case "door" -> ItemType.WOODEN_DOOR;
@@ -941,12 +946,11 @@ public final class CraftingManager {
         };
     }
 
-    /** Evaluates the building transaction condition for CraftingManager. */
+    /** Commits construction costs and refunds even when development diagnostics are enabled. */
     public boolean buildingTransaction(Map<String, Integer> costs, Map<String, Integer> refunds) {
-        if (Boolean.getBoolean("astral.dev")) return true;
         Map<ItemType, Integer> take = new LinkedHashMap<>(), give = new LinkedHashMap<>();
         for (var entry : costs.entrySet()) {
-            if (entry.getValue() <= 0) continue;
+            if (entry.getValue() <= 0 || entry.getKey().equals("palisade_gate_tail")) continue;
             ItemType type = buildingItem(entry.getKey());
             if (type == null) {
                 message("This building element has no survival recipe yet.");

@@ -72,6 +72,26 @@
       "name": "Concrete stairs",
       "shape": "STAIRS",
       "atlas": "/building/stairs-concrete.png"
+    },
+    {
+      "id": "palisade",
+      "name": "Wooden Palisade",
+      "shape": "WALL",
+      "atlas": "/building/wall.png"
+    },
+    {
+      "id": "palisade_gate",
+      "name": "Wooden Gate",
+      "shape": "DOOR",
+      "atlas": "/building/wall.png",
+      "openAtlas": "/building/door-open.png"
+    },
+    {
+      "id": "palisade_gate_tail",
+      "name": "Wooden Gate (linked half)",
+      "shape": "DOOR",
+      "atlas": "/building/wall.png",
+      "openAtlas": "/building/door-open.png"
     }
   ]
 }

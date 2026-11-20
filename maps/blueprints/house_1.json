@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "house_1",
   "name": "House 1",
   "category": "house",
@@ -93,5 +93,18 @@
     {"element": "wall", "col": 6, "row": 10, "vertical": true, "open": false},
     {"element": "wall", "col": 7, "row": 10, "vertical": true, "open": false},
     {"element": "wall", "col": 8, "row": 10, "vertical": true, "open": false}
+  ],
+  "decorations": [
+    {"id": "e50f09be-1c25-44fb-bce6-edfcefd912c4", "element": "wall_lamp", "x": 105.0, "y": 169.0, "flipped": false, "rotation": 0},
+    {"id": "1fa99c01-1e5d-44c4-a3da-00303fa4a490", "element": "wall_lamp", "x": 427.0, "y": 168.0, "flipped": false, "rotation": 0},
+    {"id": "f251e16b-b00f-4576-b1e1-92bcbe5b2e56", "element": "potted_plant", "x": 380.0, "y": 162.0, "flipped": false, "rotation": 0},
+    {"id": "b11d3fb1-4db8-4d43-8c86-ec4d3cd28614", "element": "potted_plant", "x": 143.0, "y": 162.0, "flipped": false, "rotation": 0},
+    {"id": "53e8aa6d-7528-41da-b468-449d5a8a0b8b", "element": "bookshelf_full", "x": 209.0, "y": 166.0, "flipped": false, "rotation": 0},
+    {"id": "5145b1b4-55d9-4dfc-8488-47c413fbc293", "element": "bookshelf_sparse", "x": 307.0, "y": 166.0, "flipped": false, "rotation": 0},
+    {"id": "0d702dc1-9d0f-4b5d-b85a-a0f7f8753cc6", "element": "rug_sage", "x": 258.1102661596958, "y": 275.11406844106466, "flipped": false, "rotation": 0},
+    {"id": "06170580-5822-4545-aef2-9ea040cefbec", "element": "table_dining", "x": 258.1102661596958, "y": 311.66920152091257, "flipped": false, "rotation": 0},
+    {"id": "902e57d0-7a38-4355-9a8a-823c180738ef", "element": "rug_sage", "x": 257.31558935361215, "y": 403.851711026616, "flipped": false, "rotation": 0},
+    {"id": "eb11d4a3-4373-4c40-8d68-a6e48c5540a9", "element": "potted_plant", "x": 432.1444866920152, "y": 408.6197718631179, "flipped": false, "rotation": 0},
+    {"id": "fc553b1f-6b15-45ab-b4eb-e43f6d96931f", "element": "bed_sage", "x": 111.95145631067962, "y": 285.47572815533977, "flipped": false, "rotation": 0}
   ]
 }

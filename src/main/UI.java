@@ -1270,10 +1270,10 @@ public class UI {
         // Sit directly beneath the chat window so the caret sits below the message history.
         int boxY = combatLogBounds.y + chatLogHeight + 6;
 
-        // 50% opacity background and border so the input reads as a translucent field.
+        // Only the background fill is translucent; border and text stay fully opaque.
         g2.setColor(new Color(0, 0, 0, 128));
         g2.fillRoundRect(boxX, boxY, chatLogWidth, boxHeight, 10, 10);
-        g2.setColor(new Color(255, 255, 255, 128));
+        g2.setColor(Color.WHITE);
         g2.setStroke(new BasicStroke(1));
         g2.drawRoundRect(boxX, boxY, chatLogWidth, boxHeight, 10, 10);
 
@@ -1289,6 +1289,7 @@ public class UI {
         // Vertically center the line so the shorter box still reads cleanly.
         int baseline =
                 boxY + (boxHeight - fm.getHeight()) / 2 + fm.getAscent();
+        g2.setColor(Color.WHITE); // typed text renders fully opaque, independent of the border
         g2.drawString(display, boxX + 10, baseline);
     }
 }

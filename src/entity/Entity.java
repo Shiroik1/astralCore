@@ -25,6 +25,8 @@ public class Entity {
             attackRight1,
             attackRight2;
     public String direction = "down";
+    /** Pathfinder's step vector for this tick; both stay 0 unless steering diagonally. */
+    public int stepX, stepY;
 
     public int spriteCounter = 0;
     public int spriteNum = 1;
@@ -206,6 +208,7 @@ public class Entity {
 
     /** Advances this component for one simulation tick. */
     public void update() {
+        stepX = stepY = 0; // AI re-populates the vector; never carry it over between ticks
 
         setAction();
 
@@ -241,7 +244,9 @@ public class Entity {
         moving = speed > 0 && !collisionOn;
         animState = moving ? "walk" : "idle";
 
-        if (!collisionOn && !knockbackActive) {
+        if (!knockbackActive && stepX != 0 && stepY != 0) {
+            moveDiagonal();
+        } else if (!collisionOn && !knockbackActive) {
             switch (direction) {
                 case "up" -> worldY -= speed;
                 case "down" -> worldY += speed;
@@ -267,6 +272,48 @@ public class Entity {
 
         updateStatusEffects();
         updateAura();
+    }
+
+    /**
+     * Steps both axes of a diagonal in one tick, mirroring Player.moveForInput and SlimeBoss's
+     * charge: each axis gets its own collision pass, so a pursuer slides along a wall instead of
+     * clipping a corner. Facing stays on the dominant axis for the sprite atlas.
+     */
+    private void moveDiagonal() {
+        double length = Math.hypot(stepX, stepY);
+        int magnitude = Math.min(speed, (int) Math.round(length));
+        int moveX = (int) Math.round(stepX / length * magnitude);
+        int moveY = (int) Math.round(stepY / length * magnitude);
+        String facing =
+                Math.abs(stepX) > Math.abs(stepY)
+                        ? (stepX > 0 ? "right" : "left")
+                        : (stepY > 0 ? "down" : "up");
+        int scaledSpeed = speed;
+        boolean moved = stepAxis(moveX, 0) | stepAxis(0, moveY);
+        speed = scaledSpeed;
+        direction = facing;
+        if (moved && !moving) {
+            moving = true;
+            animState = "walk";
+        }
+    }
+
+    /** Collision-checks and applies one axis of a diagonal step; reports whether it moved. */
+    private boolean stepAxis(int dx, int dy) {
+        if (dx == 0 && dy == 0) return false;
+        direction = dx != 0 ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+        speed = Math.abs(dx) + Math.abs(dy); // the checks look ahead by this axis' step
+        collisionOn = false;
+        gp.collisionChecker.checkTile(this, speed);
+        gp.collisionChecker.checkObject(this, false);
+        gp.collisionChecker.checkEntity(this, gp.npc);
+        if (type != type_monster) gp.collisionChecker.checkEntity(this, gp.monster);
+        gp.collisionChecker.checkEntity(this, gp.interactable);
+        gp.collisionChecker.checkPlayer(this);
+        if (collisionOn) return false;
+        worldX += dx;
+        worldY += dy;
+        return true;
     }
 
     /** Updates the animation for Entity. */

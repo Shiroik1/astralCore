@@ -47,6 +47,8 @@ public final class CraftingArt {
 
     /** Resolves the load result used by CraftingArt. */
     private static BufferedImage load(RecipeRegistry.Item item) {
+        if (art.PalisadeArt.accepts(item.place()))
+            return art.PalisadeArt.frame(item.place(), 10, false, false, 48);
         if (!item.image().isEmpty())
             try (InputStream in = CraftingArt.class.getResourceAsStream(item.image())) {
                 if (in == null) throw new IOException("Missing declared image " + item.image());
@@ -72,7 +74,12 @@ public final class CraftingArt {
                                 : item.id().equals("charcoal")
                                         ? new Color(0x554B50)
                                         : Palette.WOOD);
-        if (item.id().endsWith("fish") || item.kind().equals("food")) {
+        if (item.id().equals("rope")) {
+            g.setColor(new Color(0xCEAD85));
+            g.setStroke(new BasicStroke(5, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            for (int i = 0; i < 3; i++) g.drawOval(14 + i * 3, 10 + i * 5, 29 - i * 6, 38 - i * 8);
+            g.drawLine(28, 43, 45, 53);
+        } else if (item.id().endsWith("fish") || item.kind().equals("food")) {
             g.setColor(
                     item.id().equals("raw_fish") || item.id().equals("river_fish")
                             ? Palette.WATER

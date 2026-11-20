@@ -143,7 +143,7 @@ public final class BuildingRenderer {
             part.transform(AffineTransform.getTranslateInstance(c.col() * ts, c.row() * ts));
             silhouette.add(part);
         }
-        int head = BuildGeometry.HEIGHT * ts / 48, pad = ts;
+        int head = Math.max(BuildGeometry.HEIGHT * ts / 48, ts * 2), pad = ts;
         for (Cell c : layout.structures().keySet()) {
             BufferedImage mask =
                     new BufferedImage(ts + pad * 2, ts + head, BufferedImage.TYPE_INT_ARGB);
@@ -293,7 +293,7 @@ public final class BuildingRenderer {
                         extension[0],
                         extension[1]);
         Graphics2D g = (Graphics2D) original.create();
-        if (tile.shape() == BuildElements.Shape.WALL) {
+        if (tile.shape() == BuildElements.Shape.WALL && !art.PalisadeArt.accepts(tile.element())) {
             int[] trims = BuildingLayout.wallTrims(cell, tile, structure);
             Area allowed =
                     new Area(

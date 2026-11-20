@@ -59,6 +59,8 @@ public final class BuildTextures {
 
     /** Resolves the get result used by BuildTextures. */
     public BufferedImage get(String element, int mask, boolean open, boolean vertical) {
+        if (PalisadeArt.accepts(element))
+            return PalisadeArt.frame(element, mask, vertical, open, tileSize);
         BuildElements.Element e = BuildElements.get(element);
         boolean floor = e.shape().ground();
         String resource = e.shape() == BuildElements.Shape.DOOR && open ? e.openAtlas() : e.atlas();

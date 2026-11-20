@@ -152,6 +152,9 @@ public enum ItemType {
     ROYAL_SLIME_CORE(OBJ_royalslimecore.class, OBJ_royalslimecore::new),
     BROWN_PANTS(art.CharacterOutfit.Slot.PANTS, "Plain Brown Pants"),
     WHITE_TOP(art.CharacterOutfit.Slot.TORSO, "Plain White Top"),
+    ROPE("rope"),
+    WOODEN_PALISADE("wooden_palisade"),
+    WOODEN_GATE("wooden_gate"),
     BROWN_LONGYI(art.CharacterOutfit.Slot.PANTS, "Plain Brown Longyi");
 
     final Class<? extends Entity> itemClass;

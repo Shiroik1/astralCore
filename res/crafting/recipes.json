@@ -371,6 +371,36 @@
       "tool": "",
       "gather": 0,
       "place": ""
+    },
+    {
+      "id": "rope",
+      "name": "Rope",
+      "kind": "material",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": ""
+    },
+    {
+      "id": "wooden_palisade",
+      "name": "Wooden Palisade",
+      "kind": "building",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "palisade"
+    },
+    {
+      "id": "wooden_gate",
+      "name": "Wooden Gate",
+      "kind": "building",
+      "image": "",
+      "power": 0,
+      "tool": "",
+      "gather": 0,
+      "place": "palisade_gate"
     }
   ],
   "recipes": [
@@ -693,6 +723,44 @@
       "output": "herbal_drink",
       "count": 1,
       "xp": 8,
+      "firstBonus": 0
+    },
+    {
+      "id": "rope",
+      "level": 3,
+      "station": "hand",
+      "ingredients": {
+        "fiber": 3
+      },
+      "output": "rope",
+      "count": 1,
+      "xp": 4,
+      "firstBonus": 0
+    },
+    {
+      "id": "wooden_palisade",
+      "level": 6,
+      "station": "workbench",
+      "ingredients": {
+        "log": 3,
+        "rope": 1
+      },
+      "output": "wooden_palisade",
+      "count": 1,
+      "xp": 12,
+      "firstBonus": 0
+    },
+    {
+      "id": "wooden_gate",
+      "level": 8,
+      "station": "workbench",
+      "ingredients": {
+        "log": 6,
+        "rope": 2
+      },
+      "output": "wooden_gate",
+      "count": 1,
+      "xp": 24,
       "firstBonus": 0
     }
   ],

@@ -68,6 +68,7 @@ public final class BuildSystem {
     private boolean preferredVertical;
     private int propRotation;
     private boolean dirty;
+    private final Set<Piece> movingGates = new HashSet<>();
     private String feedback = "";
     private int feedbackTicks;
 
@@ -81,7 +82,14 @@ public final class BuildSystem {
 
     /** Performs the prepare operation for BuildSystem. */
     public void prepare() {
-        if (textures == null) textures = new BuildTextures(gp.tileSize);
+        if (textures == null) {
+            textures = new BuildTextures(gp.tileSize);
+            for (String id : List.of("palisade", "palisade_gate", "palisade_gate_tail"))
+                for (int mask = 0; mask < 16; mask++)
+                    for (boolean vertical : new boolean[] {false, true})
+                        for (boolean open : new boolean[] {false, true})
+                            textures.get(id, mask, open, vertical);
+        }
     }
 
     /** Evaluates the overworld condition for BuildSystem. */
@@ -165,6 +173,15 @@ public final class BuildSystem {
 
     /** Advances this component for one simulation tick. */
     public void update() {
+        for (var it = movingGates.iterator(); it.hasNext(); ) {
+            Piece gate = it.next();
+            gate.gateMotion = Math.max(0, gate.gateMotion - 1.0 / 60);
+            if (gate.gateMotion == 0) {
+                gate.open = gate.targetOpen;
+                it.remove();
+                changed();
+            }
+        }
         if (feedbackTicks > 0) feedbackTicks--;
         if (!active) return;
         if (!editable()) {
@@ -316,9 +333,15 @@ public final class BuildSystem {
         if (invalid != null) return invalid;
         if (ground(kind)) return null;
         Piece old = structures.get(c);
+        if (old != null
+                && (art.PalisadeArt.accepts(selectedElement)
+                        || art.PalisadeArt.accepts(old.element)))
+            return "Remove the existing section first";
         if (old != null && old.kind != kind) return "Remove the existing wall or door first";
         Map<Cell, Placement> plan = placementPlan(c, kind);
         for (Cell at : plan.keySet()) {
+            if (art.PalisadeArt.accepts(selectedElement) && structures.containsKey(at))
+                return "Gate footprint is occupied";
             invalid = terrainError(at);
             if (invalid != null) return at.equals(c) ? invalid : "Corner: " + invalid;
         }
@@ -355,6 +378,19 @@ public final class BuildSystem {
 
     /** Performs the erase operation for BuildSystem. */
     private void erase(Cell c) {
+        Piece gate = structures.get(c);
+        if (!ground(selected) && gate != null && art.PalisadeArt.gate(gate.element)) {
+            Piece partner = gatePartner(gate);
+            if (!gp.crafting.buildingTransaction(Map.of(), Map.of("palisade_gate", 1))) return;
+            structures.remove(c);
+            movingGates.remove(gate);
+            if (partner != null) {
+                structures.remove(partner.cell);
+                movingGates.remove(partner);
+            }
+            changed();
+            return;
+        }
         // Erase the selected layer so removing a wall never destroys its floor.
         if (!ground(selected) && !safeStructureChange(c, null, false, false)) {
             feedback = "An actor is standing in a neighboring connection";
@@ -733,7 +769,48 @@ public final class BuildSystem {
     }
 
     /** Evaluates the toggle door condition for BuildSystem. */
+    private Piece gatePartner(Piece piece) {
+        int sign = piece.element.endsWith("_tail") ? -1 : 1;
+        Piece next =
+                structures.get(
+                        new Cell(
+                                piece.cell.col + (piece.vertical ? 0 : sign),
+                                piece.cell.row + (piece.vertical ? sign : 0)));
+        return next != null
+                        && art.PalisadeArt.gate(next.element)
+                        && next.vertical == piece.vertical
+                        && next.element.endsWith("_tail") != piece.element.endsWith("_tail")
+                ? next
+                : null;
+    }
+
+    /** Commits a paired doorway once; collision stays closed throughout its short transition. */
     private boolean toggleDoor(Piece piece, boolean apply) {
+        if (art.PalisadeArt.gate(piece.element)) {
+            Piece partner = gatePartner(piece);
+            if (partner == null || piece.gateMotion > 0 || partner.gateMotion > 0) return true;
+            boolean opening = !piece.open;
+            if (!opening
+                    && (occupied(
+                                    new Rectangle(
+                                            piece.worldX, piece.worldY, gp.tileSize, gp.tileSize))
+                            || occupied(
+                                    new Rectangle(
+                                            partner.worldX,
+                                            partner.worldY,
+                                            gp.tileSize,
+                                            gp.tileSize)))) return true;
+            if (apply) {
+                for (Piece half : List.of(piece, partner)) {
+                    half.targetOpen = opening;
+                    half.gateMotion = .22;
+                    half.open = false;
+                    movingGates.add(half);
+                }
+                changed();
+            }
+            return true;
+        }
         boolean clear = safeStructureChange(piece.cell, piece.kind, piece.vertical, false);
         if (apply && (!piece.open || clear)) {
             piece.open = !piece.open;
@@ -774,8 +851,12 @@ public final class BuildSystem {
                 y = c.row * gp.tileSize - p.worldY + p.screenY;
         return x > -gp.tileSize
                 && x < gp.screenWidth
-                && y > -gp.tileSize
-                && y < gp.screenHeight + BuildGeometry.IMAGE_HEIGHT * gp.tileSize / 48;
+                && y > -gp.tileSize * 3
+                && y
+                        < gp.screenHeight
+                                + Math.max(
+                                        3 * gp.tileSize,
+                                        BuildGeometry.IMAGE_HEIGHT * gp.tileSize / 48);
     }
 
     /** Draws the floors for BuildSystem. */
@@ -859,7 +940,8 @@ public final class BuildSystem {
         final Kind kind;
         final boolean vertical;
         final String element;
-        boolean open;
+        boolean open, targetOpen;
+        double gateMotion;
 
         /** Creates a Piece instance and initializes the state required by its collaborators. */
         Piece(Cell cell, Kind kind, boolean open, boolean vertical) {
@@ -896,7 +978,16 @@ public final class BuildSystem {
                     worldY - camera.worldY + camera.screenY);
             gp.placementEffects.structure(g, cell.col, cell.row);
             if (gp.interactions.selected(this)) surface.drawStructureOutline(g, shared(cell));
-            surface.drawStructure(g, shared(cell));
+            if (art.PalisadeArt.gate(element) && gateMotion > 0) {
+                float progress = (float) (1 - gateMotion / .22);
+                float openness = targetOpen ? progress : 1 - progress;
+                int m = mask(cell, false);
+                BufferedImage closed = textures.get(element, m, false, vertical);
+                BufferedImage opened = textures.get(element, m, true, vertical);
+                g.drawImage(opened, 0, gp.tileSize - opened.getHeight(), null);
+                g.setComposite(AlphaComposite.SrcOver.derive(1 - openness));
+                g.drawImage(closed, 0, gp.tileSize - closed.getHeight(), null);
+            } else surface.drawStructure(g, shared(cell));
             g.dispose();
         }
     }
@@ -1352,6 +1443,7 @@ public final class BuildSystem {
 
     /** Restores this component from its saved state. */
     public void restore(String supplied) {
+        movingGates.clear();
         gp.placementEffects.clear();
         gp.interactions.clear();
         stop();
@@ -1437,6 +1529,13 @@ public final class BuildSystem {
                                     Boolean.TRUE.equals(entry.get("vertical")),
                                     element));
             }
+            BuildingLayout gateValidation = new BuildingLayout();
+            for (Piece piece : nextStructures.values())
+                gateValidation.put(
+                        shared(piece.cell),
+                        new BuildingLayout.Tile(piece.element, piece.vertical, piece.open));
+            if (gateValidation.gateConflict() != null)
+                throw new IOException(gateValidation.gateConflict());
             Set<Cell> nextCleared = new HashSet<>();
             if (root.get("cleared") instanceof List<?> cleared)
                 for (Object item : cleared) {
@@ -1496,7 +1595,14 @@ public final class BuildSystem {
                                 false,
                                 floorElements.getOrDefault(c, "floor")));
             Piece p = structures.get(c);
-            if (p != null) entries.add(entry(c, p.kind, p.open, p.vertical, p.element));
+            if (p != null)
+                entries.add(
+                        entry(
+                                c,
+                                p.kind,
+                                p.gateMotion > 0 ? p.targetOpen : p.open,
+                                p.vertical,
+                                p.element));
         }
         List<Cell> cleared = new ArrayList<>(clearedCells);
         cleared.sort(Comparator.comparingInt(Cell::row).thenComparingInt(Cell::col));

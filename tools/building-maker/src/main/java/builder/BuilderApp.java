@@ -110,7 +110,11 @@ public final class BuilderApp extends Application {
         grid.setSelected(true);
         showFloors.setSelected(true);
         showStructures.setSelected(true);
-        palette.getItems().setAll(BuildElements.all());
+        palette.getItems()
+                .setAll(
+                        BuildElements.all().stream()
+                                .filter(e -> !e.id().endsWith("_tail"))
+                                .toList());
         palette.getSelectionModel().selectFirst();
         palette.setCellFactory(list ->
                 new ListCell<>() {
@@ -458,7 +462,7 @@ public final class BuilderApp extends Application {
                     Tile t = layout.structures().get(hover);
                     if (t != null && t.shape() == BuildElements.Shape.DOOR) {
                         BuildingLayout candidate = new BuildingLayout(layout);
-                        candidate.put(hover, new Tile(t.element(), t.vertical(), !t.open()));
+                        candidate.setDoorOpen(hover, !t.open());
                         String conflict = candidate.decorationConflict();
                         if (conflict == null) {
                             layout = candidate;
@@ -574,6 +578,11 @@ public final class BuilderApp extends Application {
             return false;
         }
         Map<Cell, Tile> plan = layout.plan(c, tile);
+        for (Cell at : plan.keySet())
+            if (art.PalisadeArt.accepts(tile.element()) && layout.structures().containsKey(at)) {
+                status.setText("Erase the existing section before placing a palisade or gate.");
+                return false;
+            }
         for (Cell at : plan.keySet())
             if (!inside(at)) {
                 status.setText("The automatic corner would be outside the grid.");

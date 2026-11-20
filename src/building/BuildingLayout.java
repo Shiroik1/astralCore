@@ -72,7 +72,47 @@ public final class BuildingLayout {
 
     /** Performs the erase operation for BuildingLayout. */
     public void erase(Cell cell, boolean floor) {
+        Tile old = structures.get(cell);
+        if (!floor && old != null && art.PalisadeArt.gate(old.element())) {
+            int sign = old.element().endsWith("_tail") ? -1 : 1;
+            structures.remove(cell.offset(old.vertical() ? 0 : sign, old.vertical() ? sign : 0));
+        }
         (floor ? floors : structures).remove(cell);
+    }
+
+    /** Changes both halves of a gate in the authoring model. */
+    public void setDoorOpen(Cell cell, boolean open) {
+        Tile tile = structures.get(cell);
+        if (tile == null || tile.shape() != DOOR) return;
+        structures.put(cell, new Tile(tile.element(), tile.vertical(), open));
+        if (art.PalisadeArt.gate(tile.element())) {
+            int sign = tile.element().endsWith("_tail") ? -1 : 1;
+            Cell partner = cell.offset(tile.vertical() ? 0 : sign, tile.vertical() ? sign : 0);
+            Tile other = structures.get(partner);
+            if (other != null && art.PalisadeArt.gate(other.element()))
+                structures.put(partner, new Tile(other.element(), other.vertical(), open));
+        }
+    }
+
+    /** Rejects incomplete or contradictory gate pairs before export or generation. */
+    public String gateConflict() {
+        for (var entry : structures.entrySet()) {
+            Tile tile = entry.getValue();
+            if (!art.PalisadeArt.gate(tile.element())) continue;
+            boolean tail = tile.element().endsWith("_tail");
+            int sign = tail ? -1 : 1;
+            Tile other =
+                    structures.get(
+                            entry.getKey()
+                                    .offset(
+                                            tile.vertical() ? 0 : sign,
+                                            tile.vertical() ? sign : 0));
+            if (other == null
+                    || !other.element().equals(tail ? "palisade_gate" : "palisade_gate_tail")
+                    || other.vertical() != tile.vertical()
+                    || other.open() != tile.open()) return "Wooden gate needs two matching halves";
+        }
+        return null;
     }
 
     /** Resolves the decorations result used by BuildingLayout. */
@@ -94,6 +134,8 @@ public final class BuildingLayout {
 
     /** Shared editor/export validation so furnished presets remain placeable by the game. */
     public String decorationConflict() {
+        String gateError = gateConflict();
+        if (gateError != null) return gateError;
         for (int i = 0; i < decorations.size(); i++) {
             Decoration d = decorations.get(i);
             var def = PropCatalog.get(d.element());
@@ -131,7 +173,7 @@ public final class BuildingLayout {
 
     /** Resolves the structure mask result used by BuildingLayout. */
     public int structureMask(Cell cell) {
-        return mask(cell, structures.keySet());
+        return structureMask(cell, structures::get);
     }
 
     /** Resolves the mask result used by BuildingLayout. */
@@ -155,12 +197,20 @@ public final class BuildingLayout {
     public static Map<Cell, Tile> plan(Function<Cell, Tile> structure, Cell cell, Tile tile) {
         Map<Cell, Tile> plan = new LinkedHashMap<>();
         plan.put(cell, tile);
+        if (tile.element().equals("palisade_gate")) {
+            plan.put(
+                    cell.offset(tile.vertical() ? 0 : 1, tile.vertical() ? 1 : 0),
+                    new Tile("palisade_gate_tail", tile.vertical(), tile.open()));
+            return plan;
+        }
+        if (art.PalisadeArt.accepts(tile.element())) return plan;
         if (tile.shape() != WALL || structureMask(cell, structure) != 0) return plan;
         for (int dy : new int[] {-1, 1})
             for (int dx : new int[] {-1, 1}) {
                 Cell diagonal = cell.offset(dx, dy);
                 Tile end = structure.apply(diagonal);
-                if (end == null || end.shape() != WALL) continue;
+                if (end == null || end.shape() != WALL || art.PalisadeArt.accepts(end.element()))
+                    continue;
                 int joins = structureMask(diagonal, structure);
                 int awayH = dx < 0 ? 8 : 2,
                         towardH = dx < 0 ? 2 : 8,
@@ -185,13 +235,20 @@ public final class BuildingLayout {
     /** Resolves the structure mask result used by BuildingLayout. */
     public static int structureMask(Cell cell, Function<Cell, Tile> structure) {
         int mask = 0;
-        for (int i = 0; i < 4; i++)
-            if (structure.apply(cell.offset(DC[i], DR[i])) != null) mask |= 1 << i;
+        Tile center = structure.apply(cell);
+        for (int i = 0; i < 4; i++) {
+            Tile next = structure.apply(cell.offset(DC[i], DR[i]));
+            if (next != null
+                    && (center == null
+                            || art.PalisadeArt.accepts(center.element())
+                                    == art.PalisadeArt.accepts(next.element()))) mask |= 1 << i;
+        }
         return mask;
     }
 
     /** Amount borrowed from a wall before/after the door along its horizontal or vertical axis. */
     public static int[] doorExtensions(Cell cell, Tile door, Function<Cell, Tile> structure) {
+        if (art.PalisadeArt.accepts(door.element())) return new int[2];
         boolean vertical = BuildGeometry.vertical(structureMask(cell, structure), door.vertical());
         Tile before = structure.apply(cell.offset(vertical ? 0 : -1, vertical ? -1 : 0));
         Tile after = structure.apply(cell.offset(vertical ? 0 : 1, vertical ? 1 : 0));
@@ -203,6 +260,8 @@ public final class BuildingLayout {
 
     /** Neighbor-aware geometry shared by movement, previews, shadows and the standalone Builder. */
     public static List<Rectangle> footprint(Cell cell, Tile tile, Function<Cell, Tile> structure) {
+        if (art.PalisadeArt.accepts(tile.element()))
+            return tile.open() ? List.of() : List.of(new Rectangle(0, 0, 48, 48));
         int mask = structureMask(cell, structure);
         List<Rectangle> base =
                 BuildGeometry.footprint(mask, tile.vertical(), tile.shape() == DOOR, tile.open());
@@ -265,7 +324,7 @@ public final class BuildingLayout {
     /** N/E/S/W wall strips owned by a neighboring wider door frame. */
     public static int[] wallTrims(Cell cell, Tile tile, Function<Cell, Tile> structure) {
         int[] trims = new int[4];
-        if (tile.shape() != WALL) return trims;
+        if (tile.shape() != WALL || art.PalisadeArt.accepts(tile.element())) return trims;
         for (int i = 0; i < 4; i++) {
             Cell n = cell.offset(DC[i], DR[i]);
             Tile door = structure.apply(n);

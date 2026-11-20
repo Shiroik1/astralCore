@@ -126,6 +126,7 @@ public final class MON_CrownedSlime extends MON_SlimeBoss implements SlimeActor 
         }
         if (!homeSet) setHome();
         speed = 0;
+        stepX = stepY = 0;
         moving = false;
         attackState = false;
         attacking = false;
@@ -169,23 +170,16 @@ public final class MON_CrownedSlime extends MON_SlimeBoss implements SlimeActor 
                     startX = worldX;
                     startY = worldY;
                     var point = route.waypoint();
-                    boolean horizontal = direction.equals("right") || direction.equals("left");
-                    int distance =
-                            Math.min(
-                                    ts, Math.abs(horizontal ? point.x - worldX : point.y - worldY));
-                    goalX =
-                            worldX
-                                    + (direction.equals("right")
-                                            ? distance
-                                            : direction.equals("left") ? -distance : 0);
-                    goalY =
-                            worldY
-                                    + (direction.equals("down")
-                                            ? distance
-                                            : direction.equals("up") ? -distance : 0);
-                    if (speed == 0) {
-                        goalX = worldX;
-                        goalY = worldY;
+                    int dx = point.x - worldX, dy = point.y - worldY;
+                    double length = Math.hypot(dx, dy);
+                    goalX = worldX;
+                    goalY = worldY;
+                    if (speed > 0 && length > 0) {
+                        // Keep each hop within one tile, including diagonal approaches.
+                        double scale = Math.min(1, ts / length);
+                        direction = SlimeMotion.facing(dx, dy);
+                        goalX += (int) Math.round(dx * scale);
+                        goalY += (int) Math.round(dy * scale);
                     }
                 }
                 if (step > 0 && step <= 30) moveHop(step / 30f);
