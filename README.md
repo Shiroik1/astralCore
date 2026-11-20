@@ -83,26 +83,6 @@ The character and equipped appearance synchronize in co-op sessions. New charact
   </tr>
   <tr>
     <td width="50%">
-      <a href="docs/images/warrior-combat.png"><img src="docs/images/warrior-combat.png" alt="Warrior combat with sword and shield mechanics." width="100%"></a>
-      <p align="center"><strong>Warrior Combat</strong><br><sub>Sword and shield, Resolve building through mitigation.</sub></p>
-    </td>
-    <td width="50%">
-      <a href="docs/images/mage-combat.png"><img src="docs/images/mage-combat.png" alt="Mage combat with staff fireball magic." width="100%"></a>
-      <p align="center"><strong>Mage Combat</strong><br><sub>Rune-based magic, Ember/Frost placement, Detonation/Cometfall.</sub></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <a href="docs/images/hunter-combat.png"><img src="docs/images/hunter-combat.png" alt="Hunter combat with dual daggers or bow." width="100%"></a>
-      <p align="center"><strong>Hunter Combat</strong><br><sub>Dual daggers or bow, Focus chains, combo finishers.</sub></p>
-    </td>
-    <td width="50%">
-      <a href="docs/images/hell-slime.png"><img src="docs/images/hell-slime.png" alt="Hell Slime boss with red projectiles." width="100%"></a>
-      <p align="center"><strong>Hell Slime</strong><br><sub>600 HP, three projectile waves, charging attack. Defeat after Slime King to unlock.</sub></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
       <a href="docs/images/merchant.png"><img src="docs/images/merchant.png" alt="Merchant shop with equipment and supplies." width="100%"></a>
       <p align="center"><strong>Merchant</strong><br><sub>Buy weapons, armor, and craft materials.</sub></p>
     </td>
