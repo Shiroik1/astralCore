@@ -1,109 +1,119 @@
 <div align="center">
-  <img src="docs/images/astralcore-icon.png" width="96" height="96" alt="AstralCore warrior icon">
+  <img src="docs/images/astralcore-icon.png" width="96" height="96" alt="AstralCore icon">
   <h1>AstralCore</h1>
-  <p><strong>A small town. A quiet well. Something waiting below.</strong></p>
-  <p>A 2D fantasy action RPG for solo adventurers and parties of up to four.</p>
-  <p><code>v0.1.0-alpha</code> &nbsp; · &nbsp; First playable alpha</p>
+  <p><strong>Procedural fantasy action RPG with procedural world generation.</strong></p>
+  <p><code>v0.2.0-alpha</code> &nbsp; · &nbsp; Procedural worlds, class playables, character creation</p>
   <p>
     <a href="#download">Download</a> &nbsp; / &nbsp;
-    <a href="#weapon-combat-styles">Combat styles</a> &nbsp; / &nbsp;
-    <a href="#screenshots">Screenshots</a> &nbsp; / &nbsp;
-    <a href="#controls">Controls</a>
+    <a href="#world-generation">Procedural World</a> &nbsp; / &nbsp;
+    <a href="#classes">Classes</a> &nbsp; / &nbsp;
+    <a href="#character-customization">Character Creation</a> &nbsp; / &nbsp;
+    <a href="#controls">Controls</a> &nbsp; / &nbsp;
+    <a href="#screenshots">Screenshots</a>
   </p>
 </div>
 
-![A Warrior, Hunter, and Mage gather at the village well in Astravale.](docs/images/astravale-plaza.png)
+![Procedural world generation creates endless terrain variety.](docs/images/procedural-world.png)
 
-<p align="center"><em>Welcome to Astravale. Your entrance exam is just below the plaza.</em></p>
+<p align="center"><em>Trees, forests, grasslands, and biomes generated with a single seed.</em></p>
 
-## The first adventure
+## Procedural World Generation
 
-The old man has a simple job for you: **clear ten slimes from the village well**.
+Every new world is procedurally generated using version 11 generator with region-driven terrain:
 
-Choose your appearance, gather supplies, and descend into the lantern-lit Well Depths. The tenth slime is only the beginning. Defeat the Slime King, return for a class weapon, and use its Slime Essence to awaken a stronger opponent.
+- **Open terrain zones**: Flower plains, forest groves, pond shores, and rare connected golden meadows
+- **Cliff formations**: Modular cliff sprites with rare inland formations (8% target, 10% maximum)
+- **Physical boundaries**: Square/rectangular playable interior with irregular playable mask
+- **Elevation system**: Separate heightmap with connected cliff rendering
+- **Deterministic seeds**: Use `/regenworld <seed>` to recreate or demo a specific world
 
-**Talk → descend → hunt → face the King → claim your reward → challenge Hell Slime.**
+New worlds use version-eleven generation that restores square borders, removes wide forest reservation strips, and updates camera bounds. Existing saves retain their previous generation version.
 
-This alpha is built around that complete, repeatable loop. It is a small adventure with room to grow.
+**Generate a new world:** Open the game and create a character with default settings (or specify seed for deterministic recreation).
 
-**Current source builds:** Phase 1 procedural generation now defaults to a seeded 100 × 100 grassland. See [procedural world configuration](docs/procedural-world.md) for seed, size, vegetation and development regeneration options. Use the VM option `-Dastral.world.mode=authored` to play the original town/quest content or existing multiplayer mode. Procedural generation has received code review only; runtime verification is pending owner approval.
+## Playable Classes
 
-## Download
+Three distinct combat styles, each with five abilities:
 
-Every download includes **Java, game assets, maps, and libraries**. No separate Java installation is needed.
-
-| Platform | Package | Launch |
+| Class | Weapon | Progression |
 | :--- | :--- | :--- |
-| **macOS · Apple Silicon** | [Download Mac ZIP](https://github.com/Shiroik1/astralCore/releases/download/v0.1.0-alpha/AstralCore_v0.1.0-alpha-macos-arm64.zip) | Extract, then open `AstralCore.app`. |
-| **Windows · x64** | [Download Windows ZIP](https://github.com/Shiroik1/astralCore/releases/download/v0.1.0-alpha/AstralCore_v0.1.0-alpha-windows-x64.zip) | Extract the entire folder, then open `AstralCore.exe`. |
+| **Warrior** | Longer-reach sword + shield | Build **Resolve** through shield-mitigated damage → counterattacks |
+| **Mage** | Staff | Land spells to build **runes** → spend on empowered magic |
+| **Hunter** | Dual daggers or bow | Land hits to build **Focus** → chain attacks into combos |
 
-[Release notes](docs/releases/v0.1.0-alpha.md) · [All releases](https://github.com/Shiroik1/astralCore/releases) · [SHA-256 checksums](https://github.com/Shiroik1/astralCore/releases/download/v0.1.0-alpha/SHA256SUMS.txt)
+### Warrior Abilities
+Shield Bash, Bulwark, Retaliation, Shield Breaker, Rally
 
-> **Alpha installation notes:** Keep the Windows `app` and `runtime` folders beside the executable. The Mac build is for Apple Silicon, not Intel Macs. These builds are not publisher-signed; the Mac app is not Apple-notarized, so your operating system may show a security warning.
+### Mage Mechanics
+- Place Ember and Frost spells with cursor positioning
+- Spend runes on close-range Detonation or distant Cometfall
+- Haste, ignition, and shielding abilities available
+- Missed casts do not charge runes
 
-**Testing status:** Mac startup verified. The Windows x64 package is built; native Windows launch and gameplay testing are still pending. Fifteen automated checks passed against the bundled Java 21 runtime.
+### Hunter Mechanics
+- **Hunter (Dual Daggers)**: Quick strikes build Focus for combo finisher; Assassin path critiques on fourth cut
+- **Hunter Ranger**: Tap left click for quick shot, hold until bow flashes for clean shot; charged arrows build Focus
+- Focus enables Shift + 1–5 abilities
 
-## Weapon combat styles
+## Character Customization
 
-![The character creation screen shows Hunter, Mage, and Warrior, with male and female appearance choices.](docs/images/character-creation.png)
+Choose your appearance at creation with extensive customization:
 
-| Weapon style | Equipment | What makes it different |
-| :--- | :--- | :--- |
-| **Hunter** | Fast, short-range dual daggers | Land hits to build **yellow Focus** and chain your attacks into a combo finisher. |
-| **Mage** | Staff and fireballs | Land spells to build **runes**, then spend them on empowered magic. Missed casts do not charge runes. |
-| **Warrior** | Longer-reach sword and a visible shield | Build **Resolve** through shield-mitigated damage, then turn defense into a stronger counterattack. |
+- **40 reference-inspired vector hairstyles** with front/side/back previews
+- **20 muted hair colors** to complement any style
+- **Equipment layers**: Clothing, boots, gloves, cloaks, headwear (separate from weapon choices)
+- Warrior rhythm spenders included in progression
 
-Existing weapon combat kits have **five abilities**, available with **Shift + 1–5**. Warrior's kit mixes Shield Bash, Bulwark, Retaliation, Shield Breaker, and Rally; Hunter emphasizes quick strikes and offensive buffs; Mage combines rune generation, detonation, haste, ignition, and shielding.
+The character and equipped appearance synchronize in co-op sessions. New characters begin unarmed with an empty bag; gather resources and craft weapons at your first station.
 
-The published alpha offers short or long hair at creation. Equipment layers—including clothing, boots, gloves, hair, cloaks, and Mage headwear—can be equipped and removed.
-
-**Current source builds:** character creation now includes **40 reference-inspired vector hairstyles** and **20 muted hair colors**, with clickable choices and front/side/back previews. Hairstyle and color save with the character and synchronize in co-op. Both hairstyle collections work with any appearance; equipped headwear remains a separate layer.
+![Character creation with extensive customization options.](docs/images/character-creation.png)
 
 ## Screenshots
 
 <table>
   <tr>
     <td width="50%">
-      <a href="docs/images/well-depths.png"><img src="docs/images/well-depths.png" alt="Hunter melee combat against green slimes in the underground well dungeon." width="100%"></a>
-      <p align="center"><strong>The Well Depths</strong><br><sub>Slime hunting, class skills, and shared quest progress.</sub></p>
+      <a href="docs/images/procedural-world.png"><img src="docs/images/procedural-world.png" alt="Procedural world generation showing varied terrain." width="100%"></a>
+      <p align="center"><strong>Procedural World</strong><br><sub>Trees, forests, grasslands, and biomes generated with a single seed.</sub></p>
     </td>
     <td width="50%">
-      <a href="docs/images/slime-king.png"><img src="docs/images/slime-king.png" alt="The Slime King rises above its red slam telegraph while the Warrior uses Bulwark." width="100%"></a>
-      <p align="center"><strong>The Slime King</strong><br><sub>Read its warning, make space, and survive the slam.</sub></p>
+      <a href="docs/images/character-creation.png"><img src="docs/images/character-creation.png" alt="Character creation showing hairstyles and color choices." width="100%"></a>
+      <p align="center"><strong>Character Creation</strong><br><sub>40 reference-inspired hairstyles, 20 muted colors, appearance customization.</sub></p>
     </td>
   </tr>
   <tr>
     <td width="50%">
-      <a href="docs/images/hell-slime.png"><img src="docs/images/hell-slime.png" alt="Hell Slime unleashes rings of red projectiles against a three-character party." width="100%"></a>
-      <p align="center"><strong>Hell Slime</strong><br><sub>600 HP, three projectile waves, and a charging attack.</sub></p>
+      <a href="docs/images/warrior-combat.png"><img src="docs/images/warrior-combat.png" alt="Warrior combat with sword and shield mechanics." width="100%"></a>
+      <p align="center"><strong>Warrior Combat</strong><br><sub>Sword and shield, Resolve building through mitigation.</sub></p>
     </td>
     <td width="50%">
-      <a href="docs/images/merchant.png"><img src="docs/images/merchant.png" alt="Mira's icon-based shop with a floating Hellfire Sword tooltip and sell price." width="100%"></a>
-      <p align="center"><strong>Mira's Trading Post</strong><br><sub>Buy supplies, sell spare weapons, and prepare for another run.</sub></p>
+      <a href="docs/images/mage-combat.png"><img src="docs/images/mage-combat.png" alt="Mage combat with staff fireball magic." width="100%"></a>
+      <p align="center"><strong>Mage Combat</strong><br><sub>Rune-based magic, Ember/Frost placement, Detonation/Cometfall.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <a href="docs/images/hunter-combat.png"><img src="docs/images/hunter-combat.png" alt="Hunter combat with dual daggers or bow." width="100%"></a>
+      <p align="center"><strong>Hunter Combat</strong><br><sub>Dual daggers or bow, Focus chains, combo finishers.</sub></p>
+    </td>
+    <td width="50%">
+      <a href="docs/images/hell-slime.png"><img src="docs/images/hell-slime.png" alt="Hell Slime boss with red projectiles." width="100%"></a>
+      <p align="center"><strong>Hell Slime</strong><br><sub>600 HP, three projectile waves, charging attack. Defeat after Slime King to unlock.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <a href="docs/images/merchant.png"><img src="docs/images/merchant.png" alt="Merchant shop with equipment and supplies." width="100%"></a>
+      <p align="center"><strong>Merchant</strong><br><sub>Buy weapons, armor, and craft materials.</sub></p>
+    </td>
+    <td width="50%">
+      <a href="docs/images/progression.png"><img src="docs/images/progression.png" alt="Character progression tab showing skills and stats." width="100%"></a>
+      <p align="center"><strong>Progression</strong><br><sub>Class abilities, attribute points, talent trees.</sub></p>
     </td>
   </tr>
 </table>
 
-*Captured from the v0.1.0-alpha game renderer. Click an image to view it at full size.*
-
-## What is in this alpha?
-
-- **A village hub:** the plaza, the old man's tutorial quest, a well entrance, and a merchant.
-- **A forest healing pond:** follow the west path north into the trees, then press **E** at the pale stone to restore HP.
-- **An underground dungeon:** ten quest slimes, live objective tracking, and a Slime King encounter with dialogue.
-- **A repeatable boss challenge:** offer one Slime Essence at the well altar to summon Hell Slime. It drops another essence and stronger class weapons.
-- **Six weapon combat styles:** Hunter Assassin, Hunter Ranger, Caster Mage, Caster Priest, Warrior Berserker, and Warrior Paladin, each with distinct equipment and skills.
-- **Hunter Ranger:** tap left click for a quick shot, or hold until the bow flashes and release for a clean shot. Land arrows to build Focus for abilities on **Shift + 1–5**. Mira sells Ranger bows and leathers at levels 1, 5, 10, 17, and 25.
-- **Hunter Assassin:** land two dagger pairs on one target to crit on the fourth cut. Mira sells five tiers of paired daggers and leathers.
-- **Caster Mage:** land free Staff Bolts to build runes. Place Ember and Frost spells with the cursor, then spend runes on a close-range Detonation or a distant Cometfall. Mira stocks five tiers of staves and robes.
-- **Caster Priest** uses Mend to link a Beacon to the ally under the cursor. Land Radiant Bolts to heal your Beacon, ward it with Aegis, and support your group with Hallowed Ground, Dawn Chorus, and Sanctuary. Mira stocks five tiers of Priest staves and vestments.
-- **Warrior Berserker** earns Rage by landing wide, two-handed greatsword swings. Cleave groups, Rush into melee, Sunder armor, hit twice with Whirlwind, or send a shockwave forward with Worldbreaker. Mira stocks five greatsword and armor tiers.
-- **Warrior Paladin** holds right click to Guard and builds Resolve by mitigating frontal hits. Spend it on Interpose, Oathstrike, or a Last Bastion wall that catches hostile projectiles. Mira stocks five sets of swords, shields, and armor.
-- **A visible equipment system:** change or remove outfit pieces, weapons, shields, and headwear.
-- **Solo and host/join co-op:** shared quest progress with independent plaza respawns. A surviving boss resets after a party wipe.
-- **Adjustable display settings:** device-supported resolutions, fullscreen options, and an optional pixel filter.
-
-Current source builds use classless creation and a unified Java2D interface. See the [Phase 5 UI guide](docs/ui-phase5.md) for controls, compatibility, configuration and implementation details.
+*Captured from the v0.2.0-alpha game renderer. Click an image to view at full size.*
 
 ## Controls
 
@@ -111,84 +121,61 @@ Current source builds use classless creation and a unified Java2D interface. See
 | :--- | :--- |
 | **W A S D** | Move |
 | **Left mouse** | Attack or cast |
-| **F** | Interact with the single adjacent tile you face (pickups, resources, stations, doors and NPCs) |
-| **G** | Recover the adjacent station you face |
-| **E** (also I / K) | Inventory & Crafting |
+| **F** | Interact (adjacent tile you face) |
+| **G** | Recover adjacent station |
+| **E** | Inventory & Crafting (K = recipes) |
 | **1–9 / 0** | Select item hotbar slots 1–10 |
-| **Mouse wheel** | Cycle hotbar; scroll recipes inside Inventory & Crafting |
-| **Shift + 1–5** | Existing weapon abilities |
+| **Mouse wheel** | Cycle hotbar; scroll recipes inside Crafting |
+| **Shift + 1–5** | Class abilities (rune/detonation for Mage; combo chains for Hunter) |
 | **C** | Character, Equipment and Skills tabs |
-| **Esc** | Close a shop/dialogue, or open options |
-| **P** | Pause in single-player |
-| **F5** | Save the active character (current source builds) |
+| **Esc** | Close shop/dialogue, or open options |
+| **F5** | Manual save |
 | **Enter** | Open chat |
 
-See [Phase 3 interactions and encounters](docs/phase3-interactions-encounters.md) for the directional rules and developer spawn diagnostics.
+## Download
 
-Hover shop items for descriptions and prices. Hover skill icons for their effects, costs, and cooldowns.
+Every download includes **Java, game assets, maps, and libraries**. No separate Java installation is needed.
 
-Current source builds also include a single-player [tile building tool](docs/building-system.md). Enter `/build floor`, select floor, wall or door through its `/build` command or assigned item shortcut, **left click** to place, **right click** to remove from the selected layer, **R** for vertical orientation, and `/savebuild` to save. Pieces connect automatically; exposed edges keep their complete borders.
+| Platform | Package | Launch |
+| :--- | :--- | :--- |
+| **macOS · Apple Silicon** | [Download Mac ZIP](https://github.com/Shiroik1/astralCore/releases/download/v0.2.0-alpha/AstralCore_v0.2.0-alpha-macos-arm64.zip) | Extract, then open `AstralCore.app`. |
+| **Windows · x64** | [Download Windows ZIP](https://github.com/Shiroik1/astralCore/releases/download/v0.2.0-alpha/AstralCore_v0.2.0-alpha-windows-x64.zip) | Extract the entire folder, then open `AstralCore.exe`. |
 
-## Play with friends
+[Release notes](docs/releases/v0.2.0-alpha.md) · [All releases](https://github.com/Shiroik1/astralCore/releases) · [SHA-256 checksums](https://github.com/Shiroik1/astralCore/releases/download/v0.2.0-alpha/SHA256SUMS.txt)
 
-One player hosts a session; the others join using the host's address. Every player should run the same release.
+> **Alpha installation notes:** Keep the Windows `app` and `runtime` folders beside the executable. The Mac build is for Apple Silicon, not Intel Macs. These builds are not publisher-signed; the Mac app is not Apple-notarized, so your operating system may show a security warning.
 
-The host needs incoming **TCP port 5001** allowed through their firewall. Playing across the internet may also require router port forwarding. This alpha uses direct host/join connections; it does not include automatic matchmaking or a public server browser.
+## Procedural World Showcase
 
-## Before you start
+New worlds use **version 11 generation** with:
+- Open terrain variety (flower plains, forests, ponds, golden meadows)
+- Modular cliff formations with rare inland areas
+- Square/rectangular playable border with irregular interior mask
+- Physical plateau boundaries and connected cliff layers
 
-**Current source builds support five character saves.** Choose **PLAY**, **HOST GAME**, or **JOIN GAME**, then select a character slot to continue or create a new adventurer. Stats, inventory, equipment, location, quests, and dungeon progress save automatically every 30 seconds, with **F5** for a manual save and a save before returning to the title or closing the game. Guests keep their character gains; the host owns the session's world progress. See the [character save guide](docs/character-saves.md).
+Existing saves retain their previous generation version. Use a new character to experience the procedural world generation.
 
-The published **v0.1.0-alpha downloads remain session-based** until a new release is packaged. Display and sound settings are saved separately.
+## Before You Start
 
-The content is limited to the starter adventure, and balance and features are still changing. Hardware requirements and broader platform compatibility have not yet been established through wide playtesting.
+**Five character save slots:** Choose **PLAY**, **HOST GAME**, or **JOIN GAME**, then select a character slot. New characters start unarmed with an empty bag; gather resources and craft weapons at stations.
 
-Found a problem? [Open an issue](https://github.com/Shiroik1/astralCore/issues) with your game version, operating system, class, reproduction steps, and a screenshot if useful.
+Stats, inventory, equipment, location, and quests save automatically every 30 seconds. F5 saves manually (also in co-op sessions). Guests keep their gains; the host owns world progress.
 
-<details>
-<summary><strong>Settings and startup logs</strong></summary>
+## Co-op Multiplayer
 
-- **Mac:** `~/Library/Application Support/AstralCore/`
-- **Windows:** `%LOCALAPPDATA%\AstralCore\`
-- **Startup log:** `logs/latest.log` inside that folder.
+One player hosts; others join via address. Host needs incoming **TCP port 5001** allowed through firewall. Playing across the internet may also require router port forwarding. This alpha uses direct connections; no matchmaking or server browser included.
 
-</details>
-
-<details>
-<summary><strong>Build from source</strong></summary>
+## Build from Source
 
 The game uses Java and Swing/Java2D. Standalone downloads include Eclipse Temurin Java 21.
 
-To build both packages on Apple Silicon macOS, install Python 3.12+ and a JDK 21+ with `javac`, `jar`, and `jpackage` available, then run:
-
+To build both packages on Apple Silicon macOS:
 ```sh
 python3 packaging/build_release.py --target all
 ```
 
-The build verifies its pinned runtime/compiler downloads and writes the two ZIPs to `dist/`.
-
-See the [packaging guide](packaging/README.md) for prerequisites, verification, user-data paths, and the GitHub Actions build workflow.
-
-</details>
+See the [packaging guide](packaging/README.md) for prerequisites, verification, user-data paths, and GitHub Actions workflow.
 
 ---
 
-<p align="center"><strong>AstralCore</strong> &nbsp; · &nbsp; Made one adventure at a time.</p>
-
-### Building preset editor
-
-The standalone [JavaFX Builder](tools/building-maker/README.md) creates reusable building blueprints using the game's floor, wall, and door tiles. It provides standard JavaFX controls, painting, room rectangles, rotation, door states, undo/redo, zoom, and anchor placement. With JDK 21 and Maven, run `mvn -f tools/building-maker/pom.xml compile javafx:run`. Presets save under `maps/blueprints/` and can be placed with `/blueprint <id> <anchor-col> <anchor-row>`, then persisted with `/savebuild`. Automatic village/settlement placement is a later step. Compilation and runtime verification of this tool are pending owner approval.
-
-Crafting levels 1–10: press **K** for recipes, **E** to gather/use a nearby station, and **P** in the crafting menu to place a crafted item. New characters begin unarmed with an empty bag. This prototype shares the building system's single-player restriction. See [Crafting and gathering](docs/crafting-system.md) for controls, recipe editing, persistence, verification and remaining artwork.
-
-Placement bounce, smoke and selected interaction outlines: [behavior and tuning](docs/placement-feedback.md).
-
-Slime hop combat and the optional Crowned Slime nest: [behavior, balance and save details](docs/slime-combat.md). Verification is pending owner approval.
-
-New worlds use version-eleven [region-driven grassland generation](docs/region-generation.md): open flower plains, forest groves, pond shores and rare connected golden meadows. Existing saves retain their previous generation version. See [procedural encounters](docs/procedural-encounters.md) for per-attack hit tracking, the eight-way boss burst, five summons, reliable nest clearing and offscreen encounter rolls.
-
-Physical plateaus, connected cliff layers, irregular highland boundaries, camera bounds and save compatibility: [Phase 4 elevation guide](docs/elevation-boundaries.md). Verification awaits owner approval.
-
-[Modular cliff sprites and rare inland formations](docs/cliff-redesign.md): new worlds aim for 8% inland elevation with a hard 10% maximum, preserve separate border cliffs, and require 95% lowland access.
-
-Generator 11 restores the square border and removes wide forest reservation strips; cliff caps/corners and first-tile camera bounds are updated. Existing worlds keep their layout. See [current cliff fixes](docs/cliff-redesign.md).
+<p align="center"><strong>AstralCore</strong> &nbsp; · &nbsp; Procedural worlds, endless adventures.</p>
